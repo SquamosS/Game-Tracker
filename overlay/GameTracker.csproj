@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Lets the project also compile on non-Windows machines (CI, containers). -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AssemblyName>GameTracker</AssemblyName>
+    <RootNamespace>GameTracker</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="guides\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
