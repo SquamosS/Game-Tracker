@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace GameTracker;
 
@@ -19,6 +20,9 @@ public partial class MainWindow : Window
     FileSystemWatcher? _watcher;
     bool _clickThrough;
     string? _error;
+    readonly GameMemory _game = new();
+    readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(1) };
+    int? _gameChapter;
 
     public MainWindow()
     {
@@ -26,13 +30,32 @@ public partial class MainWindow : Window
         Header.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) DragMove(); };
         Loaded += (_, _) => DockRight();
         SourceInitialized += (_, _) => SetupHotkeys();
-        Closed += (_, _) => _native?.Dispose();
+        Closed += (_, _) => { _native?.Dispose(); _poll.Stop(); _game.Dispose(); };
         LoadGuide();
         WatchGuides();
+        _poll.Tick += (_, _) => FollowGame();
+        _poll.Start();
     }
 
-    Chapter? CurrentChapter =>
-        _guide?.Chapters.FirstOrDefault(c => c.Number == _progress.Chapter) ?? _guide?.Chapters.FirstOrDefault();
+    Chapter? CurrentChapter => _guide?.Chapters.FirstOrDefault(c => c.Number == _progress.Chapter);
+
+    /// <summary>
+    /// Switches to the chapter the game reports whenever it changes (loading a save, finishing a chapter).
+    /// A manual PageUp/PageDown choice stays until the game's chapter changes again.
+    /// </summary>
+    void FollowGame()
+    {
+        string before = _game.Status;
+        int? chapter = _game.ReadChapter();
+        bool changed = chapter is not null && chapter != _gameChapter;
+        if (chapter is not null) _gameChapter = chapter;
+        if (changed && _guide is not null && chapter != _progress.Chapter)
+        {
+            _progress.Chapter = chapter!.Value;
+            Save();
+        }
+        else if (before != _game.Status) Render();
+    }
 
     void LoadGuide()
     {
@@ -107,9 +130,11 @@ public partial class MainWindow : Window
     {
         if (_guide is null) return;
         int[] numbers = _guide.Chapters.Select(c => c.Number).ToArray();
-        int index = Array.IndexOf(numbers, CurrentChapter!.Number) + delta;
-        if (index < 0 || index >= numbers.Length) return;
-        _progress.Chapter = numbers[index];
+        int target = delta > 0
+            ? numbers.Where(n => n > _progress.Chapter).DefaultIfEmpty(-1).Min()
+            : numbers.Where(n => n < _progress.Chapter).DefaultIfEmpty(-1).Max();
+        if (target < 0) return;
+        _progress.Chapter = target;
         Save();
     }
 
@@ -146,7 +171,9 @@ public partial class MainWindow : Window
         List.Children.Clear();
         var chapter = CurrentChapter;
         GameText.Text = _guide?.Game ?? "Game Tracker";
-        ChapterText.Text = chapter is null ? "Belum ada panduan" : $"Chapter {chapter.Number}: {chapter.Title}";
+        ChapterText.Text = _guide is null ? "Belum ada panduan"
+            : chapter is null ? $"Chapter {_progress.Chapter}: data panduan belum ada"
+            : $"Chapter {chapter.Number}: {chapter.Title}";
 
         var objectives = chapter?.Objectives ?? [];
         int done = objectives.Count(o => _progress.Done.Contains(o.Id));
@@ -164,7 +191,7 @@ public partial class MainWindow : Window
         string? nextId = objectives.FirstOrDefault(o => !_progress.Done.Contains(o.Id))?.Id;
         foreach (var o in objectives) List.Children.Add(Row(o, _progress.Done.Contains(o.Id), o.Id == nextId));
 
-        FooterText.Text = (_error is null ? "" : _error + "\n") +
+        FooterText.Text = (_error is null ? "" : _error + "\n") + _game.Status + "\n" +
             "Ctrl+Shift+G tampil/sembunyi · Space centang berikutnya · Backspace batal · " +
             "PgUp/PgDn ganti chapter · T mode mouse " + (_clickThrough ? "(tembus ke game)" : "(klik overlay)");
     }

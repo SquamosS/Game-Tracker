@@ -19,6 +19,10 @@ Build dan jalan dalam beberapa detik. Untuk versi terbaru: `git pull` lalu `dotn
 
 Main game dalam mode **Borderless** atau **Windowed** agar overlay terlihat di atasnya.
 
+## Chapter otomatis
+
+Selama FF7R berjalan, overlay membaca nomor chapter dari memori game tiap detik (hanya membaca, cara yang sama dengan autosplitter LiveSplit [FF7RSplitter](https://github.com/Mysterion06/FF7RSplitter)). Load save atau pindah chapter, overlay ikut pindah. Didukung Steam dan Epic versi 1.0.0.0 sampai 1.0.0.7; status koneksi tampil di bagian bawah overlay. PageUp/PageDown tetap bisa dipakai kalau perlu pindah manual.
+
 ## Hotkey
 
 | Tombol | Fungsi |
