@@ -1,0 +1,10 @@
+<Project>
+  <!--
+    MSBuild fails with MSB4019 when the project sits under a folder whose name
+    contains "...." (as on kein's PC), so on Windows keep obj/ under LocalAppData.
+  -->
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT' And '$(LOCALAPPDATA)' != ''">
+    <BaseIntermediateOutputPath>$(LOCALAPPDATA)\GameTrackerBuild\obj\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+  </PropertyGroup>
+</Project>
