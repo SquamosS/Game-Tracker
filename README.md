@@ -6,7 +6,7 @@ Rencana lengkap: [docs/RENCANA-OVERLAY.md](docs/RENCANA-OVERLAY.md).
 
 ## Memakai
 
-1. Buka halaman [Releases](https://github.com/SquamosS/Game-Tracker/releases/latest), unduh `Game.Tracker_..._x64-setup.exe`, lalu jalankan seperti installer biasa. Setelah terpasang, Game Tracker ada di Start Menu.
+1. Buka halaman [Releases](https://github.com/SquamosS/Game-Tracker/releases), unduh `GameTracker-portable-<versi>.exe` dari rilis terbaru, simpan di folder mana saja, lalu klik dua kali. Tidak perlu install. Untuk update, ganti file lamanya dengan yang baru (aplikasi memberi tahu kalau ada versi baru). Installer `setup.exe` hanya ada di rilis yang sudah stabil.
 2. Buat Steam Web API key di https://steamcommunity.com/dev/apikey (domain boleh `localhost`).
 3. Di Steam, set privasi profil **Game details** ke **Public**.
 4. Buka Game Tracker, isi API key di tab **Pengaturan** (SteamID64 terisi otomatis kalau Steam sedang login).

@@ -1,5 +1,6 @@
 mod settings;
 mod steam;
+mod update;
 
 use settings::Settings;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewWindow};
@@ -36,6 +37,12 @@ async fn achievements(
 }
 
 #[tauri::command]
+async fn check_update(app: AppHandle, http: State<'_, Http>) -> Result<Option<update::UpdateInfo>, ()> {
+    let current = app.package_info().version.to_string();
+    Ok(update::check(&http.0, &current).await)
+}
+
+#[tauri::command]
 fn quit(app: AppHandle) {
     app.exit(0);
 }
@@ -65,6 +72,7 @@ fn dock_right(window: &WebviewWindow) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_shortcuts([TOGGLE_SHORTCUT])
@@ -88,6 +96,7 @@ pub fn run() {
             load_settings,
             save_settings,
             achievements,
+            check_update,
             quit
         ])
         .run(tauri::generate_context!())

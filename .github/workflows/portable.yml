@@ -1,0 +1,44 @@
+name: Portable
+
+# Every push to main publishes a portable build (a single .exe, no installer)
+# as a pre-release for the version in src-tauri/tauri.conf.json.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npx tauri build --no-bundle
+      - name: Publish pre-release
+        run: |
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          TAG="v$VERSION"
+          FILE="GameTracker-portable-$VERSION.exe"
+          cp src-tauri/target/release/game-tracker.exe "$FILE"
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
+              --title "Game Tracker v$VERSION (portable)" \
+              --notes "Versi portable: unduh **$FILE**, simpan di folder mana saja, lalu klik dua kali. Tidak perlu install. Untuk update, ganti file .exe lama dengan yang baru; pengaturan dan checklist tetap tersimpan."
+          fi
+          gh release upload "$TAG" "$FILE" --clobber
