@@ -1,0 +1,106 @@
+{
+  "appId": 1462040,
+  "title": "FINAL FANTASY VII REMAKE INTERGRADE",
+  "status": "draft",
+  "notes": [
+    "Tidak ada achievement yang hilang permanen: setelah Chapter 18 selesai, Chapter Select terbuka sehingga chapter mana pun bisa diulang.",
+    "Hard mode terbuka setelah tamat. Di Hard mode item tidak bisa dipakai dan bench tidak memulihkan MP, jadi selesaikan dulu koleksi dan side quest di Normal/Easy.",
+    "Urutan yang disarankan: tamatkan cerita, bersihkan side quest dan koleksi lewat Chapter Select, lalu Hard mode dengan karakter yang sudah kuat.",
+    "Petunjuk di panduan ini masih draft. Kalau ada yang keliru, edit guides/ff7r-intergrade.json."
+  ],
+  "sections": [
+    {
+      "name": "Cerita utama",
+      "items": [
+        { "id": "ch01", "title": "Chapter 1", "achievement": "Onetime Gig" },
+        { "id": "ch02", "title": "Chapter 2", "achievement": "Escape Artist" },
+        { "id": "ch03", "title": "Chapter 3", "achievement": "Mercenary Endeavors" },
+        { "id": "ch04", "title": "Chapter 4", "achievement": "Night on the Town" },
+        { "id": "ch05", "title": "Chapter 5", "achievement": "Plan E" },
+        { "id": "ch06", "title": "Chapter 6", "achievement": "Lights Out" },
+        { "id": "ch07", "title": "Chapter 7", "achievement": "Trapped like Sewer Rats" },
+        { "id": "ch08", "title": "Chapter 8", "achievement": "Reunited" },
+        { "id": "ch09", "title": "Chapter 9", "achievement": "Never the Bride" },
+        { "id": "ch10", "title": "Chapter 10", "achievement": "Sewer Survivor" },
+        { "id": "ch11", "title": "Chapter 11", "achievement": "Paranormal Investigator" },
+        { "id": "ch12", "title": "Chapter 12", "achievement": "The Collapse" },
+        { "id": "ch13", "title": "Chapter 13", "achievement": "Broken Dreams" },
+        { "id": "ch14", "title": "Chapter 14", "achievement": "Picking Up the Pieces" },
+        { "id": "ch15", "title": "Chapter 15", "achievement": "The Pizza in the Sky" },
+        { "id": "ch16", "title": "Chapter 16", "achievement": "No Appointment Needed" },
+        { "id": "ch17", "title": "Chapter 17", "achievement": "Emerging from Chaos" },
+        { "id": "ch18", "title": "Chapter 18", "achievement": "Destiny's Crossroads", "hint": "Setelah ini Chapter Select dan Hard mode terbuka." },
+        { "id": "im01", "title": "INTERmission Chapter 1", "achievement": "Takes Two IDs to Tango" },
+        { "id": "im02", "title": "INTERmission Chapter 2", "achievement": "Out of Darkness's Clutches" }
+      ]
+    },
+    {
+      "name": "Side quest dan kejadian",
+      "items": [
+        { "id": "first-quest", "title": "Selesaikan satu side quest", "achievement": "Gotta Start Somewhere" },
+        { "id": "all-quests", "title": "Semua side quest", "achievement": "Best in the Business", "hint": "Side quest muncul di Chapter 3, 8, 9 dan 14. Yang terlewat bisa diambil lagi lewat Chapter Select." },
+        { "id": "flowers", "title": "Rangkaian bunga untuk Leaf House", "achievement": "Say It with Flowers" },
+        { "id": "angel", "title": "Surat dari malaikat", "achievement": "Divine Gratitude", "hint": "Terkait side quest di Chapter 14. Verifikasi syaratnya." },
+        { "id": "turtle", "title": "Semua flyer Happy Turtle", "achievement": "Turtle-tastic", "hint": "Side quest Chapter 14. Verifikasi lokasi tiap flyer." },
+        { "id": "johnny", "title": "Semua kejadian Johnny", "achievement": "The Johnny Experience", "hint": "Johnny muncul di banyak chapter. Ajak bicara setiap kali bertemu dia." },
+        { "id": "andrea", "title": "Hadiah dari Andrea", "achievement": "Dancing Queen", "hint": "Chapter 9, minigame dansa di Honeybee Inn." }
+      ]
+    },
+    {
+      "name": "Koleksi",
+      "items": [
+        { "id": "disc-3", "title": "3 music disc", "achievement": "Music Collector" },
+        { "id": "disc-all", "title": "Semua music disc", "achievement": "Disc Jockey", "hint": "Sebagian dibeli dari pedagang, sebagian hadiah side quest atau ditemukan di area kota. Cek jukebox untuk daftar yang sudah dimiliki." },
+        { "id": "dress-3", "title": "3 gaun calon pengantin", "achievement": "Snappy Dresser" },
+        { "id": "dress-all", "title": "Semua 9 gaun calon pengantin", "achievement": "Dressed to the Nines", "hint": "Tiga gaun per karakter (Cloud, Tifa, Aerith). Ditentukan oleh jumlah side quest yang selesai di Chapter 3 dan 8 serta pilihan di Chapter 9. Ulangi Chapter 9 lewat Chapter Select dengan kombinasi berbeda." },
+        { "id": "box-materia", "title": "Semua materia dari Shinra Box Buster", "achievement": "Materia Maven" },
+        { "id": "chocobo-moogle", "title": "Materia Chocobo & Moogle", "achievement": "Cleanup Crew" }
+      ]
+    },
+    {
+      "name": "Minigame",
+      "items": [
+        { "id": "bike", "title": "Pujian Jessie di minigame motor", "achievement": "Biker Boy", "hint": "Chapter 4. Hindari terlalu banyak terkena serangan selama sekuens motor." },
+        { "id": "darts", "title": "Puncak leaderboard dart Seventh Heaven", "achievement": "Heavenly Dart Player" },
+        { "id": "pullups", "title": "Semua tantangan pull-up", "achievement": "Peeress of Pull-Ups", "hint": "Gym Wall Market." },
+        { "id": "squats", "title": "Semua tantangan squat", "achievement": "Sultan of Squat", "hint": "Gym Wall Market." },
+        { "id": "box-normal", "title": "Whack-a-Box Normal", "achievement": "Crate Annihilator" },
+        { "id": "box-hard", "title": "Whack-a-Box Hard", "achievement": "Whack-a-Box Wunderkind" },
+        { "id": "colosseum", "title": "Menang sparring di colosseum", "achievement": "Returning Champion" },
+        { "id": "condor", "title": "Grandmaster Fort Condor", "achievement": "Game, Set, Master", "hint": "INTERmission (Yuffie)." },
+        { "id": "condor-hard", "title": "Grandmaster Fort Condor (Hard)", "achievement": "Condor Queen" }
+      ]
+    },
+    {
+      "name": "Chadley, materia dan pertarungan",
+      "items": [
+        { "id": "intel", "title": "Semua battle intel report", "achievement": "Intelligence Agent", "hint": "Laporan dari Chadley. Beberapa butuh menganalisis musuh dengan materia Assess." },
+        { "id": "enemy-skills", "title": "Semua enemy skill", "achievement": "Master of Mimicry", "hint": "Butuh materia Enemy Skill dari Chadley, lalu terkena skill musuh tertentu." },
+        { "id": "weapon-abilities", "title": "Semua weapon ability", "achievement": "Weapons Expert", "hint": "Pakai setiap senjata sampai proficiency penuh." },
+        { "id": "lvl50", "title": "Satu karakter level 50", "achievement": "Building Character", "hint": "Paling mudah sambil main Hard mode." },
+        { "id": "pride-joy", "title": "Kalahkan Pride and Joy Prototype", "achievement": "Ultimate Weapon", "hint": "Combat simulator Chadley, butuh Hard mode." },
+        { "id": "pride-joy-05", "title": "Kalahkan Pride and Joy Mk 0.5", "achievement": "Ultimate Weapon 2.0", "hint": "Combat simulator di INTERmission." },
+        { "id": "weiss", "title": "Kalahkan Weiss", "achievement": "Corrupter of the Immaculate", "hint": "INTERmission, combat simulator di Hard mode." },
+        { "id": "summon", "title": "Panggil summon", "achievement": "My First Summon" },
+        { "id": "summon-slayer", "title": "Kalahkan summon", "achievement": "Summon Slayer" },
+        { "id": "malboro", "title": "Kalahkan malboro", "achievement": "That's the Smell" },
+        { "id": "stagger-300", "title": "Damage 300% ke musuh stagger", "achievement": "Staggering Feat" },
+        { "id": "lockstep", "title": "Kunci keamanan delta di Mako Reactor 5", "achievement": "In Lockstep" },
+        { "id": "bound-ally", "title": "Bebaskan rekan yang terikat", "achievement": "Bonds of Friendship" },
+        { "id": "weapon-max", "title": "Proficiency satu senjata penuh", "achievement": "My First Ability" },
+        { "id": "materia-lvl", "title": "Naikkan level satu materia", "achievement": "Materia for Beginners" },
+        { "id": "weakness", "title": "Serang kelemahan musuh", "achievement": "Weakened Resolve" },
+        { "id": "stagger", "title": "Stagger musuh", "achievement": "Staggering Start" },
+        { "id": "win", "title": "Menang satu pertarungan", "achievement": "Warming Up" }
+      ]
+    },
+    {
+      "name": "Hard mode dan 100%",
+      "items": [
+        { "id": "hard-main", "title": "Semua chapter di Hard", "achievement": "Hardened Veteran", "hint": "Item tidak bisa dipakai dan bench tidak memulihkan MP. Bawa materia Prayer/Chakra dan Elemental + Healing." },
+        { "id": "hard-im", "title": "INTERmission di Hard", "achievement": "The Road to Revenge" },
+        { "id": "platinum", "title": "Semua achievement lain", "achievement": "Master of Fate" }
+      ]
+    }
+  ]
+}
