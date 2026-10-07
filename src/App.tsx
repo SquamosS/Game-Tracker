@@ -7,6 +7,7 @@ import { guideFor, guides } from "./guides";
 import AchievementList from "./AchievementList";
 import GuideView from "./GuideView";
 import SettingsView from "./SettingsView";
+import UpdateBanner from "./UpdateBanner";
 
 type Tab = "achievements" | "guide" | "settings";
 
@@ -90,6 +91,8 @@ export default function App() {
           ✕
         </button>
       </header>
+
+      <UpdateBanner />
 
       {!runningId && guides.length > 0 && (
         <select className="picker" value={pickedId} onChange={(e) => setPickedId(Number(e.target.value))}>

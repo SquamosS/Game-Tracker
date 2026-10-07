@@ -1,10 +1,8 @@
-name: Release
+name: Full release
 
-# Every push to main publishes (or refreshes) the GitHub Release for the
-# version in src-tauri/tauri.conf.json, with the Windows installer attached.
+# Run by hand once a version is stable: adds the installer to that version's
+# release and promotes it from pre-release to the latest full release.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -31,7 +29,14 @@ jobs:
           tagName: v__VERSION__
           releaseName: Game Tracker v__VERSION__
           releaseBody: |
-            Unduh **Game.Tracker_*_x64-setup.exe** di bawah, jalankan, lalu ikuti langkah instalasi.
-            Setelah terpasang, Game Tracker ada di Start Menu.
+            Installer: unduh **Game.Tracker_*_x64-setup.exe**, jalankan, lalu ikuti langkah instalasi.
+            Portable: unduh **GameTracker-portable-*.exe** dan jalankan langsung tanpa install.
           releaseDraft: false
           prerelease: false
+      - name: Mark as latest full release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          gh release edit "v$VERSION" --prerelease=false --latest
