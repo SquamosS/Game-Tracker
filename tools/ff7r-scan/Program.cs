@@ -1,0 +1,394 @@
+// Read-only memory scanner for finding FF7R's story-progress value.
+// Usage:
+//   scanner snap <name>              full snapshot of writable memory -> <name>.snap
+//   scanner inc <name> <out>         candidates whose value went UP since snapshot <name>
+//   scanner filter <in> <out> <op>   op: same | inc | dec | back (equal to value at first snapshot)
+//   scanner show <in>                print candidates with current values
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+
+const string Dir = @"D:\GameTrackerScan";
+var proc = Process.GetProcessesByName("ff7remake_").FirstOrDefault() ?? throw new Exception("FF7R tidak jalan");
+var module = proc.MainModule!;
+long modBase = module.BaseAddress, modEnd = modBase + module.ModuleMemorySize;
+IntPtr h = Native.OpenProcess(0x10 | 0x400, false, proc.Id);
+if (h == IntPtr.Zero) throw new Exception("OpenProcess gagal");
+var sw = Stopwatch.StartNew();
+
+switch (args[0])
+{
+    case "snap": Snap(Path.Combine(Dir, args[1] + ".snap")); break;
+    case "chg": Inc(Path.Combine(Dir, args[1] + ".snap"), Path.Combine(Dir, args[2] + ".cand"), true); break;
+    case "inc": Inc(Path.Combine(Dir, args[1] + ".snap"), Path.Combine(Dir, args[2] + ".cand")); break;
+    case "filter": Filter(Path.Combine(Dir, args[1] + ".cand"), Path.Combine(Dir, args[2] + ".cand"), args[3]); break;
+    case "show": Show(Path.Combine(Dir, args[1] + ".cand")); break;
+    case "ptr": PointerScan(Convert.ToInt64(args[1], 16), int.Parse(args[2]), Convert.ToInt32(args[3], 16), int.Parse(args[4])); break;
+    case "chain": Console.WriteLine(Chain(args[1..])); break;
+    case "match": // match <in> <ref> <out>: keep candidates whose last value equals the ref file's last value
+    {
+        var mine = Load(Path.Combine(Dir, args[1] + ".cand")).ToDictionary(c => (c.Addr, c.Width));
+        var kept = new List<(long, byte, int, int)>();
+        foreach (var r in Load(Path.Combine(Dir, args[2] + ".cand")))
+            if (mine.TryGetValue((r.Addr, r.Width), out var c) && c.Last == r.Last) kept.Add(c);
+        using (var w = new BinaryWriter(File.Create(Path.Combine(Dir, args[3] + ".cand"))))
+            foreach (var (a, wd, f, l) in kept) Rec(w, a, wd, f, l);
+        Console.WriteLine($"cocok: {kept.Count}");
+        if (kept.Count <= 60) Show(Path.Combine(Dir, args[3] + ".cand"));
+        break;
+    }
+    case "recent":Recent(int.Parse(args[1]), args.Length > 2); break;
+    case "lists": FindLists(); break;
+    case "watch": Watch(Convert.ToInt64(args[1], 16), Convert.ToInt32(args[2], 16), args.Skip(3).Select(a => Convert.ToInt32(a, 16) & ~0xF).ToHashSet()); break;
+    case "rsnap": RangeSnap(args[1], Convert.ToInt64(args[2], 16), Convert.ToInt32(args[3], 16)); break;
+    case "rdiff": RangeDiff(args[1], args[2], Convert.ToInt64(args[3], 16)); break;
+    case "seq": Seq(args[1..].Select(int.Parse).ToArray()); break;
+    case "dump": Dump(Convert.ToInt64(args[1], 16), Convert.ToInt32(args[2], 16)); break;
+    case "find":Find(int.Parse(args[1]), Path.Combine(Dir, args[2] + ".cand")); break;
+    case "paths": // paths <file> <expected>: keep chains that still resolve to the expected value
+        var keep = File.ReadAllLines(Path.Combine(Dir, args[1])).Where(l => Chain(l.Split(' ')).EndsWith("= " + args[2])).ToList();
+        File.WriteAllLines(Path.Combine(Dir, args[3]), keep);
+        Console.WriteLine($"{keep.Count} jalur cocok");
+        foreach (var l in keep.OrderBy(l => l.Length).Take(10)) Console.WriteLine($"{l}  ->  {Chain(l.Split(' '))}");
+        break;
+}
+Console.WriteLine($"selesai dalam {sw.Elapsed.TotalSeconds:F1} detik");
+
+List<(long Base, long Size)> Regions()
+{
+    var list = new List<(long, long)>();
+    long addr = 0;
+    while (Native.VirtualQueryEx(h, (IntPtr)addr, out var mbi, (uint)Marshal.SizeOf<Native.MBI>()) != 0)
+    {
+        long b = (long)mbi.BaseAddress, s = (long)mbi.RegionSize;
+        bool rw = (mbi.Protect & 0xCC) != 0 && (mbi.Protect & 0x100) == 0; // RW / WC / XRW / XWC, no guard
+        if (mbi.State == 0x1000 && rw) list.Add((b, s));
+        addr = b + s;
+        if (addr <= 0 || addr >= 0x7FFFFFFFFFFF) break;
+    }
+    return list;
+}
+
+byte[] Read(long addr, int size)
+{
+    var buf = new byte[size];
+    Native.ReadProcessMemory(h, (IntPtr)addr, buf, size, out _);
+    return buf;
+}
+
+void Snap(string path)
+{
+    long total = 0;
+    using var f = new BinaryWriter(new BufferedStream(File.Create(path), 1 << 22));
+    foreach (var (b, s) in Regions())
+    {
+        f.Write(b); f.Write(s);
+        for (long o = 0; o < s; o += 1 << 22)
+            f.Write(Read(b + o, (int)Math.Min(1 << 22, s - o)));
+        total += s;
+    }
+    Console.WriteLine($"snapshot {total / (1 << 20)} MB");
+}
+
+void Inc(string snapPath, string outPath, bool anyChange = false)
+{
+    // Index of the old snapshot: base, size, file offset of data.
+    var index = new List<(long Base, long Size, long Off)>();
+    using (var r = new BinaryReader(File.OpenRead(snapPath)))
+        while (r.BaseStream.Position < r.BaseStream.Length)
+        {
+            long b = r.ReadInt64(), s = r.ReadInt64();
+            index.Add((b, s, r.BaseStream.Position));
+            r.BaseStream.Seek(s, SeekOrigin.Current);
+        }
+    using var snap = File.OpenRead(snapPath);
+    using var w = new BinaryWriter(new BufferedStream(File.Create(outPath), 1 << 22));
+    long count = 0;
+    foreach (var (b, s) in Regions())
+        foreach (var old in index.Where(i => i.Base < b + s && b < i.Base + i.Size))
+        {
+            long start = Math.Max(b, old.Base), end = Math.Min(b + s, old.Base + old.Size);
+            for (long a = start; a < end; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, end - a);
+                var now = Read(a, len);
+                var before = new byte[len];
+                snap.Seek(old.Off + (a - old.Base), SeekOrigin.Begin);
+                snap.ReadExactly(before);
+                for (int i = 0; i < len; i++)
+                {
+                    if (now[i] == before[i]) continue;
+                    if (anyChange)
+                    {
+                        if ((i & 3) == 0 && i + 4 <= len)
+                        {
+                            int o2 = BitConverter.ToInt32(before, i), n2 = BitConverter.ToInt32(now, i);
+                            if (o2 != n2 && o2 is > 0 and < 100_000 && n2 is > 0 and < 100_000) { Rec(w, a + i, 4, o2, n2); count++; }
+                        }
+                        continue;
+                    }
+                    if (now[i] > before[i] && now[i] - before[i] <= 16) { Rec(w, a + i, 1, before[i], now[i]); count++; }
+                    if ((i & 3) == 0 && i + 4 <= len)
+                    {
+                        int o = BitConverter.ToInt32(before, i), n = BitConverter.ToInt32(now, i);
+                        if (o >= 0 && n > o && n - o <= 1000 && n < 1_000_000) { Rec(w, a + i, 4, o, n); count++; }
+                    }
+                }
+            }
+        }
+    Console.WriteLine($"kandidat: {count:N0}");
+}
+
+// Finds int32 sequences v0, v1, v2... spaced by a constant stride (an array of item counts, say).
+void Seq(int[] values)
+{
+    int hits = 0;
+    foreach (var (b, s) in Regions())
+        for (long a = b; a < b + s; a += 1 << 22)
+        {
+            int len = (int)Math.Min((1 << 22) + 4096, b + s - a);
+            var buf = Read(a, len);
+            for (int i = 0; i + 4 <= Math.Min(len, 1 << 22); i += 2)
+            {
+                if (BitConverter.ToInt16(buf, i) != values[0]) continue;
+                foreach (int width in new[] { 2, 4 })
+                    for (int stride = width; stride <= 128; stride += 2)
+                    {
+                        bool ok = true;
+                        for (int k = 1; k < values.Length && ok; k++)
+                        {
+                            int p = i + k * stride;
+                            ok = p + width <= len && (width == 2 ? BitConverter.ToInt16(buf, p) : BitConverter.ToInt32(buf, p)) == values[k];
+                        }
+                        if (ok && (width == 2 || BitConverter.ToInt32(buf, i) == values[0]) && hits++ < 40)
+                            Console.WriteLine($"0x{a + i:X} lebar {width} stride {stride}");
+                    }
+            }
+        }
+    Console.WriteLine($"{hits} temuan");
+}
+
+void Dump(long addr, int size)
+{
+    var buf = Read(addr, size);
+    for (int i = 0; i < size; i += 16)
+        Console.WriteLine($"{addr + i:X}: {BitConverter.ToString(buf, i, Math.Min(16, size - i)).Replace("-", " ")}");
+}
+
+// Records stamped "obtained in the last N seconds": aligned uint32 unix times followed by a zero dword.
+void Recent(int seconds, bool any)
+{
+    long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+    int hits = 0;
+    foreach (var (b, s) in Regions())
+        for (long a = b; a < b + s; a += 1 << 22)
+        {
+            int len = (int)Math.Min(1 << 22, b + s - a);
+            var buf = Read(a, len);
+            for (int i = 0; i + 0x18 <= len; i += any ? 4 : 8)
+            {
+                uint t = BitConverter.ToUInt32(buf, i);
+                if (t < now - seconds || t > now + 5 || (!any && BitConverter.ToUInt32(buf, i + 4) != 0)) continue;
+                if (hits++ < 60)
+                    Console.WriteLine($"0x{a + i:X} t-{now - t}s  {BitConverter.ToString(buf, i, 0x18).Replace("-", " ")}");
+            }
+        }
+    Console.WriteLine($"{hits} temuan");
+}
+
+// Logs every int32 change in a range every 2 seconds (skipping noisy spots given as hex offsets).
+void Watch(long start, int size, HashSet<int> skip)
+{
+    var prev = Read(start, size);
+    while (true)
+    {
+        Thread.Sleep(2000);
+        var now = Read(start, size);
+        for (int i = 0; i + 4 <= size; i += 4)
+        {
+            int o = BitConverter.ToInt32(prev, i), n = BitConverter.ToInt32(now, i);
+            if (o != n && !skip.Contains(i & ~0xF))
+                Console.WriteLine($"{DateTime.Now:HH:mm:ss} +0x{i:X}: {o} -> {n}");
+        }
+        prev = now;
+    }
+}
+// Raw snapshot of one address range (the save data), and a diff of two such snapshots.
+void RangeSnap(string name, long start, int size) => File.WriteAllBytes(Path.Combine(Dir, name + ".raw"), Read(start, size));
+
+void RangeDiff(string a, string b, long start)
+{
+    var x = File.ReadAllBytes(Path.Combine(Dir, a + ".raw"));
+    var y = File.ReadAllBytes(Path.Combine(Dir, b + ".raw"));
+    int shown = 0;
+    for (int i = 0; i + 4 <= Math.Min(x.Length, y.Length); i += 4)
+    {
+        int o = BitConverter.ToInt32(x, i), n = BitConverter.ToInt32(y, i);
+        if (o != n && shown++ < 200) Console.WriteLine($"+0x{i:X} (0x{start + i:X}): {o} -> {n}   [{BitConverter.ToString(x, i, 4)} -> {BitConverter.ToString(y, i, 4)}]");
+    }
+    Console.WriteLine($"{shown} perbedaan");
+}
+// Signature search for the item list (gil record: id 20, category 1) and materia list (runs of materia records).
+void FindLists()
+{
+    foreach (var (b, s) in Regions())
+        for (long a = b; a < b + s; a += 1 << 22)
+        {
+            int len = (int)Math.Min(1 << 22, b + s - a);
+            var buf = Read(a, len);
+            for (int i = 0; i + 0x20 * 6 <= len; i += 8)
+            {
+                if (BitConverter.ToInt32(buf, i + 4) != 0) continue;
+                if (BitConverter.ToInt32(buf, i + 8) == 20 && buf[i + 16] == 1 && BitConverter.ToInt32(buf, i + 20) == 0
+                    && BitConverter.ToUInt32(buf, i) > 1_500_000_000)
+                    Console.WriteLine($"gil 0x{a + i:X} = {BitConverter.ToInt32(buf, i + 12)}");
+                bool run = true;
+                for (int k = 0; k < 6 && run; k++)
+                {
+                    int p = i + k * 0x20, id = BitConverter.ToInt32(buf, p + 20);
+                    run = BitConverter.ToInt32(buf, p + 4) == 0 && BitConverter.ToInt32(buf, p + 8) == k && BitConverter.ToInt32(buf, p + 12) == 0
+                        && id is >= 10000 and < 20000 && buf[p + 16] is >= 1 and <= 5;
+                }
+                if (run) Console.WriteLine($"materia 0x{a + i:X}");
+            }
+        }
+}
+// Known-value scan: every 4-byte-aligned int32 equal to value.
+void Find(int value, string outPath)
+{
+    using var w = new BinaryWriter(new BufferedStream(File.Create(outPath), 1 << 22));
+    long count = 0;
+    foreach (var (b, s) in Regions())
+        for (long a = b; a < b + s; a += 1 << 22)
+        {
+            int len = (int)Math.Min(1 << 22, b + s - a);
+            var buf = Read(a, len);
+            for (int i = 0; i + 4 <= len; i += 4)
+                if (BitConverter.ToInt32(buf, i) == value) { Rec(w, a + i, 4, value, value); count++; }
+        }
+    Console.WriteLine($"kandidat: {count:N0}");
+}
+
+void Rec(BinaryWriter w, long addr, byte width, int first, int last) { w.Write(addr); w.Write(width); w.Write(first); w.Write(last); }
+
+IEnumerable<(long Addr, byte Width, int First, int Last)> Load(string path)
+{
+    using var r = new BinaryReader(new BufferedStream(File.OpenRead(path), 1 << 22));
+    while (r.BaseStream.Position < r.BaseStream.Length)
+        yield return (r.ReadInt64(), r.ReadByte(), r.ReadInt32(), r.ReadInt32());
+}
+
+int Current(long addr, byte width, Dictionary<long, byte[]> pages)
+{
+    long page = addr & ~0xFFFL;
+    if (!pages.TryGetValue(page, out var buf)) pages[page] = buf = Read(page, 0x1004);
+    int off = (int)(addr - page);
+    return width == 1 ? buf[off] : BitConverter.ToInt32(buf, off);
+}
+
+void Filter(string inPath, string outPath, string op)
+{
+    var pages = new Dictionary<long, byte[]>();
+    long count = 0;
+    using (var w = new BinaryWriter(new BufferedStream(File.Create(outPath), 1 << 22)))
+        foreach (var c in Load(inPath))
+        {
+            if (pages.Count > 200_000) pages.Clear();
+            int now = Current(c.Addr, c.Width, pages);
+            bool keep = op switch
+            {
+                "same" => now == c.Last,
+                "inc" => now > c.Last && now - c.Last <= (c.Width == 1 ? 16 : 1000),
+                "dec" => now < c.Last,
+                "chg" => now != c.Last,
+                "back" => now == c.First,
+                _ when op.StartsWith("eq:") => now == int.Parse(op[3..]),
+                _ => throw new Exception("op tidak dikenal"),
+            };
+            if (keep) { Rec(w, c.Addr, c.Width, c.First, now); count++; }
+        }
+    Console.WriteLine($"kandidat tersisa: {count:N0}");
+    if (count <= 60) Show(outPath);
+}
+
+void Show(string path)
+{
+    var pages = new Dictionary<long, byte[]>();
+    foreach (var c in Load(path).Take(60))
+    {
+        string where = c.Addr >= modBase && c.Addr < modEnd ? $"modul+0x{c.Addr - modBase:X}" : $"heap 0x{c.Addr:X}";
+        Console.WriteLine($"{where,-24} w{c.Width} awal={c.First} terakhir={c.Last} sekarang={Current(c.Addr, c.Width, pages)}");
+    }
+}
+
+// Reverse pointer scan: find chains module+X -> [o1] -> ... -> target that survive a game restart.
+void PointerScan(long target, int depth, int maxOff, int cap)
+{
+    var regions = Regions();
+    long lo = regions.Min(r => r.Base), hi = regions.Max(r => r.Base + r.Size);
+    // parent[loc] = (pointee, offset): the qword at loc points to pointee - offset.
+    var parent = new Dictionary<long, (long Next, int Off)>();
+    var level = new List<long> { target };
+    var roots = new List<long>();
+    for (int d = 1; d <= depth && level.Count > 0; d++)
+    {
+        var sorted = level.Distinct().OrderBy(x => x).ToArray();
+        long minT = sorted[0] - maxOff, maxT = sorted[^1];
+        var found = new List<(long Loc, long Target, int Off)>();
+        foreach (var (b, s) in regions)
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 8 <= len; i += 8)
+                {
+                    long v = BitConverter.ToInt64(buf, i);
+                    if (v < minT || v > maxT) continue;
+                    int k = Array.BinarySearch(sorted, v);
+                    if (k < 0) k = ~k;
+                    for (int n = 0; k < sorted.Length && sorted[k] - v <= maxOff && n < 4; k++, n++)
+                        found.Add((a + i, sorted[k], (int)(sorted[k] - v)));
+                }
+            }
+        var next = new List<long>();
+        foreach (var f in found.OrderBy(f => f.Off))
+        {
+            if (parent.ContainsKey(f.Loc) || f.Loc == target) continue;
+            parent[f.Loc] = (f.Target, f.Off);
+            if (f.Loc >= modBase && f.Loc < modEnd) roots.Add(f.Loc);
+            else if (next.Count < cap) next.Add(f.Loc);
+        }
+        Console.WriteLine($"level {d}: {found.Count:N0} pointer, {roots.Count} jalur statis sejauh ini");
+        level = next;
+    }
+    using var w = new StreamWriter(Path.Combine(Dir, $"ptr_{target:X}.txt"));
+    foreach (var r in roots)
+    {
+        var parts = new List<string> { $"modul+0x{r - modBase:X}" };
+        for (long loc = r; parent.TryGetValue(loc, out var p) && loc != target; loc = p.Next)
+            parts.Add($"0x{p.Off:X}");
+        w.WriteLine(string.Join(" ", parts));
+    }
+    Console.WriteLine($"{roots.Count} jalur ditulis ke ptr_{target:X}.txt");
+}
+
+// Follows "modul+0xX 0xO1 0xO2 ..." and returns the value at the end (int32) and the final address.
+string Chain(string[] parts)
+{
+    long addr = modBase + Convert.ToInt64(parts[0].Replace("modul+", ""), 16);
+    foreach (var off in parts.Skip(1))
+    {
+        long ptr = BitConverter.ToInt64(Read(addr, 8));
+        if (ptr == 0) return "null";
+        addr = ptr + Convert.ToInt64(off, 16);
+    }
+    return $"0x{addr:X} = {BitConverter.ToInt32(Read(addr, 4))}";
+}
+
+static class Native
+{
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MBI { public IntPtr BaseAddress, AllocationBase; public uint AllocationProtect; public ushort PartitionId; public IntPtr RegionSize; public uint State, Protect, Type; }
+    [DllImport("kernel32.dll")] public static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+    [DllImport("kernel32.dll")] public static extern bool ReadProcessMemory(IntPtr h, IntPtr addr, byte[] buf, int size, out IntPtr read);
+    [DllImport("kernel32.dll")] public static extern int VirtualQueryEx(IntPtr h, IntPtr addr, out MBI mbi, uint len);
+}

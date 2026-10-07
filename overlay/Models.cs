@@ -5,7 +5,9 @@ namespace GameTracker;
 
 public record Detect(string[]? Ocr);
 
-public record Objective(string Id, string Type, string Name, string Where, bool Missable, Detect? Detect);
+/// <summary>One step of the linear guide. Warning marks a point of no return: what to finish before doing this step.
+/// Progress is the story-progress counter value at which this story step starts, when known.</summary>
+public record Objective(string Id, string Type, string Name, string Where, bool Missable, Detect? Detect, string? Warning = null, int? Progress = null);
 
 public record Chapter(int Number, string Title, string? PointOfNoReturn, Objective[] Objectives);
 
