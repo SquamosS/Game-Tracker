@@ -1,29 +1,36 @@
 # Game Tracker
 
-Overlay di atas game (Windows) yang menunjukkan progres achievement Steam dan checklist panduan 100%, tanpa perlu membuka walkthrough di browser atau HP.
+Overlay di atas game yang memandu ke 100% completion per chapter: semua senjata, materia, music disc, side quest, dan item missable di chapter yang sedang kamu mainkan, dicentang saat sudah didapat. Tujuannya supaya tidak ada yang terlewat dan kamu tidak perlu replay.
 
-Rencana lengkap: [docs/RENCANA-OVERLAY.md](docs/RENCANA-OVERLAY.md).
+Rencana: [docs/RENCANA.md](docs/RENCANA.md).
 
-## Memakai
+## Menjalankan (Windows)
 
-1. Buka halaman [Releases](https://github.com/SquamosS/Game-Tracker/releases), unduh `GameTracker-portable-<versi>.exe` dari rilis terbaru, simpan di folder mana saja, lalu klik dua kali. Tidak perlu install. Untuk update, ganti file lamanya dengan yang baru (aplikasi memberi tahu kalau ada versi baru). Installer `setup.exe` hanya ada di rilis yang sudah stabil.
-2. Buat Steam Web API key di https://steamcommunity.com/dev/apikey (domain boleh `localhost`).
-3. Di Steam, set privasi profil **Game details** ke **Public**.
-4. Buka Game Tracker, isi API key di tab **Pengaturan** (SteamID64 terisi otomatis kalau Steam sedang login).
-5. Main game dalam mode **borderless / windowed fullscreen**. Tekan **Ctrl+Shift+G** untuk membuka atau menutup overlay.
-
-## Panduan
-
-Panduan per game ada di `guides/*.json`. Item yang punya `achievement` (nama achievement di Steam, bahasa Inggris) tercentang otomatis saat achievement terbuka; sisanya dicentang manual.
-
-Panduan yang tersedia:
-- FINAL FANTASY VII REMAKE INTERGRADE (draft)
-
-## Pengembangan
-
-Butuh Node 22 dan Rust stable.
+Pasang sekali: [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) dan Git.
 
 ```
-npm install
-npm run tauri dev
+cd "D:\.... Claude Suno Project\Game tracker"
+git clone https://github.com/SquamosS/Game-Tracker.git
+cd Game-Tracker\overlay
+dotnet run
 ```
+
+Build dan jalan dalam beberapa detik. Untuk versi terbaru: `git pull` lalu `dotnet run` lagi.
+
+Main game dalam mode **Borderless** atau **Windowed** agar overlay terlihat di atasnya.
+
+## Hotkey
+
+| Tombol | Fungsi |
+|---|---|
+| Ctrl+Shift+G | Tampilkan / sembunyikan overlay |
+| Ctrl+Shift+Space | Centang objektif berikutnya |
+| Ctrl+Shift+Backspace | Batalkan centang terakhir |
+| Ctrl+Shift+PageDown / PageUp | Chapter berikutnya / sebelumnya |
+| Ctrl+Shift+T | Mode mouse: tembus ke game atau bisa klik overlay |
+
+Geser overlay dengan menarik judulnya. Progres disimpan di `%APPDATA%\GameTracker`.
+
+## Data panduan
+
+Ada di `overlay/guides/*.json`, satu file per game, dibagi per chapter. Edit file di `bin\Debug\net8.0-windows\guides` saat aplikasi jalan untuk melihat perubahan langsung, lalu salin ke `overlay/guides`. Panduan FF7R saat ini mencakup Chapter 1–3 dan masih draft.

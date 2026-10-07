@@ -1,0 +1,62 @@
+{
+  "game": "FINAL FANTASY VII REMAKE INTERGRADE",
+  "status": "draft",
+  "notes": [
+    "Setelah tamat, Chapter Select membuat semua chapter bisa diulang. Checklist ini bertujuan agar kamu tidak perlu memakainya.",
+    "Item bertanda MISSABLE tidak bisa diambil lagi setelah chapter itu selesai (kecuali lewat Chapter Select).",
+    "detect.ocr berisi teks yang muncul di notifikasi saat item didapat; dipakai untuk centang otomatis nanti."
+  ],
+  "chapters": [
+    {
+      "number": 1,
+      "title": "The Destruction of Mako Reactor 1",
+      "pointOfNoReturn": null,
+      "objectives": [
+        { "id": "c1-story", "type": "cerita", "name": "Tidak ada koleksi permanen di chapter ini", "where": "Ambil peti di sepanjang jalan untuk item habis pakai.", "missable": false }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "Fateful Encounters",
+      "pointOfNoReturn": "Tidak bisa kembali ke jalanan Sektor 8 setelah chapter selesai.",
+      "objectives": [
+        { "id": "c2-healing", "type": "materia", "name": "Healing Materia", "where": "Otomatis saat tutorial materia di awal chapter.", "missable": false, "detect": { "ocr": ["Healing"] } },
+        { "id": "c2-hp-up", "type": "materia", "name": "HP Up Materia", "where": "Saat kabur dari Shinra (Evade Pursuers), di balik mobil di jalan. Cari cahaya ungu.", "missable": true, "detect": { "ocr": ["HP Up"] } },
+        { "id": "c2-deadly-dodge", "type": "materia", "name": "Deadly Dodge Materia", "where": "Saat Evade Pursuers, di sisi kanan jalan.", "missable": true, "detect": { "ocr": ["Deadly Dodge"] } },
+        { "id": "c2-iron-bangle", "type": "armor", "name": "Iron Bangle", "where": "Peti setelah menaiki tangga di jalur utama.", "missable": true, "detect": { "ocr": ["Iron Bangle"] } },
+        { "id": "c2-power-wristguards", "type": "aksesori", "name": "Power Wristguards", "where": "Loveless Street, peti di ujung jalan kiri sebelum alun-alun pasar.", "missable": true, "detect": { "ocr": ["Power Wristguards"] } }
+      ]
+    },
+    {
+      "number": 3,
+      "title": "Home Sweet Slum",
+      "pointOfNoReturn": "Setelah misi terakhir chapter dimulai, area Sektor 7 tidak bisa dijelajahi lagi di chapter ini. Selesaikan semua side quest dan belanja dulu.",
+      "objectives": [
+        { "id": "c3-disc-tifa", "type": "music disc", "name": "Tifa's Theme", "where": "Jukebox di bar Seventh Heaven setelah bicara dengan Marlene.", "missable": true, "detect": { "ocr": ["Tifa's Theme"] } },
+        { "id": "c3-disc-hiphop", "type": "music disc", "name": "Hip Hop de Chocobo", "where": "Bicara dengan pria di dekat radio di tempat sebelah kanan Seventh Heaven.", "missable": true, "detect": { "ocr": ["Hip Hop de Chocobo"] } },
+        { "id": "c3-ice-shop", "type": "materia", "name": "Ice Materia (toko)", "where": "Beli di toko item yang dikunjungi bersama Tifa.", "missable": false, "detect": { "ocr": ["Ice"] } },
+        { "id": "c3-lightning", "type": "materia", "name": "Lightning Materia", "where": "Beli di toko item yang sama.", "missable": false, "detect": { "ocr": ["Lightning"] } },
+        { "id": "c3-disc-prelude", "type": "music disc", "name": "The Prelude", "where": "Beli di toko item yang dikunjungi bersama Tifa.", "missable": true, "detect": { "ocr": ["The Prelude"] } },
+        { "id": "c3-iron-blade", "type": "senjata", "name": "Iron Blade (Cloud)", "where": "Hadiah cerita dari toko senjata.", "missable": false, "detect": { "ocr": ["Iron Blade"] } },
+        { "id": "c3-chakra", "type": "materia", "name": "Chakra Materia", "where": "Terpasang otomatis saat Tifa bergabung.", "missable": false },
+        { "id": "c3-assess", "type": "materia", "name": "Assess Materia", "where": "Dari Chadley saat pertama bertemu.", "missable": false, "detect": { "ocr": ["Assess"] } },
+        { "id": "c3-ice-cave", "type": "materia", "name": "Ice Materia (gua)", "where": "Di gua di awal Scrap Boulevard.", "missable": true, "detect": { "ocr": ["Ice"] } },
+        { "id": "c3-disc-barret", "type": "music disc", "name": "Barret's Theme", "where": "Beli di toko item stasiun Sector 7 Undercity (50 gil).", "missable": true, "detect": { "ocr": ["Barret's Theme"] } },
+        { "id": "c3-q-chadley", "type": "side quest", "name": "Chadley's Report", "where": "Dari Chadley: Assess 2 jenis musuh. Hadiah: bisa beli Auto-Cure Materia.", "missable": true },
+        { "id": "c3-auto-cure", "type": "materia", "name": "Auto-Cure Materia", "where": "Beli dari Chadley setelah Chadley's Report.", "missable": true, "detect": { "ocr": ["Auto-Cure"] } },
+        { "id": "c3-wind", "type": "materia", "name": "Wind Materia", "where": "Beli dari Chadley setelah Battle Intel Report #2.", "missable": true, "detect": { "ocr": ["Wind"] } },
+        { "id": "c3-q-rat", "type": "side quest", "name": "Rat Problem", "where": "Pemilik toko item Sektor 7: kalahkan Doomrat di bagian utara Sektor 7. Hadiah: Hi-Potion x5 dan Cleansing Materia bisa dibeli.", "missable": true },
+        { "id": "c3-cleansing", "type": "materia", "name": "Cleansing Materia", "where": "Beli (300 gil) setelah Rat Problem.", "missable": true, "detect": { "ocr": ["Cleansing"] } },
+        { "id": "c3-q-factory", "type": "side quest", "name": "Nuisance in the Factory", "where": "Pedagang rongsok: basmi Gorger dan Lesser Drake di pabrik Talleger yang terbengkalai. Hadiah: 500 gil.", "missable": true },
+        { "id": "c3-fire", "type": "materia", "name": "Fire Materia", "where": "Di dalam pabrik saat Nuisance in the Factory, lewat pintu gulung.", "missable": true, "detect": { "ocr": ["Fire"] } },
+        { "id": "c3-q-cats", "type": "side quest", "name": "Lost Friends", "where": "Betty (anak kecil): cari 3 kucing di Sektor 7 Slums. Hadiah: Maiden's Kiss.", "missable": true },
+        { "id": "c3-q-prowl", "type": "side quest", "name": "On the Prowl", "where": "Wymer, setelah Rat Problem: buru Wrath Hound. Hadiah: Elixir.", "missable": true },
+        { "id": "c3-q-graveyard", "type": "side quest", "name": "Just Flew in from the Graveyard", "where": "NPC dekat pabrik, setelah Nuisance in the Factory: cari kartu kunci di peti, buka pintu, kalahkan Cerulean Drake. Hadiah: Star Bracelet.", "missable": true },
+        { "id": "c3-mp-up", "type": "materia", "name": "MP Up Materia", "where": "Kalahkan 50 musuh, cek papan skor dekat Chadley.", "missable": true, "detect": { "ocr": ["MP Up"] } },
+        { "id": "c3-alone", "type": "kejadian", "name": "Alone at Last (Discovery)", "where": "Muncul setelah keenam side quest selesai. Hadiah: Crescent Moon Charm.", "missable": true, "detect": { "ocr": ["Crescent Moon Charm"] } },
+        { "id": "c3-ifrit", "type": "summon", "name": "Ifrit", "where": "Otomatis di kamarmu setelah mengalahkan Hoodlum.", "missable": false, "detect": { "ocr": ["Ifrit"] } },
+        { "id": "c3-johnny", "type": "kejadian", "name": "Johnny Incident #1", "where": "Bagian dari cerita di Seventh Heaven.", "missable": false }
+      ]
+    }
+  ]
+}
