@@ -37,6 +37,8 @@ public partial class MainWindow : Window
     string? _itemStatus;
     HashSet<string>? _seenFlags;
     Ff7rChapterReader.Objective? _objective;
+    /// <summary>The live sub-objective of _objective ("Find Stamp" › "Train Yard Security"), if any.</summary>
+    Ff7rChapterReader.Objective? _subObjective;
     readonly List<(string Flag, DateTime When)> _newFlags = new();
     (Objective Step, DateTime When)? _pendingStory;
     string _detectStatus = "";
@@ -324,11 +326,14 @@ public partial class MainWindow : Window
     /// Writes the candidates and the pick to data\logs\quest-choice.log whenever either changes, marking ties
     /// (two candidates on the same guide step), so wrong picks can be traced without a screenshot.
     /// </summary>
+    /// <summary>Sub-objective keys: "..._Step060_s030_030", "..._Step20_S10", "..._toPark_sub01".</summary>
+    static bool IsSub(string key) => System.Text.RegularExpressions.Regex.IsMatch(key, @"_(s|S|sub)\d+(_\d+)?$");
+
     /// <summary>The objective of the last entry in the longest run of adjacent entries, ignoring chapter titles.</summary>
     Ff7rChapterReader.Objective? NewestEntry()
     {
         var slots = _reader.CandidateSlots
-            .Where(c => !c.Objective.TitleKey.Contains("_Parent") && !c.Objective.TitleKey.EndsWith("_End"))
+            .Where(c => !c.Objective.TitleKey.Contains("_Parent") && !c.Objective.TitleKey.EndsWith("_End") && !IsSub(c.Objective.TitleKey))
             .OrderBy(c => c.Slot).ToList();
         List<(Ff7rChapterReader.Objective Objective, long Slot, long Parent)> best = [], run = [];
         foreach (var c in slots)
@@ -382,14 +387,21 @@ public partial class MainWindow : Window
             objective = newest ?? furthest ?? objective;
             LogChoice(objective, Index, newest is not null && furthest is not null && furthest.Row != newest.Row ? furthest : null);
         }
-        if (objective?.Row == _objective?.Row) return false;
+        // Sub-objectives have entries of their own in a second array; the newest one under this objective is live.
+        var sub = objective is null ? null : _reader.CandidateSlots
+            .Where(c => IsSub(c.Objective.TitleKey) && c.Objective.TitleKey.StartsWith(objective.TitleKey + "_"))
+            .MaxBy(c => c.Slot).Objective;
+        if (objective?.Row == _objective?.Row && sub?.Row == _subObjective?.Row) return false;
         if (_objective is not null) _reader.RefreshListsSoon();
         _objective = objective;
-        // Guide story steps carry the game's own quest names, so match by name; a learned mapping wins.
+        _subObjective = sub;
+        // Guide story steps carry the game's own quest names, so match by name; a learned mapping wins. A
+        // sub-objective can be a guide step of its own ("Train Yard Security"), and then it is the one to follow.
+        Objective? StepFor(Ff7rChapterReader.Objective? live, Chapter chapter) => live is null ? null
+            : _itemMap.FlagName("Q:" + live.TitleKey) is { } stepId ? chapter.Objectives.FirstOrDefault(o => o.Id == stepId)
+            : chapter.Objectives.FirstOrDefault(o => o.Type == "cerita" && live.Title is { } title && NamedAs(o, title));
         if (objective is not null && CurrentChapter is { } chapter && chapter.Number == _detectedChapter
-            && (_itemMap.FlagName("Q:" + objective.TitleKey) is { } stepId
-                    ? chapter.Objectives.FirstOrDefault(o => o.Id == stepId)
-                    : chapter.Objectives.FirstOrDefault(o => o.Type == "cerita" && objective.Title is { } title && NamedAs(o, title))) is { } step
+            && (StepFor(sub, chapter) ?? StepFor(objective, chapter)) is { } step
             && step != CurrentStory)
         {
             // The guide only moves forward: ticked steps stay ticked. The objective shown is still the game's.
@@ -505,10 +517,13 @@ public partial class MainWindow : Window
         List.Children.Clear();
         var chapter = CurrentChapter;
         GameText.Text = _guide?.Game ?? "Game Tracker";
+        // "▶ Find Stamp › Train Yard Security", with the sub-objective's text when there is one.
+        string? liveText = _subObjective?.Text ?? _objective?.Text;
         ObjectiveText.Text = _objective is { } live
-            ? "▶ " + (live.Title ?? live.TitleKey) + (live.Text is { Length: < 90 } line ? "\n   " + line : "")
+            ? "▶ " + (live.Title ?? live.TitleKey) + (_subObjective?.Title is { } subTitle ? " › " + subTitle : "")
+                + (liveText is { Length: < 90 } line ? "\n   " + line : "")
             : "";
-        ObjectiveText.ToolTip = _objective?.Text;
+        ObjectiveText.ToolTip = liveText;
         if (_objective is null && _inGame) ObjectiveText.Text = "▶ (mencari objektif aktif...)";
         FooterText.Text = (_error is null ? "" : _error + "\n") + _detectStatus + "\n" +
             "Ctrl+Shift+G tampil/sembunyi · Ctrl+Shift+A panduan lengkap / arsip · Space centang berikutnya · Backspace batal · " +
