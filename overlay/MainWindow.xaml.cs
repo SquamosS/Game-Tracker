@@ -29,7 +29,7 @@ public partial class MainWindow : Window
     readonly ItemMap _itemMap = ItemMap.Load();
     HashSet<(int, uint)>? _seenOwned;
     /// <summary>Last id seen in each inventory slot.</summary>
-    readonly Dictionary<long, int> _slotIds = new();
+    readonly Dictionary<long, (int Id, int Count)> _slotIds = new();
     readonly long _startedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     readonly List<(int Id, DateTime When)> _unknownNew = new();
     string? _itemStatus;
@@ -163,7 +163,7 @@ public partial class MainWindow : Window
         if (_seenOwned is null)
         {
             _seenOwned = owned.Select(o => (o.Id, o.Obtained)).ToHashSet();
-            foreach (var o in owned) _slotIds[o.Slot] = o.Id;
+            foreach (var o in owned) _slotIds[o.Slot] = (o.Id, o.Count);
             foreach (var o in owned)
                 if (_itemMap.Name(o.Id) is { } disc)
                     foreach (var step in _guide.Chapters.SelectMany(c => c.Objectives))
@@ -175,9 +175,11 @@ public partial class MainWindow : Window
         // New: a record obtained since the overlay started, or an id put into a slot that held something else
         // (the game reuses slots, and a reused slot keeps its old time). Many slots changing at once is a save
         // being loaded or copied, not items being handed over.
-        var changedSlots = owned.Where(o => o.Id > 0 && _slotIds.TryGetValue(o.Slot, out int before) && before != o.Id)
+        // A stack growing counts too: a chest with a fifth Bulletproof Vest only raises the count.
+        var changedSlots = owned.Where(o => o.Id > 0 && _slotIds.TryGetValue(o.Slot, out var before)
+                && (before.Id != o.Id || o.Count > before.Count))
             .Select(o => o.Slot).ToHashSet();
-        foreach (var o in owned) _slotIds[o.Slot] = o.Id;
+        foreach (var o in owned) _slotIds[o.Slot] = (o.Id, o.Count);
         bool handedOver = changedSlots.Count is > 0 and <= 3;
         if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; } // a save was loaded (or copied)
         bool IsNew(Ff7rChapterReader.Owned o) =>
