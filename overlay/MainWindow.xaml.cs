@@ -680,9 +680,11 @@ public partial class MainWindow : Window
         ChapterText.Text = chapter is null ? "Belum ada panduan" : $"Chapter {chapter.Number}: {chapter.Title}";
 
         var objectives = chapter?.Objectives ?? [];
-        int done = objectives.Count(o => _progress.Done.Contains(o.Id));
-        CountText.Text = $"{done}/{objectives.Length} selesai di chapter ini";
-        Bar.Width = objectives.Length == 0 ? 0 : (ActualWidth > 0 ? ActualWidth - 30 : 370) * done / objectives.Length;
+        // Trophies are left out everywhere: the goal is collecting everything in one run, not the trophy list.
+        var counted = objectives.Where(o => o.Type != "trofi").ToList();
+        int done = counted.Count(o => _progress.Done.Contains(o.Id));
+        CountText.Text = $"{done}/{counted.Count} selesai di chapter ini";
+        Bar.Width = counted.Count == 0 ? 0 : (ActualWidth > 0 ? ActualWidth - 30 : 370) * done / counted.Count;
 
         // Warn about the nearest point of no return and the missables still open before it.
         var pending = objectives.Where(o => !_progress.Done.Contains(o.Id)).ToList();
@@ -691,7 +693,7 @@ public partial class MainWindow : Window
         // Name what is still to get, so the notice shrinks as things are picked up: this chapter's missables before
         // the point of no return, plus the steps the warning itself waits for (possibly from an earlier chapter).
         var steps = _guide?.Chapters.SelectMany(c => c.Objectives).GroupBy(o => o.Id).ToDictionary(g => g.Key, g => g.First()) ?? [];
-        var toGet = openBefore.Where(o => o.Missable && o.Type != "cerita").Select(o => o.Name)
+        var toGet = openBefore.Where(o => o.Missable && o.Type is not ("cerita" or "trofi")).Select(o => o.Name)
             .Concat((gate?.Needs ?? []).Where(id => !_progress.Done.Contains(id) && steps.ContainsKey(id)).Select(id => steps[id].Name))
             .Distinct().ToList();
         // What closes behind you: the warning's sentence that starts with "Setelah" ("after this ...").
@@ -755,8 +757,8 @@ public partial class MainWindow : Window
             var o = objectives[i];
             if (o.Type == "cerita") { phase = i; continue; }
             if (phase > current || _progress.Done.Contains(o.Id)) continue;
-            // Trophies that come with finishing the chapter need nothing from you.
-            if (o.Type == "trofi" && !o.Missable && o.Where.Contains("otomatis", StringComparison.OrdinalIgnoreCase)) continue;
+            // Trophies are not tracked here: the rewards they come with are steps of their own.
+            if (o.Type == "trofi") continue;
             // Optional pick-ups (also sold in shops) only matter while you pass them.
             if (o.Optional && phase < current) continue;
             open.Add((o, phase == current ? "SEKARANG" : "TERTINGGAL"));
