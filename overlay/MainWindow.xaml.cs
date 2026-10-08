@@ -372,7 +372,7 @@ public partial class MainWindow : Window
         // Sub-objectives have entries of their own in a second array; the newest one under this objective is live.
         var sub = objective is null ? null : _reader.CandidateSlots
             .Where(c => IsSub(c.Objective.TitleKey) && c.Objective.TitleKey.StartsWith(objective.TitleKey + "_"))
-            .MaxBy(c => c.Slot).Objective;
+            .OrderByDescending(c => c.Slot).Select(c => c.Objective).FirstOrDefault();
         if (objective?.Row == _objective?.Row && sub?.Row == _subObjective?.Row) return false;
         if (_objective is not null) _reader.RefreshListsSoon();
         _objective = objective;
