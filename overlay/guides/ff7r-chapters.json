@@ -675,6 +675,13 @@
           "missable": false
         },
         {
+          "id": "c6-08-sun-lamps",
+          "type": "cerita",
+          "name": "Power for the Platform",
+          "where": "Matikan lampu 1-2-3 bergantian sambil geser catwalk; banyak Terpsicolt (lemah es).",
+          "missable": false
+        },
+        {
           "id": "c6-03-collapsed",
           "type": "kejadian",
           "name": "Discovery: Collapsed Passageway",
@@ -717,13 +724,6 @@
           "name": "Electric de Chocobo",
           "where": "Vending machine di ruang kontrol ventilasi, lewat lift kecil di barat cargo elevator (searah jalan ke materia kipas).",
           "missable": true
-        },
-        {
-          "id": "c6-08-sun-lamps",
-          "type": "cerita",
-          "name": "Power for the Platform",
-          "where": "Matikan lampu 1-2-3 bergantian sambil geser catwalk; banyak Terpsicolt (lemah es).",
-          "missable": false
         },
         {
           "id": "c6-09-mesmeric",
