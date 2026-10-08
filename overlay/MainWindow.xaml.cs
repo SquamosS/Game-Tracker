@@ -120,7 +120,7 @@ public partial class MainWindow : Window
                 // end-of-chapter reward are done (that reward arrives during the chapter change, with a save copy).
                 if (chapter > _progress.Chapter && _guide.Chapters.FirstOrDefault(c => c.Number == _progress.Chapter) is { } finished)
                     foreach (var o in finished.Objectives.Where(o => o.Type == "cerita" || RewardTag(o) == "REWARD CHAPTER"
-                        || (o.Type == "trofi" && o.Where.Contains("selesai", StringComparison.OrdinalIgnoreCase))))
+                        || (o.Type == "trofi" && ChapterEndTrophy(o))))
                         if (_progress.Done.Add(o.Id)) _progress.History.Add(o.Id);
                 _progress.Chapter = chapter!.Value;
                 ProgressStore.Save(_guide.Game, _progress);
@@ -392,6 +392,10 @@ public partial class MainWindow : Window
         if (new[] { "boss", "kalah", "drop", "fight" }.Any(where.Contains)) return "REWARD BOSS";
         return "REWARD";
     }
+
+    /// <summary>The trophy that comes with finishing the chapter ("Otomatis saat Chapter 6 tamat/selesai").</summary>
+    static bool ChapterEndTrophy(Objective o) => o.Where.Contains("otomatis saat chapter", StringComparison.OrdinalIgnoreCase)
+        || o.Where.Contains("Trofi otomatis", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>What a step is, as shown next to its name.</summary>
     static string TypeLabel(Objective o) => o.Type == "kejadian" && o.Name.StartsWith("Discovery") ? "discovery" : o.Type;
