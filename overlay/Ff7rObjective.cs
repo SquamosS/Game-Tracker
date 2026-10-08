@@ -22,7 +22,16 @@ public sealed partial class Ff7rChapterReader
     /// <summary>Where each candidate came from: its entry address and the entry's parent (for the choice log).</summary>
     public List<(Objective Objective, long Slot, long Parent)> CandidateSlots { get; } = new();
 
-    public record Objective(long Row, int Order, string TitleKey, string DescKey, string? Title, string? Text);
+    /// <summary>
+    /// One row of the objective table. An objective has several rows (one per stage); an entry moves along them.
+    /// Finished: main steps end on "..._990_d"; discoveries move past their first row "..._Mate_01_d" to
+    /// "..._Mate_011_d" (cleared) and "..._Mate_012_d".
+    /// </summary>
+    public record Objective(long Row, int Order, string TitleKey, string DescKey, string? Title, string? Text)
+    {
+        public bool Finished => DescKey.EndsWith("_990_d") || DescKey.Contains("_Done")
+            || (TitleKey.Contains("_Mate_") && DescKey != TitleKey + "_d");
+    }
 
     Dictionary<long, Objective>? _objectiveRows;
     List<long> _objectiveSlots = new();
@@ -207,11 +216,10 @@ public sealed partial class Ff7rChapterReader
         long previous = 0;
         foreach (var (row, title, desc) in rows.OrderBy(r => r.Row))
         {
-            if (row - previous > 0x10000) order = 0; // gap: a new copy of the table starts
+            if (row - previous > 0x10000) { order = 0; } // gap: a new copy of the table starts
             previous = row;
             byAddress[row] = new Objective(row, order++, title, desc, texts.GetValueOrDefault(title), texts.GetValueOrDefault(desc));
         }
-
         // Entries pointing at a row; skip the table's own lists (several row pointers side by side).
         var found = new System.Collections.Concurrent.ConcurrentBag<long>();
         ForEachChunk((a, buf) =>

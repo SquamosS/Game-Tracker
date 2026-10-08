@@ -335,7 +335,7 @@ public partial class MainWindow : Window
     void LogChoice(Ff7rChapterReader.Objective chosen, Func<Ff7rChapterReader.Objective, int> index, Ff7rChapterReader.Objective? guidePick = null)
     {
         var lines = _reader.CandidateSlots
-            .Select(c => $"   {(c.Objective == chosen ? "*" : " ")} {c.Objective.Title ?? "?"} | {c.Objective.TitleKey} | order {c.Objective.Order} | guide {index(c.Objective)} | slot {c.Slot:X} parent {c.Parent:X}")
+            .Select(c => $"   {(c.Objective == chosen ? "*" : " ")} {c.Objective.Title ?? "?"} | {c.Objective.TitleKey} | order {c.Objective.Order}{(c.Objective.Finished ? " finished" : "")} | guide {index(c.Objective)} | slot {c.Slot:X} parent {c.Parent:X}")
             .Distinct().ToList();
         string text = string.Join(Environment.NewLine, lines);
         if (text == _lastChoiceLog) return;
@@ -356,13 +356,13 @@ public partial class MainWindow : Window
     /// </summary>
     /// <summary>
     /// Ticks discoveries and side quests the game shows as done: a finished objective's entry points at its
-    /// closing row, whose description key ends in "_990_d" (or holds "_Done").
+    /// finishing row (see Ff7rChapterReader.Objective.Finished).
     /// </summary>
     bool FollowCompleted()
     {
         if (CurrentChapter is not { } chapter || chapter.Number != _detectedChapter) return false;
         bool changed = false;
-        foreach (var done in _reader.Candidates.Where(c => c.Title is not null && (c.DescKey.EndsWith("_990_d") || c.DescKey.Contains("_Done"))))
+        foreach (var done in _reader.Candidates.Where(c => c.Title is not null && c.Finished))
             foreach (var step in chapter.Objectives.Where(o => o.Type is "kejadian" or "side quest" && SameQuest(o.Name, done.Title!)))
                 if (_progress.Done.Add(step.Id))
                 {
