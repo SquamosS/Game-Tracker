@@ -240,7 +240,7 @@ public partial class MainWindow : Window
         step.Name.Contains(name, StringComparison.OrdinalIgnoreCase)
         || (name.EndsWith(" Materia") && step.Name.Contains(name[..^8], StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>The open step this item belongs to, preferring ones that are due now or left behind.</summary>
+    /// <summary>The open step this item belongs to: the current one first, then ones left behind.</summary>
     Objective? StepFor(string name)
     {
         var objectives = CurrentChapter?.Objectives ?? [];
@@ -248,7 +248,11 @@ public partial class MainWindow : Window
         int due = Array.FindIndex(objectives, next + 1, o => o.Type == "cerita");
         var open = objectives.Select((o, i) => (o, i))
             .Where(x => x.o.Type != "cerita" && !_progress.Done.Contains(x.o.Id) && Matches(x.o, name)).ToList();
-        return open.FirstOrDefault(x => due < 0 || x.i < due).o ?? open.FirstOrDefault().o;
+        // Prefer the step of the current story step (where you are), then ones left behind, then later ones:
+        // the same item can be listed twice (an MP Up on the catwalk and one in a vending machine).
+        return open.FirstOrDefault(x => x.i > next && (due < 0 || x.i < due)).o
+            ?? open.FirstOrDefault(x => x.i < next).o
+            ?? open.FirstOrDefault().o;
     }
 
     /// <summary>You ticked an item step right after the game gave you an item it did not know: remember the pair.</summary>
