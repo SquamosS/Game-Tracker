@@ -116,9 +116,11 @@ public partial class MainWindow : Window
         {
             if (_guide.Chapters.Any(c => c.Number == chapter))
             {
-                // Moving on to a later chapter means the previous one's story steps and its completion trophy are done.
+                // Moving on to a later chapter means the previous one's story steps, its completion trophy and its
+                // end-of-chapter reward are done (that reward arrives during the chapter change, with a save copy).
                 if (chapter > _progress.Chapter && _guide.Chapters.FirstOrDefault(c => c.Number == _progress.Chapter) is { } finished)
-                    foreach (var o in finished.Objectives.Where(o => o.Type == "cerita" || (o.Type == "trofi" && o.Where.Contains("selesai", StringComparison.OrdinalIgnoreCase))))
+                    foreach (var o in finished.Objectives.Where(o => o.Type == "cerita" || RewardTag(o) == "REWARD CHAPTER"
+                        || (o.Type == "trofi" && o.Where.Contains("selesai", StringComparison.OrdinalIgnoreCase))))
                         if (_progress.Done.Add(o.Id)) _progress.History.Add(o.Id);
                 _progress.Chapter = chapter!.Value;
                 ProgressStore.Save(_guide.Game, _progress);
