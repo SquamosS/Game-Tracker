@@ -458,7 +458,8 @@ public partial class MainWindow : Window
                 else if (chapter.Number < loaded && _progress.Ever.Contains(o.Id)) Tick(o);
                 // Only items listed once: owning "an MP Up" says nothing about which of several MP Up spots you
                 // visited. Those are left to the per-quest item monitor (FollowItems).
-                else if (ItemTypes.Contains(o.Type) && itemSteps.Count(s => s.Name == o.Name) == 1)
+                // Optional items are also sold, so a bought copy says nothing about the chest either.
+                else if (ItemTypes.Contains(o.Type) && !o.Optional && itemSteps.Count(s => s.Name == o.Name) == 1)
                 {
                     if (ownedNames.Any(n => Matches(o, n))) Tick(o);
                     else if (o.Type is "senjata" or "music disc" or "summon") Untick(o);
