@@ -176,7 +176,7 @@ public partial class MainWindow : Window
             .Select(o => o.Slot).ToHashSet();
         foreach (var o in owned) _slotIds[o.Slot] = o.Id;
         bool handedOver = changedSlots.Count is > 0 and <= 3;
-        if (changedSlots.Count > 3) _reconcile = true; // a save was loaded (or copied): check the ticks against it
+        if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; } // a save was loaded (or copied)
         bool IsNew(Ff7rChapterReader.Owned o) =>
             (_seenOwned.Add((o.Id, o.Obtained)) && o.Obtained >= _startedAt - 120) | (handedOver && changedSlots.Contains(o.Slot));
         foreach (var o in owned.Where(o => o.Id > 0 && o.Id != 20).Where(IsNew).ToList())
@@ -427,6 +427,8 @@ public partial class MainWindow : Window
         SummonColor = Brush("#E879F9"), TrophyColor = Brush("#FCD34D"), ManuscriptColor = Brush("#D6A77A");
 
     bool _reconcile, _storyMayGoBack;
+    /// <summary>Inventory slots that changed when a save was last loaded: they sit in the copy that save went to.</summary>
+    HashSet<long> _loadedSlots = [];
 
     /// <summary>
     /// Another save was loaded: make the ticks match it. Steps of later chapters are not done yet; earlier
@@ -436,7 +438,7 @@ public partial class MainWindow : Window
     /// </summary>
     bool Reconcile()
     {
-        if (_guide is null || _detectedChapter is not int loaded || _reader.ReadLiveOwnedIds() is not { } live) return false;
+        if (_guide is null || _detectedChapter is not int loaded || _reader.ReadLiveOwnedIds(_loadedSlots) is not { } live) return false;
         _reconcile = false;
         ProgressStore.Backup(_guide.Game);
         _progress.Ever.UnionWith(_progress.Done);
@@ -503,16 +505,23 @@ public partial class MainWindow : Window
             : _itemMap.FlagName("Q:" + live.TitleKey) is { } stepId ? chapter.Objectives.FirstOrDefault(o => o.Id == stepId)
             : chapter.Objectives.FirstOrDefault(o => o.Type == "cerita" && live.Title is { } title && NamedAs(o, title));
         if (objective is not null && CurrentChapter is { } chapter && chapter.Number == _detectedChapter
-            && (StepFor(sub, chapter) ?? StepFor(objective, chapter)) is { } step
-            && step != CurrentStory)
+            && (StepFor(sub, chapter) ?? StepFor(objective, chapter)) is { } step)
         {
-            // The guide only moves forward (browsing the Story menu must not undo progress), except right after
-            // another save was loaded, when the game's objective is where that save really is.
-            if (_storyMayGoBack || CurrentStory is not { } now || Array.IndexOf(chapter.Objectives, step) > Array.IndexOf(chapter.Objectives, now))
+            // Right after another save was loaded the game's objective is where that save really is: the story
+            // goes there, and what comes after it in this chapter cannot have been collected yet.
+            if (_storyMayGoBack)
             {
                 SetStoryPosition(step);
+                int next = Array.FindIndex(chapter.Objectives, Array.IndexOf(chapter.Objectives, step) + 1, o => o.Type == "cerita");
+                if (next >= 0)
+                    foreach (var o in chapter.Objectives.Skip(next).Where(o => o.Type != "trofi"))
+                        if (_progress.Done.Remove(o.Id)) _progress.History.Remove(o.Id);
                 _storyMayGoBack = false;
+                Save();
             }
+            // Otherwise the guide only moves forward: browsing the Story menu must not undo progress.
+            else if (step != CurrentStory && (CurrentStory is not { } now || Array.IndexOf(chapter.Objectives, step) > Array.IndexOf(chapter.Objectives, now)))
+                SetStoryPosition(step);
         }
         return true;
     }

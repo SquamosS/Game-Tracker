@@ -60,13 +60,17 @@ public sealed partial class Ff7rChapterReader : IDisposable
 
     /// <summary>Everything in the item and materia lists, or null while they are still being looked for.</summary>
     /// <summary>
-    /// Ids in the copy of the save data that changed last (its gil record has the newest time): what the loaded
-    /// save holds, unlike ReadOwned, which merges every copy. Null while the lists are still being looked for.
+    /// Ids in the copy of the save data the loaded save went to, unlike ReadOwned, which merges every copy: the
+    /// copy holding most of the slots that changed at the load, else the one whose gil changed last. Null while
+    /// the lists are still being looked for.
     /// </summary>
-    public HashSet<int>? ReadLiveOwnedIds()
+    public HashSet<int>? ReadLiveOwnedIds(IReadOnlyCollection<long> changedSlots)
     {
         if (ReadOwned() is null || _lists.Count == 0) return null;
-        var (materia, gil) = _lists.MaxBy(l => (uint)ReadInt32(l.Gil));
+        static bool Holds((long Materia, long Gil) l, long slot) => slot >= l.Materia - 0x40000 && slot < l.Gil + 0x10000;
+        var (materia, gil) = changedSlots.Count > 0 && _lists.Any(l => changedSlots.Any(s => Holds(l, s)))
+            ? _lists.MaxBy(l => changedSlots.Count(s => Holds(l, s)))
+            : _lists.MaxBy(l => (uint)ReadInt32(l.Gil));
         var ids = new HashSet<int>();
         long items = gil;
         while (ReadInt32(items - 0x18 + 8) is > 0 and < 100_000 && ReadInt32(items - 0x18 + 4) == 0) items -= 0x18;
