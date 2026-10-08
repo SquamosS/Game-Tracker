@@ -44,6 +44,7 @@ public sealed partial class Ff7rChapterReader : IDisposable
     // No pointer chain to them survived a game restart, so they are found by signature once per launch.
     // The game keeps several copies (save buffers); all are read and records are told apart by obtained time.
     const int ItemsToGil = 0x33630;
+    const int EquipmentBytes = 0x2000;
     List<(long Materia, long Gil)> _lists = new();
     Task<List<(long, long)>>? _search;
     DateTime _listsFound;
@@ -77,6 +78,12 @@ public sealed partial class Ff7rChapterReader : IDisposable
             while (ReadInt32(items - 0x18 + 8) is > 0 and < 100_000 && ReadInt32(items - 0x18 + 4) == 0) items -= 0x18;
             owned.AddRange(ReadRecords(items, 0x18, 600, (b, slot) => new Owned(BitConverter.ToInt32(b, 8), BitConverter.ToInt32(b, 12), BitConverter.ToUInt32(b, 0), slot)));
             owned.AddRange(ReadRecords(materia, 0x20, 600, (b, slot) => new Owned(BitConverter.ToInt32(b, 20), 1, BitConverter.ToUInt32(b, 0), slot)));
+            // Weapons (and other equipment) sit in a list of 0x10-byte records {kind 1/2, id} just before the
+            // materia list (Metal Knuckles 3002 at materia - 0xF50); new ones are appended into empty records.
+            owned.AddRange(ReadRecords(materia - EquipmentBytes, 0x10, EquipmentBytes / 0x10, (b, slot) =>
+                BitConverter.ToInt32(b, 0) is var kind && (kind & 0xFF) is 1 or 2 && kind >> 16 == 0
+                    && BitConverter.ToInt32(b, 4) is var id && id is >= 1000 and < 10000
+                    ? new Owned(id, 1, 0, slot) : new Owned(0, 0, 0, slot)));
         }
         return owned;
     }
