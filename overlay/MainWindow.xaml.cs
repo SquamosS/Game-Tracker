@@ -130,6 +130,7 @@ public partial class MainWindow : Window
         changed |= FollowItems();
         changed |= FollowFlags();
         changed |= FollowObjective();
+        changed |= FollowCompleted();
 
         string status = _reader.Problem
             ?? (_reader.Version is null ? "FF7R belum jalan"
@@ -349,6 +350,54 @@ public partial class MainWindow : Window
     /// Follows the game's live story objective: shows its text, and moves the guide to the story step it was
     /// learned for (objectives are grouped by their title key, so sub-objectives map to the same step).
     /// </summary>
+    /// <summary>
+    /// Ticks discoveries and side quests the game shows as done: a finished objective's entry points at its
+    /// closing row, whose description key ends in "_990_d" (or holds "_Done").
+    /// </summary>
+    bool FollowCompleted()
+    {
+        if (CurrentChapter is not { } chapter || chapter.Number != _detectedChapter) return false;
+        bool changed = false;
+        foreach (var done in _reader.Candidates.Where(c => c.Title is not null && (c.DescKey.EndsWith("_990_d") || c.DescKey.Contains("_Done"))))
+            foreach (var step in chapter.Objectives.Where(o => o.Type is "kejadian" or "side quest" && SameQuest(o.Name, done.Title!)))
+                if (_progress.Done.Add(step.Id))
+                {
+                    _progress.History.Add(step.Id);
+                    _itemStatus = $"Otomatis dicentang: {step.Name}";
+                    changed = true;
+                }
+        if (changed) Save();
+        return changed;
+    }
+
+    /// <summary>"Discovery: Collapsed Passageway" is the game's "Collapsed Passageway".</summary>
+    static bool SameQuest(string guideName, string title) =>
+        guideName.Replace("Discovery:", "").Trim().StartsWith(title, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>What a step is, as shown next to its name.</summary>
+    static string TypeLabel(Objective o) => o.Type == "kejadian" && o.Name.StartsWith("Discovery") ? "discovery" : o.Type;
+
+    /// <summary>One colour per kind of step, so discoveries, gear and collectibles are told apart at a glance.</summary>
+    static Brush TypeBrush(string label) => label switch
+    {
+        "cerita" => Accent,
+        "side quest" => SideQuestColor,
+        "discovery" => DiscoveryColor,
+        "materia" => MateriaColor,
+        "senjata" => WeaponColor,
+        "armor" => ArmorColor,
+        "aksesori" => AccessoryColor,
+        "music disc" => DiscColor,
+        "summon" => SummonColor,
+        "trofi" => TrophyColor,
+        "manuskrip" => ManuscriptColor,
+        _ => Muted,
+    };
+
+    static readonly Brush SideQuestColor = Brush("#22D3EE"), DiscoveryColor = Brush("#C084FC"), MateriaColor = Brush("#4ADE80"),
+        WeaponColor = Brush("#FB923C"), ArmorColor = Brush("#2DD4BF"), AccessoryColor = Brush("#A3E635"), DiscColor = Brush("#F472B6"),
+        SummonColor = Brush("#E879F9"), TrophyColor = Brush("#FCD34D"), ManuscriptColor = Brush("#D6A77A");
+
     bool FollowObjective()
     {
         var objective = _inGame && _detectedChapter is int chapterNow ? _reader.ReadObjective(chapterNow) : null;
@@ -640,8 +689,8 @@ public partial class MainWindow : Window
         if (tag is not null) title.Inlines.Add(new System.Windows.Documents.Run(tag + " ") { Foreground = tag == "SEKARANG" ? Now : Late, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (o.Missable && !done) title.Inlines.Add(new System.Windows.Documents.Run("MISSABLE ") { Foreground = Danger, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (o.Optional && !done) title.Inlines.Add(new System.Windows.Documents.Run("OPSIONAL ") { Foreground = Muted, FontWeight = FontWeights.Bold, FontSize = 10.5 });
-        title.Inlines.Add(new System.Windows.Documents.Run(o.Name) { Foreground = done ? Done : Brushes.White, TextDecorations = done ? TextDecorations.Strikethrough : null });
-        title.Inlines.Add(new System.Windows.Documents.Run($"  {o.Type}") { Foreground = Accent, FontSize = 10.5 });
+        title.Inlines.Add(new System.Windows.Documents.Run(o.Name) { Foreground = done ? Done : o.Type == "cerita" ? Brushes.White : TypeBrush(TypeLabel(o)), TextDecorations = done ? TextDecorations.Strikethrough : null });
+        title.Inlines.Add(new System.Windows.Documents.Run($"  {TypeLabel(o)}") { Foreground = TypeBrush(TypeLabel(o)), FontSize = 10.5, FontWeight = FontWeights.SemiBold });
 
         var text = new StackPanel();
         text.Children.Add(title);
