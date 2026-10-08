@@ -111,13 +111,6 @@
           "missable": false
         },
         {
-          "id": "c2-02-healing",
-          "type": "materia",
-          "name": "Healing Materia",
-          "where": "Diberikan Jessie otomatis saat tutorial materia di awal chapter.",
-          "missable": false
-        },
-        {
           "id": "c2-03-sector8-station",
           "type": "cerita",
           "name": "Reach the Sector 8 Station",
@@ -249,13 +242,6 @@
           "type": "cerita",
           "name": "A Job for the Neighborhood Watch",
           "where": "Temui Wymer, lalu bersihkan monster (Gorger, Wererat) di Scrap Boulevard.",
-          "missable": false
-        },
-        {
-          "id": "c3-09-ice-cave",
-          "type": "materia",
-          "name": "Ice Materia",
-          "where": "Di terowongan/gua tepat di awal Scrap Boulevard; orb hijau di tengah.",
           "missable": false
         },
         {
@@ -554,13 +540,6 @@
           "missable": false
         },
         {
-          "id": "c5-02-healing",
-          "type": "materia",
-          "name": "Healing Materia",
-          "where": "Di kursi kiri gerbong kereta dekat Barret. Ambil sebelum lompat turun.",
-          "missable": true
-        },
-        {
           "id": "c5-03-separate",
           "type": "cerita",
           "name": "Separate Ways / Looking for a Friend / Find Barret / Get Your Bearings",
@@ -596,13 +575,6 @@
           "missable": false
         },
         {
-          "id": "c5-08-lightning",
-          "type": "materia",
-          "name": "Lightning Materia",
-          "where": "Di ruang istirahat (ada vending machine & bangku) setelah fight turret di rail yard.",
-          "missable": true
-        },
-        {
           "id": "c5-09-disc-stamp",
           "type": "music disc",
           "name": "Stamp",
@@ -615,7 +587,7 @@
           "name": "Secret Passageway / Stairway Detour",
           "where": "Hancurkan 4 kakinya lalu pukul generatornya; Thunder efektif.",
           "missable": false,
-          "warning": "SEBELUM LANJUT: pastikan Healing Materia, Star Pendant, Leather Bracer, Lightning Materia & disc Stamp sudah diambil. Setelah boss ini area terowongan tertutup permanen."
+          "warning": "SEBELUM LANJUT: pastikan Star Pendant, Leather Bracer & disc Stamp sudah diambil. Setelah boss ini area terowongan tertutup permanen."
         },
         {
           "id": "c5-11-metal-knuckles",
@@ -773,13 +745,6 @@
           "missable": false
         },
         {
-          "id": "c7-05-lightning",
-          "type": "materia",
-          "name": "Lightning Materia",
-          "where": "Pojok kanan ruang kontrol kedua (assembly hall), di antara kotak Shinra.",
-          "missable": true
-        },
-        {
           "id": "c7-06-sonic-strikers",
           "type": "senjata",
           "name": "Sonic Strikers",
@@ -820,7 +785,7 @@
           "name": "Airbuster (boss)",
           "where": "Pakai Lightning buat stagger, pukul dari belakang saat dia berbalik.",
           "missable": false,
-          "warning": "SEBELUM LANJUT: ambil Bulletproof Vest, Lightning Materia, Sonic Strikers, Magic Up & disc Bombing Mission. Setelah boss reaktor tertutup."
+          "warning": "SEBELUM LANJUT: ambil Bulletproof Vest, Sonic Strikers, Magic Up & disc Bombing Mission. Setelah boss reaktor tertutup."
         },
         {
           "id": "c7-12-titanium",
@@ -1491,13 +1456,6 @@
           "missable": false
         },
         {
-          "id": "c10-05-poison",
-          "type": "materia",
-          "name": "Poison Materia",
-          "where": "Di platform sebelah kanan saat Crossing the Trunk Line, setelah grup musuh kedua.",
-          "missable": true
-        },
-        {
           "id": "c10-06-oppressed",
           "type": "music disc",
           "name": "Music Disc: The Oppressed",
@@ -1764,13 +1722,6 @@
           "name": "Reunite with Tifa",
           "where": "Naik tangga, tembak derek untuk bakar serangga, lalu bantu Tifa lawan kawanan bug.",
           "missable": false
-        },
-        {
-          "id": "c13-18-ice-materia",
-          "type": "materia",
-          "name": "Ice Materia",
-          "where": "Kandang kanan, tembak gerbangnya.",
-          "missable": true
         },
         {
           "id": "c13-20-warding-materia",
@@ -2064,13 +2015,6 @@
           "type": "cerita",
           "name": "Recovering the Key",
           "where": "Sector 6 Restricted Area & Old Line. Peti: Hazardous Material x2 (kanan), Phoenix Down x2 (seberang jembatan), Mega-Potion x2, Ether (pojok kiri).",
-          "missable": true
-        },
-        {
-          "id": "c14-38-poison-materia",
-          "type": "materia",
-          "name": "Poison Materia",
-          "where": "Pojok ruangan setelah lawan Blugu + 2 Abzu Shoat (Old Line).",
           "missable": true
         },
         {
@@ -2502,13 +2446,6 @@
           "name": "Find the Others",
           "where": "Party terpisah. Tarik tuas, lawan Monodrive; Red XIII ikut sebagai tamu.",
           "missable": false
-        },
-        {
-          "id": "c17-11-poison",
-          "type": "materia",
-          "name": "Poison",
-          "where": "Jalur samping menyeberangi pod setelah Monodrive pertama.",
-          "missable": true
         },
         {
           "id": "c17-12-find-barret",
