@@ -601,10 +601,17 @@
           "missable": false
         },
         {
+          "id": "c5-10-crab-warden",
+          "type": "cerita",
+          "name": "Secret Passageway / Stairway Detour",
+          "where": "Hancurkan 4 kakinya lalu pukul generatornya; Thunder efektif.",
+          "missable": false
+        },
+        {
           "id": "c5-08-lightning",
           "type": "materia",
           "name": "Lightning Materia",
-          "where": "Di ruang istirahat (ada vending machine & bangku) setelah fight turret di rail yard. Opsional: juga dijual di toko materia.",
+          "where": "Ruang istirahat (vending machine & bangku) di jalur Secret Passageway, sebelum boss Crab Warden. Opsional: juga dijual di toko materia.",
           "missable": false,
           "optional": true
         },
@@ -625,14 +632,6 @@
           "missable": true
         },
         {
-          "id": "c5-10-crab-warden",
-          "type": "cerita",
-          "name": "Secret Passageway / Stairway Detour",
-          "where": "Hancurkan 4 kakinya lalu pukul generatornya; Thunder efektif.",
-          "missable": false,
-          "warning": "SEBELUM LANJUT: pastikan disc Stamp sudah dibeli. Setelah boss ini area terowongan tertutup permanen."
-        },
-        {
           "id": "c5-11-metal-knuckles",
           "type": "senjata",
           "name": "Metal Knuckles",
@@ -644,7 +643,8 @@
           "type": "cerita",
           "name": "The Road to Mako Reactor 5 / To Mako Reactor 5",
           "where": "Panjat tangga besi setelah boss; chapter selesai.",
-          "missable": false
+          "missable": false,
+          "warning": "SEBELUM LANJUT: beli disc Stamp di vending machine ruang istirahat sebelum boss Crab Warden. Setelah boss Crab Warden area terowongan tertutup permanen."
         },
         {
           "id": "c5-13-trophy",
