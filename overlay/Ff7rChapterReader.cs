@@ -68,9 +68,12 @@ public sealed partial class Ff7rChapterReader : IDisposable
     {
         if (ReadOwned() is null || _lists.Count == 0) return null;
         static bool Holds((long Materia, long Gil) l, long slot) => slot >= l.Materia - 0x40000 && slot < l.Gil + 0x10000;
-        var (materia, gil) = changedSlots.Count > 0 && _lists.Any(l => changedSlots.Any(s => Holds(l, s)))
-            ? _lists.MaxBy(l => changedSlots.Count(s => Holds(l, s)))
-            : _lists.MaxBy(l => (uint)ReadInt32(l.Gil));
+        (long Materia, long Gil) live;
+        if (changedSlots.Count > 0 && _lists.Any(l => changedSlots.Any(s => Holds(l, s))))
+            live = _lists.MaxBy(l => changedSlots.Count(s => Holds(l, s)));
+        else if (LiveCopy() is { } copy) live = copy;
+        else return null; // asked again on the next poll
+        var (materia, gil) = live;
         var ids = new HashSet<int>();
         long items = gil;
         while (ReadInt32(items - 0x18 + 8) is > 0 and < 100_000 && ReadInt32(items - 0x18 + 4) == 0) items -= 0x18;
@@ -82,6 +85,39 @@ public sealed partial class Ff7rChapterReader : IDisposable
                      (BitConverter.ToInt32(b, 0) & 0xFF) is 1 or 2 ? new Owned(BitConverter.ToInt32(b, 4), 1, 0, slot) : new Owned(0, 0, 0, slot)))
             if (o.Id is >= 1000 and < 10000) ids.Add(o.Id);
         return ids;
+    }
+
+    Dictionary<long, byte[]>? _probe;
+    DateTime _probeAt;
+
+    /// <summary>
+    /// The copy of the save data the game is playing on: other copies (save buffers) stay still, the live one keeps
+    /// changing (play time, position...). Compares two reads at least a second apart; null until the second read.
+    /// </summary>
+    (long Materia, long Gil)? LiveCopy()
+    {
+        byte[] Read((long Materia, long Gil) l)
+        {
+            var buffer = new byte[(int)(l.Gil - l.Materia + EquipmentBytes + 0x1000)];
+            ReadProcessMemory(_handle, (IntPtr)(l.Materia - EquipmentBytes), buffer, buffer.Length, out _);
+            return buffer;
+        }
+        if (_probe is null || _probe.Count != _lists.Count || !_lists.All(l => _probe.ContainsKey(l.Materia)))
+        {
+            _probe = _lists.ToDictionary(l => l.Materia, Read);
+            _probeAt = DateTime.Now;
+            return null;
+        }
+        if (DateTime.Now - _probeAt < TimeSpan.FromSeconds(1)) return null;
+        int Changes((long Materia, long Gil) l)
+        {
+            var now = Read(l); var before = _probe[l.Materia]; int n = 0;
+            for (int i = 0; i < Math.Min(now.Length, before.Length); i++) if (now[i] != before[i]) n++;
+            return n;
+        }
+        var live = _lists.MaxBy(Changes);
+        _probe = null;
+        return live;
     }
 
     public List<Owned>? ReadOwned()

@@ -109,6 +109,9 @@ public partial class MainWindow : Window
         if (chapter is not null) { _inGame = true; _menuTicks = 0; }
         else if (_reader.Version is null || ++_menuTicks >= 3) _inGame = false; // game closed: no grace period
         if (!_inGame) { chapter = null; _detectedChapter = null; }
+        // Back in game after the title screen or a load (or the overlay just started): the save may be another
+        // one, even the same chapter, so check the ticks against it.
+        if (_inGame && !wasInGame) { _reconcile = true; _loadedSlots = []; }
 
         bool changed = chapter is not null && chapter != _detectedChapter;
         if (chapter is not null) _detectedChapter = chapter;
@@ -495,7 +498,7 @@ public partial class MainWindow : Window
         var sub = objective is null ? null : _reader.CandidateSlots
             .Where(c => IsSub(c.Objective.TitleKey) && c.Objective.TitleKey.StartsWith(objective.TitleKey + "_"))
             .OrderByDescending(c => c.Slot).Select(c => c.Objective).FirstOrDefault();
-        if (objective?.Row == _objective?.Row && sub?.Row == _subObjective?.Row) return false;
+        if (objective?.Row == _objective?.Row && sub?.Row == _subObjective?.Row && !_storyMayGoBack) return false;
         if (_objective is not null) _reader.RefreshListsSoon();
         _objective = objective;
         _subObjective = sub;
