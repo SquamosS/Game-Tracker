@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -20,6 +20,8 @@ public partial class MainWindow : Window
     FileSystemWatcher? _watcher;
     bool _clickThrough;
     bool _showDone;
+    /// <summary>Full checklist instead of the compact quest tracker (Ctrl+Shift+A).</summary>
+    bool _full;
     readonly Ff7rChapterReader _reader = new();
     int? _detectedChapter;
     bool _inGame;
@@ -28,10 +30,13 @@ public partial class MainWindow : Window
     readonly StoryMap _storyMap = StoryMap.Load();
     readonly ItemMap _itemMap = ItemMap.Load();
     HashSet<(int, uint)>? _seenOwned;
+    /// <summary>Last id seen in each inventory slot.</summary>
+    readonly Dictionary<long, int> _slotIds = new();
     readonly long _startedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     readonly List<(int Id, DateTime When)> _unknownNew = new();
     string? _itemStatus;
     HashSet<string>? _seenFlags;
+    Ff7rChapterReader.Objective? _objective;
     readonly List<(string Flag, DateTime When)> _newFlags = new();
     (Objective Step, DateTime When)? _pendingStory;
     string _detectStatus = "";
@@ -100,8 +105,9 @@ public partial class MainWindow : Window
 
         // The chapter byte is only valid in game (0/255 in menus and between chapters). Wait a few seconds before
         // dropping the checklist so a flicker during loads doesn't hide it.
+        bool wasInGame = _inGame;
         if (chapter is not null) { _inGame = true; _menuTicks = 0; }
-        else if (++_menuTicks >= 3) _inGame = false;
+        else if (_reader.Version is null || ++_menuTicks >= 3) _inGame = false; // game closed: no grace period
         if (!_inGame) { chapter = null; _detectedChapter = null; }
 
         bool changed = chapter is not null && chapter != _detectedChapter;
@@ -120,15 +126,18 @@ public partial class MainWindow : Window
             else _error = $"Chapter {chapter} terdeteksi, tapi belum ada di panduan";
         }
         changed |= FollowStory();
+        // An item step right after the current story step may be handed over any moment: look for it more often.
+        _reader.ListRefresh = ExpectingItem() ? TimeSpan.FromSeconds(15) : TimeSpan.FromMinutes(1);
         changed |= FollowItems();
         changed |= FollowFlags();
+        changed |= FollowObjective();
 
         string status = _reader.Problem
             ?? (_reader.Version is null ? "FF7R belum jalan"
                 : !_inGame ? $"FF7R {_reader.Version} terdeteksi, menunggu save di-load"
                 : $"FF7R {_reader.Version}: Chapter {_detectedChapter} terdeteksi" + (_story is null ? "" : $", progres cerita {_story}")
                     + (_seenOwned is null ? "" : ", inventory terbaca") + (_itemStatus is null ? "" : $"\n{_itemStatus}"));
-        if (changed || status != _detectStatus) { _detectStatus = status; Render(); }
+        if (changed || status != _detectStatus || wasInGame != _inGame) { _detectStatus = status; Render(); }
     }
 
     /// <summary>
@@ -145,6 +154,7 @@ public partial class MainWindow : Window
         if (_seenOwned is null)
         {
             _seenOwned = owned.Select(o => (o.Id, o.Obtained)).ToHashSet();
+            foreach (var o in owned) _slotIds[o.Slot] = o.Id;
             foreach (var o in owned)
                 if (_itemMap.Name(o.Id) is { } disc)
                     foreach (var step in _guide.Chapters.SelectMany(c => c.Objectives))
@@ -153,7 +163,16 @@ public partial class MainWindow : Window
             return true;
         }
         // Only things obtained since the overlay started: older records come from save-buffer copies of other saves.
-        foreach (var o in owned.Where(o => o.Id != 20 && _seenOwned.Add((o.Id, o.Obtained)) && o.Obtained >= _startedAt - 120))
+        // New: a record obtained since the overlay started, or an id put into a slot that held something else
+        // (the game reuses slots, and a reused slot keeps its old time). Many slots changing at once is a save
+        // being loaded or copied, not items being handed over.
+        var changedSlots = owned.Where(o => o.Id > 0 && _slotIds.TryGetValue(o.Slot, out int before) && before != o.Id)
+            .Select(o => o.Slot).ToHashSet();
+        foreach (var o in owned) _slotIds[o.Slot] = o.Id;
+        bool handedOver = changedSlots.Count is > 0 and <= 3;
+        bool IsNew(Ff7rChapterReader.Owned o) =>
+            (_seenOwned.Add((o.Id, o.Obtained)) && o.Obtained >= _startedAt - 120) | (handedOver && changedSlots.Contains(o.Slot));
+        foreach (var o in owned.Where(o => o.Id > 0 && o.Id != 20).Where(IsNew).ToList())
         {
             // Consumables (ids below 100: potions, gil...) are never guide steps, so they are not learned.
             if (_itemMap.Name(o.Id) is not { } name) { if (o.Id >= 100) _unknownNew.Add((o.Id, DateTime.Now)); continue; }
@@ -259,6 +278,13 @@ public partial class MainWindow : Window
         return true;
     }
 
+    static readonly HashSet<string> ItemTypes = ["materia", "aksesori", "armor", "senjata", "summon", "music disc", "manuskrip"];
+
+    /// <summary>Whether an item step not yet done follows the current story step (before the next one).</summary>
+    bool ExpectingItem() => CurrentChapter is { } chapter && CurrentStory is { } story
+        && chapter.Objectives.SkipWhile(o => o != story).Skip(1).TakeWhile(o => o.Type != "cerita")
+            .Any(o => ItemTypes.Contains(o.Type) && !_progress.Done.Contains(o.Id));
+
     Objective? CurrentStory => CurrentChapter?.Objectives.FirstOrDefault(o => o.Type == "cerita" && !_progress.Done.Contains(o.Id));
 
     /// <summary>Story steps before the target become done, the target and later ones open. Items are left alone.</summary>
@@ -280,6 +306,97 @@ public partial class MainWindow : Window
     {
         if (_story is { } value && CurrentStory is { } step && CurrentChapter?.Number == _detectedChapter)
             _storyMap.Record(CurrentChapter!.Number, value, step.Id);
+        // You marked where you are: remember that the game's current objective belongs to that story step.
+        if (_objective is { } objective && CurrentStory is { } current && CurrentChapter?.Number == _detectedChapter)
+        {
+            _itemMap.LearnFlag("Q:" + objective.TitleKey, current.Id);
+            _itemStatus = $"Dipelajari: objektif {objective.TitleKey} = {current.Name}";
+        }
+    }
+
+    /// <summary>Story steps carry the game's quest names; one step may cover several ("A / B").</summary>
+    static bool NamedAs(Objective step, string title) =>
+        step.Name.Split(" / ").Any(part => part.Trim().Equals(title, StringComparison.OrdinalIgnoreCase));
+
+    string _lastChoiceLog = "";
+
+    /// <summary>
+    /// Writes the candidates and the pick to data\logs\quest-choice.log whenever either changes, marking ties
+    /// (two candidates on the same guide step), so wrong picks can be traced without a screenshot.
+    /// </summary>
+    /// <summary>The objective of the last entry in the longest run of adjacent entries, ignoring chapter titles.</summary>
+    Ff7rChapterReader.Objective? NewestEntry()
+    {
+        var slots = _reader.CandidateSlots
+            .Where(c => !c.Objective.TitleKey.Contains("_Parent") && !c.Objective.TitleKey.EndsWith("_End"))
+            .OrderBy(c => c.Slot).ToList();
+        List<(Ff7rChapterReader.Objective Objective, long Slot, long Parent)> best = [], run = [];
+        foreach (var c in slots)
+        {
+            if (run.Count > 0 && c.Slot - run[^1].Slot > 0x400) run = [];
+            run.Add(c);
+            if (run.Count >= best.Count) best = run;
+        }
+        return best.Count >= 2 ? best[^1].Objective : null;
+    }
+
+    void LogChoice(Ff7rChapterReader.Objective chosen, Func<Ff7rChapterReader.Objective, int> index, Ff7rChapterReader.Objective? guidePick = null)
+    {
+        var lines = _reader.CandidateSlots
+            .Select(c => $"   {(c.Objective == chosen ? "*" : " ")} {c.Objective.Title ?? "?"} | {c.Objective.TitleKey} | order {c.Objective.Order} | guide {index(c.Objective)} | slot {c.Slot:X} parent {c.Parent:X}")
+            .Distinct().ToList();
+        string text = string.Join(Environment.NewLine, lines);
+        if (text == _lastChoiceLog) return;
+        _lastChoiceLog = text;
+        int top = index(chosen);
+        bool tie = _reader.Candidates.Count(c => index(c) == top && c.Row != chosen.Row) > 0;
+        try
+        {
+            System.IO.File.AppendAllText(System.IO.Path.Combine(DataPaths.Logs, "quest-choice.log"),
+                $"{DateTime.Now:HH:mm:ss} chapter {_detectedChapter}: {chosen.Title ?? chosen.TitleKey}{(tie ? "  [RAGU: kandidat lain di langkah guide yang sama]" : "")}{(guidePick is null ? "" : $"  [BEDA: guide memilih {guidePick.Title}]")}{Environment.NewLine}{text}{Environment.NewLine}");
+        }
+        catch (System.IO.IOException) { }
+    }
+
+    /// <summary>
+    /// Follows the game's live story objective: shows its text, and moves the guide to the story step it was
+    /// learned for (objectives are grouped by their title key, so sub-objectives map to the same step).
+    /// </summary>
+    bool FollowObjective()
+    {
+        var objective = _inGame && _detectedChapter is int chapterNow ? _reader.ReadObjective(chapterNow) : null;
+        // The current objective is the one furthest along the guide: older ones stay referenced (history, Story
+        // menu), but nothing points at objectives that have not started yet.
+        if (objective is not null && CurrentChapter is { } guideChapter)
+        {
+            int Index(Ff7rChapterReader.Objective o) => o.Title is { } t
+                ? Array.FindIndex(guideChapter.Objectives, s => s.Type == "cerita" && NamedAs(s, t))
+                : -1;
+            // One guide step can cover several quests ("A / B"): then the later row in the game's table wins.
+            var furthest = _reader.Candidates.MaxBy(o => (Index(o), o.Order));
+            if (furthest is not null && Index(furthest) < 0) furthest = null;
+            // The game's own order comes first: each objective that starts gets the next entry in one array
+            // (entries 0x188 apart), so the last entry of the longest run is the newest objective. The guide
+            // order is the fallback when there is no such run.
+            var newest = NewestEntry();
+            objective = newest ?? furthest ?? objective;
+            LogChoice(objective, Index, newest is not null && furthest is not null && furthest.Row != newest.Row ? furthest : null);
+        }
+        if (objective?.Row == _objective?.Row) return false;
+        if (_objective is not null) _reader.RefreshListsSoon();
+        _objective = objective;
+        // Guide story steps carry the game's own quest names, so match by name; a learned mapping wins.
+        if (objective is not null && CurrentChapter is { } chapter && chapter.Number == _detectedChapter
+            && (_itemMap.FlagName("Q:" + objective.TitleKey) is { } stepId
+                    ? chapter.Objectives.FirstOrDefault(o => o.Id == stepId)
+                    : chapter.Objectives.FirstOrDefault(o => o.Type == "cerita" && objective.Title is { } title && NamedAs(o, title))) is { } step
+            && step != CurrentStory)
+        {
+            // The guide only moves forward: ticked steps stay ticked. The objective shown is still the game's.
+            if (CurrentStory is not { } now || Array.IndexOf(chapter.Objectives, step) > Array.IndexOf(chapter.Objectives, now))
+                SetStoryPosition(step);
+        }
+        return true;
     }
 
     void SetupHotkeys()
@@ -303,7 +420,7 @@ public partial class MainWindow : Window
     {
         var area = SystemParameters.WorkArea;
         Left = area.Right - Width - 24;
-        Top = area.Top + 24;
+        Top = area.Top + area.Height * 0.3; // below the game's minimap
     }
 
     void ToggleVisible()
@@ -312,9 +429,12 @@ public partial class MainWindow : Window
         else { Show(); Topmost = true; }
     }
 
+    /// <summary>Ctrl+Shift+A: compact tracker, then the full checklist, then the full checklist with finished steps.</summary>
     void ToggleArchive()
     {
-        _showDone = !_showDone;
+        if (!_full) { _full = true; _showDone = false; }
+        else if (!_showDone) _showDone = true;
+        else _full = _showDone = false;
         Render();
     }
 
@@ -378,14 +498,25 @@ public partial class MainWindow : Window
         Render();
     }
 
+    bool WarningOpen(Objective o) => o.Warning is not null && (o.Needs is not { Length: > 0 } needs || !needs.All(_progress.Done.Contains));
+
     void Render()
     {
         List.Children.Clear();
         var chapter = CurrentChapter;
         GameText.Text = _guide?.Game ?? "Game Tracker";
+        ObjectiveText.Text = _objective is { } live
+            ? "▶ " + (live.Title ?? live.TitleKey) + (live.Text is { Length: < 90 } line ? "\n   " + line : "")
+            : "";
+        ObjectiveText.ToolTip = _objective?.Text;
+        if (_objective is null && _inGame) ObjectiveText.Text = "▶ (mencari objektif aktif...)";
         FooterText.Text = (_error is null ? "" : _error + "\n") + _detectStatus + "\n" +
-            "Ctrl+Shift+G tampil/sembunyi · Space centang berikutnya · Backspace batal · " +
-            "PgUp/PgDn ganti chapter · A arsip · T mode mouse · double-click langkah = posisiku " + (_clickThrough ? "(tembus ke game)" : "(klik overlay)");
+            "Ctrl+Shift+G tampil/sembunyi · Ctrl+Shift+A panduan lengkap / arsip · Space centang berikutnya · Backspace batal · " +
+            "PgUp/PgDn ganti chapter · T mode mouse · double-click langkah = posisiku " + (_clickThrough ? "(tembus ke game)" : "(klik overlay)");
+        // Compact tracker: as tall as its content, no footer unless something is wrong.
+        FooterText.Visibility = _full || _error is not null || _reader.Problem is not null ? Visibility.Visible : Visibility.Collapsed;
+        if (_full) { SizeToContent = SizeToContent.Manual; MaxHeight = double.PositiveInfinity; if (Height < 400) Height = 640; }
+        else { SizeToContent = SizeToContent.Height; MaxHeight = 520; }
 
         // No checklist until a save is loaded: the chapter would only be a guess.
         if (!_inGame && _reader.Problem is null)
@@ -409,18 +540,32 @@ public partial class MainWindow : Window
         var pending = objectives.Where(o => !_progress.Done.Contains(o.Id)).ToList();
         var gate = pending.FirstOrDefault(o => o.Warning is not null);
         var openBefore = gate is null ? pending : pending.TakeWhile(o => o != gate).ToList();
-        int missableLeft = openBefore.Count(o => o.Missable);
-        WarnBox.Visibility = gate is null && chapter?.PointOfNoReturn is null && missableLeft == 0 ? Visibility.Collapsed : Visibility.Visible;
-        WarnText.Text = string.Join("\n", new[]
+        // Name what is still to get, so the notice shrinks as things are picked up: this chapter's missables before
+        // the point of no return, plus the steps the warning itself waits for (possibly from an earlier chapter).
+        var steps = _guide?.Chapters.SelectMany(c => c.Objectives).GroupBy(o => o.Id).ToDictionary(g => g.Key, g => g.First()) ?? [];
+        var toGet = openBefore.Where(o => o.Missable && o.Type != "cerita").Select(o => o.Name)
+            .Concat((gate?.Needs ?? []).Where(id => !_progress.Done.Contains(id) && steps.ContainsKey(id)).Select(id => steps[id].Name))
+            .Distinct().ToList();
+        // What closes behind you: the warning's sentence that starts with "Setelah" ("after this ...").
+        string? reason = gate?.Warning is { } warning
+            ? System.Text.RegularExpressions.Regex.Split(warning, @"(?<=\.)\s+").FirstOrDefault(s => s.StartsWith("Setelah"))
+            : null;
+        WarnBox.Visibility = toGet.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        WarnText.Text = toGet.Count == 0 ? "" : string.Join(Environment.NewLine, new[]
         {
-            missableLeft > 0 ? (gate is null ? $"⚠ {missableLeft} item MISSABLE belum diambil." : $"⚠ {missableLeft} item MISSABLE belum diambil sebelum \"{gate.Name}\".") : null,
-            gate?.Warning ?? chapter?.PointOfNoReturn,
+            gate is null ? $"⚠ Belum diambil: {string.Join(", ", toGet)}." : $"⚠ Ambil sebelum \"{gate.Name}\": {string.Join(", ", toGet)}.",
+            reason,
         }.Where(s => s is not null));
 
         string? nextId = NextStep(objectives)?.Id;
         // Items listed after a story step can be done while that step is the current one.
         int current = CurrentStory is { } story ? Array.IndexOf(objectives, story) : objectives.Length;
         int phase = -1;
+        if (!_full)
+        {
+            RenderCompact(objectives, current);
+            return;
+        }
         // Finished steps go to an archive that one click (or Ctrl+Shift+A) opens again.
         int archived = objectives.Count(o => _progress.Done.Contains(o.Id));
         if (archived > 0)
@@ -446,6 +591,30 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// The quest itself comes from the game; below it only what the game does not tell you: a hint for the
+    /// current story step, and the items and side quests open now or left behind (missables first).
+    /// </summary>
+    void RenderCompact(Objective[] objectives, int current)
+    {
+        // Only once the live objective is known: before that the guide position is just the last saved one.
+        if (_objective is not null && CurrentStory is { } story && !string.IsNullOrWhiteSpace(story.Where))
+            List.Children.Add(new TextBlock { Text = story.Where, TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12, Margin = new Thickness(2, 0, 0, 6) });
+        int phase = -1;
+        var open = new List<(Objective Step, string Tag)>();
+        for (int i = 0; i < objectives.Length; i++)
+        {
+            var o = objectives[i];
+            if (o.Type == "cerita") { phase = i; continue; }
+            if (phase > current || _progress.Done.Contains(o.Id)) continue;
+            // Trophies that come with finishing the chapter need nothing from you.
+            if (o.Type == "trofi" && !o.Missable && o.Where.Contains("otomatis", StringComparison.OrdinalIgnoreCase)) continue;
+            open.Add((o, phase == current ? "SEKARANG" : "TERTINGGAL"));
+        }
+        foreach (var (step, tag) in open.OrderByDescending(x => x.Step.Missable))
+            List.Children.Add(Row(step, false, false, tag));
+    }
+
     FrameworkElement Row(Objective o, bool done, bool isNext, string? tag)
     {
         var box = new CheckBox { IsChecked = done, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 8, 0) };
@@ -460,7 +629,7 @@ public partial class MainWindow : Window
         var text = new StackPanel();
         text.Children.Add(title);
         if (!done) text.Children.Add(new TextBlock { Text = o.Where, TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12 });
-        if (!done && o.Warning is not null)
+        if (!done && WarningOpen(o))
             text.Children.Add(new TextBlock { Text = "⚠ " + o.Warning, TextWrapping = TextWrapping.Wrap, Foreground = Danger, FontSize = 12, Margin = new Thickness(0, 2, 0, 0) });
 
         var row = new DockPanel();

@@ -9,8 +9,7 @@ namespace GameTracker;
 /// </summary>
 public class ItemMap
 {
-    static readonly string File_ = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GameTracker", "ff7r-item-map.json");
+    static readonly string File_ = Path.Combine(DataPaths.Data, "ff7r-item-map.json");
 
     // Ids follow the game's localization keys: accessories 9016 + E_ACC number, materia 10000/11000/12000/13000/14000
     // + M_MAG/M_SUP/M_COM/M_IND/M_SUM number. Names read from the game's own text table (tools/ff7r-scan).

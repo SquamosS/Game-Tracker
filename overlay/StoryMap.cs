@@ -10,8 +10,7 @@ namespace GameTracker;
 /// </summary>
 public class StoryMap
 {
-    static readonly string File_ = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GameTracker", "ff7r-story-map.json");
+    static readonly string File_ = Path.Combine(DataPaths.Data, "ff7r-story-map.json");
 
     public Dictionary<int, SortedDictionary<int, string>> Chapters { get; set; } = new();
 

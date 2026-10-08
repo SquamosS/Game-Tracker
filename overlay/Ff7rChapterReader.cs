@@ -7,7 +7,7 @@ namespace GameTracker;
 /// Reads the current chapter number from FF7 Remake's memory (read-only), the same way LiveSplit's
 /// autosplitter does. Offsets come from https://github.com/Mysterion06/FF7RSplitter (FF7R.asl).
 /// </summary>
-public sealed class Ff7rChapterReader : IDisposable
+public sealed partial class Ff7rChapterReader : IDisposable
 {
     const string ProcessName = "ff7remake_";
     const uint PROCESS_VM_READ = 0x10, PROCESS_QUERY_INFORMATION = 0x400;
@@ -70,14 +70,24 @@ public sealed class Ff7rChapterReader : IDisposable
     const int ItemsToGil = 0x33630;
     List<(long Materia, long Gil)> _lists = new();
     Task<List<(long, long)>>? _search;
+    DateTime _listsFound;
 
-    public record Owned(int Id, int Count, uint Obtained);
+    /// <summary>How often to look for new copies of the save data. A full look takes ~10 s of one core.</summary>
+    public TimeSpan ListRefresh { get; set; } = TimeSpan.FromMinutes(1);
+
+    /// <summary>Look for new copies right away (the objective changed: rewards often come with it).</summary>
+    public void RefreshListsSoon() => _listsFound = DateTime.MinValue;
+
+    /// <summary>One inventory record; Slot is its address, which keeps holding the same id unless something new is put there.</summary>
+    public record Owned(int Id, int Count, uint Obtained, long Slot = 0);
 
     /// <summary>Everything in the item and materia lists, or null while they are still being looked for.</summary>
     public List<Owned>? ReadOwned()
     {
         if (!Attach()) return null;
-        if (_search is { IsCompleted: true }) { _lists = _search.Result; _search = null; }
+        if (_search is { IsCompleted: true }) { _lists = _search.Result; _search = null; _listsFound = DateTime.Now; }
+        // The game makes new copies of the save data (autosave, chapter change): look for new lists now and then.
+        if (_lists.Count > 0 && DateTime.Now - _listsFound > ListRefresh) _search ??= Task.Run(FindLists);
         _lists.RemoveAll(l => ReadInt32(l.Gil + 8) != 20);
         if (_lists.Count == 0)
         {
@@ -89,8 +99,8 @@ public sealed class Ff7rChapterReader : IDisposable
         {
             long items = gil;
             while (ReadInt32(items - 0x18 + 8) is > 0 and < 100_000 && ReadInt32(items - 0x18 + 4) == 0) items -= 0x18;
-            owned.AddRange(ReadRecords(items, 0x18, 600, b => new Owned(BitConverter.ToInt32(b, 8), BitConverter.ToInt32(b, 12), BitConverter.ToUInt32(b, 0))));
-            owned.AddRange(ReadRecords(materia, 0x20, 600, b => new Owned(BitConverter.ToInt32(b, 20), 1, BitConverter.ToUInt32(b, 0))));
+            owned.AddRange(ReadRecords(items, 0x18, 600, (b, slot) => new Owned(BitConverter.ToInt32(b, 8), BitConverter.ToInt32(b, 12), BitConverter.ToUInt32(b, 0), slot)));
+            owned.AddRange(ReadRecords(materia, 0x20, 600, (b, slot) => new Owned(BitConverter.ToInt32(b, 20), 1, BitConverter.ToUInt32(b, 0), slot)));
         }
         return owned;
     }
@@ -164,15 +174,15 @@ public sealed class Ff7rChapterReader : IDisposable
         return ReadProcessMemory(_handle, (IntPtr)address, buffer, 4, out _) ? BitConverter.ToInt32(buffer) : 0;
     }
 
-    List<Owned> ReadRecords(long address, int size, int max, Func<byte[], Owned> parse)
+    List<Owned> ReadRecords(long address, int size, int max, Func<byte[], long, Owned> parse)
     {
         var buffer = new byte[size * max];
         var list = new List<Owned>();
         if (!ReadProcessMemory(_handle, (IntPtr)address, buffer, buffer.Length, out _)) return list;
         for (int i = 0; i < max; i++)
         {
-            var o = parse(buffer[(i * size)..((i + 1) * size)]);
-            if (o.Id > 0 && o.Id < 100_000) list.Add(o);
+            var o = parse(buffer[(i * size)..((i + 1) * size)], address + (long)i * size);
+            if (o.Id >= 0 && o.Id < 100_000) list.Add(o); // empty slots (id 0) too: a new item may go there
         }
         return list;
     }
@@ -262,6 +272,12 @@ public sealed class Ff7rChapterReader : IDisposable
         Problem = null;
         _lists.Clear();
         _search = null;
+        _objectiveRows = null;
+        _slotRows.Clear();
+        _slotParents.Clear();
+        _questCounter = int.MinValue;
+        _objectiveSlots = new();
+        _objectiveSearch = null;
     }
 
     public void Dispose() => Detach();

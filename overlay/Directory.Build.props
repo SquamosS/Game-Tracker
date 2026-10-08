@@ -1,8 +1,0 @@
-<Project>
-  <!-- MSBuild breaks on folders containing "...." (like "D:\.... Claude Suno Project"),
-       so keep obj\ outside the project folder on Windows. -->
-  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
-    <BaseIntermediateOutputPath>$(LOCALAPPDATA)\GameTrackerBuild\obj\</BaseIntermediateOutputPath>
-    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
-  </PropertyGroup>
-</Project>

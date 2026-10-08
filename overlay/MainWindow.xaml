@@ -5,11 +5,12 @@
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ResizeMode="CanResizeWithGrip"
         FontFamily="Segoe UI" FontSize="13" Foreground="#E2E8F0">
-  <Border Background="#E00F172A" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="12">
+  <Border Background="#800F172A" BorderBrush="#03FFFFFF" BorderThickness="1" CornerRadius="12">
     <DockPanel Margin="14">
       <StackPanel DockPanel.Dock="Top" x:Name="Header" Cursor="SizeAll">
         <TextBlock x:Name="GameText" Foreground="#94A3B8" FontSize="11" />
         <TextBlock x:Name="ChapterText" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock x:Name="ObjectiveText" Foreground="#38BDF8" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0" />
         <Grid Margin="0,8,0,4" Height="8">
           <Border Background="#1E293B" CornerRadius="4" />
           <Border x:Name="Bar" Background="#38BDF8" CornerRadius="4" HorizontalAlignment="Left" Width="0" />

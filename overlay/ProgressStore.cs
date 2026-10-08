@@ -13,8 +13,7 @@ public class Progress
 
 public static class ProgressStore
 {
-    static readonly string Dir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GameTracker");
+    static readonly string Dir = DataPaths.Data;
 
     static string PathFor(string game) =>
         Path.Combine(Dir, string.Concat(game.Split(Path.GetInvalidFileNameChars())) + ".json");
