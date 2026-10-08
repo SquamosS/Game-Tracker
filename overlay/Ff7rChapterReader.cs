@@ -22,15 +22,6 @@ public sealed partial class Ff7rChapterReader : IDisposable
     IntPtr _moduleBase;
     DateTime _retryAt;
 
-    /// <summary>
-    /// Pointer chains (module offset, then offsets to follow) to the story-progress counter, per build.
-    /// Empty for now: the first chain found (modul+0x57E99C0 0x58 0x598 0x48) turned out to be the current
-    /// area, not story progress, so it would move the guide whenever you walk into a shop.
-    /// </summary>
-    static readonly Dictionary<string, long[][]> StoryChains = new()
-    {
-    };
-
     /// <summary>"Steam 1.0.0.7" etc. once attached, null while the game is not running.</summary>
     public string? Version { get; private set; }
 
@@ -46,21 +37,6 @@ public sealed partial class Ff7rChapterReader : IDisposable
         if (!Attach()) return null;
         int chapter = ReadByte(_chapterAddress);
         return chapter is >= 1 and <= 18 or 21 or 22 ? chapter : null;
-    }
-
-    /// <summary>The story-progress counter, or null when unknown for this build or not readable.</summary>
-    public int? ReadStoryProgress()
-    {
-        if (!Attach() || Version is null || !StoryChains.TryGetValue(Version, out var chains)) return null;
-        foreach (var chain in chains)
-        {
-            long address = Follow(chain);
-            var buffer = new byte[4];
-            if (address == 0 || !ReadProcessMemory(_handle, (IntPtr)address, buffer, 4, out _)) continue;
-            int value = BitConverter.ToInt32(buffer);
-            if (value is > 0 and < 100_000) return value;
-        }
-        return null;
     }
 
     // The item list (records of 0x18 bytes: obtained time, id, count, category) and the materia list
@@ -186,24 +162,6 @@ public sealed partial class Ff7rChapterReader : IDisposable
         }
         return list;
     }
-    /// <summary>Follows module+chain[0] -> [ptr]+chain[1] -> ... and returns the final address (0 if broken).</summary>
-    long Follow(long[] chain)
-    {
-        long address = _moduleBase + (nint)chain[0];
-        foreach (long offset in chain.Skip(1))
-        {
-            long pointer = ReadLong(address);
-            if (pointer == 0) return 0;
-            address = pointer + offset;
-        }
-        return address;
-    }
-    long ReadLong(long address)
-    {
-        var buffer = new byte[8];
-        return ReadProcessMemory(_handle, (IntPtr)address, buffer, 8, out _) ? BitConverter.ToInt64(buffer) : 0;
-    }
-
     int ReadByte(IntPtr address)
     {
         var buffer = new byte[1];

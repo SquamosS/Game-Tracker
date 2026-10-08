@@ -6,10 +6,11 @@ namespace GameTracker;
 ///
 /// The game keeps a table with every story objective of every chapter, in story order. Each row (an object)
 /// holds, from +0x58, three strings: title key ("$str040_TOWN7_Chap04_EnterPlace"), description key (title +
-/// "_d" / "_Done_d" ...) and a billboard sprite name. When an objective starts, the game adds an entry that
-/// points at its row, and moves that pointer along as sub-objectives advance. So the current objective is the
-/// furthest row in the current chapter that any such entry points at. The localization table pairs keys with
-/// their English text. Rows, entries and texts are found by signature once per game launch.
+/// "_d" / "_Done_d" ...) and a billboard sprite name. When an objective starts, the game appends an entry that
+/// points at its row to one array (sub-objectives get their own array), and moves that pointer along as the
+/// objective advances. Old entries stay, so the newest entry is the current objective (picked in MainWindow).
+/// The arrays move when they grow. The localization table pairs keys with their English text. Rows, entries and
+/// texts are found by signature: once per game launch, after a chapter change, and when the arrays move.
 /// </summary>
 public sealed partial class Ff7rChapterReader
 {
@@ -164,11 +165,15 @@ public sealed partial class Ff7rChapterReader
 
     (Dictionary<long, Objective>, List<long>) FindObjectives()
     {
-        var rows = new List<(long Row, string Title, string Desc)>();
-        var texts = new Dictionary<string, string>();
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var rows = new System.Collections.Concurrent.ConcurrentBag<(long Row, string Title, string Desc)>();
+        var texts = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
+        long stringReads = 0;
 
         ForEachChunk((a, buf) =>
         {
+            // Strings sit close together on the heap: read them through a small per-chunk block cache.
+            var cache = new StringReader(this);
             for (int i = 0; i + 48 <= buf.Length; i += 8)
             {
                 long p1 = BitConverter.ToInt64(buf, i);
@@ -177,22 +182,24 @@ public sealed partial class Ff7rChapterReader
                 long p2 = BitConverter.ToInt64(buf, i + 16);
                 int l2 = BitConverter.ToInt32(buf, i + 24), m2 = BitConverter.ToInt32(buf, i + 28);
                 if (p2 < 0x10000000000 || p2 > 0x7FF000000000 || l2 < 2 || m2 < l2 || m2 > 1024) continue;
-                string first = ReadUtf16(p1, l1);
-                if (!first.StartsWith("$str")) continue;
-                string second = ReadUtf16(p2, l2);
+                if (!cache.StartsWith(p1, "$str")) continue;
+                string first = cache.Read(p1, l1);
+                string second = cache.Read(p2, l2);
 
-                // Objective row: title key, description key starting with the title, then a billboard sprite.
+                // Objective row: title key, description key, then a billboard sprite.
                 long p3 = BitConverter.ToInt64(buf, i + 32);
                 int l3 = BitConverter.ToInt32(buf, i + 40);
                 // The description key normally extends the title key, but not always: Chapter 5 has title
                 // "$str050TNNL4_..." with description "$str050_TNNL4_..._d".
-                if (second.StartsWith("$str") && second.EndsWith("_d") && second != first && l3 is > 8 and < 128 && ReadUtf16(p3, l3).StartsWith("U_Com"))
+                if (second.StartsWith("$str") && second.EndsWith("_d") && second != first && l3 is > 8 and < 128 && cache.StartsWith(p3, "U_Com"))
                     rows.Add((a + i - 0x58, first, second));
                 // Localization entry: key, then its English text.
                 else if (!second.StartsWith("$") && !second.StartsWith("U_") && second.Length > 0)
                     texts.TryAdd(first, second);
             }
+            Interlocked.Add(ref stringReads, cache.Reads);
         });
+        long rowsMs = sw.ElapsedMilliseconds;
 
         // The table exists in more than one copy; order rows by position within their own copy.
         var byAddress = new Dictionary<long, Objective>();
@@ -206,7 +213,7 @@ public sealed partial class Ff7rChapterReader
         }
 
         // Entries pointing at a row; skip the table's own lists (several row pointers side by side).
-        var slots = new List<long>();
+        var found = new System.Collections.Concurrent.ConcurrentBag<long>();
         ForEachChunk((a, buf) =>
         {
             for (int i = 8; i + 16 <= buf.Length; i += 8)
@@ -214,14 +221,48 @@ public sealed partial class Ff7rChapterReader
                 long p = BitConverter.ToInt64(buf, i);
                 if (!byAddress.ContainsKey(p)) continue;
                 if (byAddress.ContainsKey(BitConverter.ToInt64(buf, i - 8)) || byAddress.ContainsKey(BitConverter.ToInt64(buf, i + 8))) continue;
-                if (slots.Count < 100_000) slots.Add(a + i);
+                if (found.Count < 100_000) found.Add(a + i);
             }
         });
+        var slots = found.OrderBy(s => s).ToList();
         // Objective entries share a parent pointer just before the row pointer; keep only those groups.
-        var parents = slots.GroupBy(s => ReadInt64(s - 8)).Where(g => g.Key > 0x10000000000 && g.Key < 0x7FF000000000 && g.Count() >= 2);
+        var parents = slots.GroupBy(s => ReadInt64(s - 8)).Where(g => g.Key > 0x10000000000 && g.Key < 0x7FF000000000 && g.Count() >= 2).ToList();
         var entries = parents.SelectMany(g => g).ToList();
-        ObjectiveDebug = $"rows {byAddress.Count}, slots {slots.Count}, entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}";
+        ObjectiveDebug = $"rows {byAddress.Count} ({rowsMs} ms, {stringReads} reads), slots {slots.Count} ({sw.ElapsedMilliseconds - rowsMs} ms), entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}";
         return (byAddress, entries.Count > 0 ? entries : slots);
+    }
+
+    /// <summary>
+    /// Reads UTF-16 strings of the game through a cache of 64 KB blocks, so neighbouring strings cost one read.
+    /// Not thread-safe: one per chunk.
+    /// </summary>
+    sealed class StringReader(Ff7rChapterReader reader)
+    {
+        readonly Dictionary<long, byte[]?> _blocks = new();
+        public long Reads { get; private set; }
+
+        public string Read(long address, int lengthWithNull)
+        {
+            int bytes = (lengthWithNull - 1) * 2;
+            if (bytes <= 0) return "";
+            var block = Block(address >> 16);
+            int offset = (int)(address & 0xFFFF);
+            if (block is not null && offset + bytes <= block.Length)
+                return System.Text.Encoding.Unicode.GetString(block, offset, bytes);
+            return reader.ReadUtf16(address, lengthWithNull); // crosses a block edge
+        }
+
+        public bool StartsWith(long address, string prefix) => Read(address, prefix.Length + 1) == prefix;
+
+        byte[]? Block(long index)
+        {
+            if (_blocks.TryGetValue(index, out var block)) return block;
+            if (_blocks.Count > 256) _blocks.Clear();
+            block = new byte[0x10000];
+            Reads++;
+            if (!ReadProcessMemory(reader._handle, (IntPtr)(index << 16), block, block.Length, out _)) block = null;
+            return _blocks[index] = block;
+        }
     }
 
     long ReadInt64(long address)
@@ -237,9 +278,13 @@ public sealed partial class Ff7rChapterReader
             ? System.Text.Encoding.Unicode.GetString(buffer) : "";
     }
 
-    /// <summary>Calls back with every 4 MB chunk of the game's writable memory.</summary>
+    /// <summary>
+    /// Calls back with every 4 MB chunk of the game's writable memory, a few chunks at a time on worker threads
+    /// (callbacks must be thread-safe). Half the cores at most, so the game keeps its frame rate.
+    /// </summary>
     void ForEachChunk(Action<long, byte[]> visit)
     {
+        var chunks = new List<(long Start, int Length)>();
         long address = 0;
         while (VirtualQueryEx(_handle, (IntPtr)address, out var mbi, (uint)System.Runtime.InteropServices.Marshal.SizeOf<MemoryInfo>()) != 0)
         {
@@ -247,11 +292,13 @@ public sealed partial class Ff7rChapterReader
             address = start + size;
             if (mbi.State == 0x1000 && (mbi.Protect & 0x04) != 0 && (mbi.Protect & 0x100) == 0)
                 for (long a = start; a < start + size; a += 1 << 22)
-                {
-                    var buf = new byte[(int)Math.Min(1 << 22, start + size - a)];
-                    if (ReadProcessMemory(_handle, (IntPtr)a, buf, buf.Length, out _)) visit(a, buf);
-                }
+                    chunks.Add((a, (int)Math.Min(1 << 22, start + size - a)));
             if (address <= 0 || address >= 0x7FFFFFFFFFFF) break;
         }
+        Parallel.ForEach(chunks, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 2) }, chunk =>
+        {
+            var buf = new byte[chunk.Length];
+            if (ReadProcessMemory(_handle, (IntPtr)chunk.Start, buf, buf.Length, out _)) visit(chunk.Start, buf);
+        });
     }
 }

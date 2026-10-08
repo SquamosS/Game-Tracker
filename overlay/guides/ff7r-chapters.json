@@ -581,15 +581,17 @@
           "id": "c5-05-star-pendant",
           "type": "aksesori",
           "name": "Star Pendant",
-          "where": "Peti di lorong terowongan, muncul setelah ngalahin grup Wererat.",
-          "missable": true
+          "where": "Peti di lorong terowongan, muncul setelah ngalahin grup Wererat. Opsional: dijual di toko senjata Sector 5 (Ch8), ada juga peti di Ch9.",
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c5-06-leather-bracer",
           "type": "armor",
           "name": "Leather Bracer",
-          "where": "Masuk ruangan samping di Railway Control Section E (E3) di sisi rel.",
-          "missable": true
+          "where": "Masuk ruangan samping di Railway Control Section E (E3) di sisi rel. Opsional: dijual di toko senjata Sector 5 (Ch8).",
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c5-07-railyard",
@@ -607,6 +609,15 @@
           "optional": true
         },
         {
+          "id": "c5-08b-poison",
+          "type": "materia",
+          "name": "Poison Materia",
+          "where": "Dijual di vending machine ruang istirahat yang sama. Opsional: juga dijual di toko materia nanti.",
+          "missable": false,
+          "detect": null,
+          "optional": true
+        },
+        {
           "id": "c5-09-disc-stamp",
           "type": "music disc",
           "name": "Stamp",
@@ -619,7 +630,7 @@
           "name": "Secret Passageway / Stairway Detour",
           "where": "Hancurkan 4 kakinya lalu pukul generatornya; Thunder efektif.",
           "missable": false,
-          "warning": "SEBELUM LANJUT: pastikan Star Pendant, Leather Bracer & disc Stamp sudah diambil. Setelah boss ini area terowongan tertutup permanen."
+          "warning": "SEBELUM LANJUT: pastikan disc Stamp sudah dibeli. Setelah boss ini area terowongan tertutup permanen."
         },
         {
           "id": "c5-11-metal-knuckles",
@@ -674,8 +685,17 @@
           "id": "c6-04-elemental",
           "type": "materia",
           "name": "Elemental Materia",
-          "where": "Di area catwalk bawah Section H (dari jalur Collapsed Passageway). Guide beda-beda soal posisi persis, intinya atur catwalk sampai bisa dijangkau.",
+          "where": "Di area catwalk bawah Section H (dari jalur Collapsed Passageway). Guide beda-beda soal posisi persis, intinya atur catwalk sampai bisa dijangkau. Missable: copy kedua hanya dari Letter from the Guardian Angel (Ch14, butuh semua side quest).",
           "missable": true
+        },
+        {
+          "id": "c6-04b-mp-up-vending",
+          "type": "materia",
+          "name": "MP Up Materia (vending)",
+          "where": "Vending machine di Section H Utility Access. Opsional: juga dijual di toko materia nanti.",
+          "missable": false,
+          "detect": null,
+          "optional": true
         },
         {
           "id": "c6-05-vent-fan",
@@ -709,15 +729,17 @@
           "id": "c6-09-mesmeric",
           "type": "armor",
           "name": "Mesmeric Armlet",
-          "where": "Peti di platform dekat Sun Lamp 3 (sisi kanan).",
-          "missable": true
+          "where": "Peti di platform dekat Sun Lamp 3 (sisi kanan). Opsional: dijual di toko senjata Sector 5 (1.600 gil).",
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c6-10-mp-up",
           "type": "materia",
           "name": "MP Up Materia",
-          "where": "Disebut PowerPyx & Samurai Gamers ada di platform bawah saat catwalk diturunkan penuh; sumber lain nggak mencatat, cek saja sebelum naik.",
-          "missable": true
+          "where": "Section H, di platform bawah setelah catwalk diturunkan penuh. Opsional: dijual di toko materia Sector 5/Wall Market.",
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c6-11-cargo",
@@ -725,7 +747,7 @@
           "name": "To the Cargo Platform",
           "where": "Hancurkan 6 turret, panjat tangga & ventilasi sampai ke Biggs.",
           "missable": false,
-          "warning": "SEBELUM LANJUT: ambil Elemental, Chocobo & Moogle, MP Up, Mesmeric Armlet & disc Electric de Chocobo. Setelah ketemu Biggs area ini tertutup."
+          "warning": "SEBELUM LANJUT: ambil Elemental, Chocobo & Moogle & disc Electric de Chocobo. Setelah ketemu Biggs area ini tertutup."
         },
         {
           "id": "c6-12-lmg",
@@ -759,8 +781,9 @@
           "id": "c7-02-bulletproof",
           "type": "armor",
           "name": "Bulletproof Vest",
-          "where": "Peti di ujung catwalk (level B7) setelah fight laser cannon.",
-          "missable": true
+          "where": "Peti di ujung catwalk (level B7) setelah fight laser cannon. Opsional: dijual di toko senjata Sector 5.",
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c7-03-bomb",
@@ -780,7 +803,7 @@
           "id": "c7-05-lightning",
           "type": "materia",
           "name": "Lightning Materia",
-          "where": "Pojok kanan ruang kontrol kedua (assembly hall), di antara kotak Shinra. Opsional: juga dijual di toko materia.",
+          "where": "B7 Facilities, ruangan setelah keycard pertama (PowerPyx; Fextralife menyebut ruang kontrol kedua). Opsional: juga dijual di toko materia.",
           "missable": false,
           "optional": true
         },
@@ -809,8 +832,9 @@
           "id": "c7-09-magic-up",
           "type": "materia",
           "name": "Magic Up Materia",
-          "where": "Pojok ruang Waste Recovery; ada juga M-Unit chest berisi consumable.",
-          "missable": true
+          "where": "Pojok ruang Waste Recovery; ada juga M-Unit chest berisi consumable. Opsional: copy kedua dari side quest Wavering Heart (Ch14).",
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c7-10-disc-bombing",
@@ -825,7 +849,7 @@
           "name": "Airbuster (boss)",
           "where": "Pakai Lightning buat stagger, pukul dari belakang saat dia berbalik.",
           "missable": false,
-          "warning": "SEBELUM LANJUT: ambil Bulletproof Vest, Sonic Strikers, Magic Up & disc Bombing Mission. Setelah boss reaktor tertutup."
+          "warning": "SEBELUM LANJUT: ambil Sonic Strikers & disc Bombing Mission. Setelah boss reaktor tertutup."
         },
         {
           "id": "c7-12-titanium",

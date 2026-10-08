@@ -26,8 +26,6 @@ public partial class MainWindow : Window
     int? _detectedChapter;
     bool _inGame;
     int _menuTicks;
-    int? _story;
-    readonly StoryMap _storyMap = StoryMap.Load();
     readonly ItemMap _itemMap = ItemMap.Load();
     HashSet<(int, uint)>? _seenOwned;
     /// <summary>Last id seen in each inventory slot.</summary>
@@ -127,7 +125,6 @@ public partial class MainWindow : Window
             }
             else _error = $"Chapter {chapter} terdeteksi, tapi belum ada di panduan";
         }
-        changed |= FollowStory();
         // An item step right after the current story step may be handed over any moment: look for it more often.
         _reader.ListRefresh = ExpectingItem() ? TimeSpan.FromSeconds(15) : TimeSpan.FromMinutes(1);
         changed |= FollowItems();
@@ -137,7 +134,7 @@ public partial class MainWindow : Window
         string status = _reader.Problem
             ?? (_reader.Version is null ? "FF7R belum jalan"
                 : !_inGame ? $"FF7R {_reader.Version} terdeteksi, menunggu save di-load"
-                : $"FF7R {_reader.Version}: Chapter {_detectedChapter} terdeteksi" + (_story is null ? "" : $", progres cerita {_story}")
+                : $"FF7R {_reader.Version}: Chapter {_detectedChapter} terdeteksi"
                     + (_seenOwned is null ? "" : ", inventory terbaca") + (_itemStatus is null ? "" : $"\n{_itemStatus}"));
         if (changed || status != _detectStatus || wasInGame != _inGame) { _detectStatus = status; Render(); }
     }
@@ -267,19 +264,6 @@ public partial class MainWindow : Window
         _itemStatus = $"Dipelajari: item {id} = {step.Name}";
     }
 
-    /// <summary>Moves the guide to the story step the game is on, once that counter value has been learned.</summary>
-    bool FollowStory()
-    {
-        int? story = _inGame ? _reader.ReadStoryProgress() : null;
-        if (story == _story) return false;
-        _story = story;
-        var chapter = CurrentChapter;
-        if (story is not null && chapter is not null && chapter.Number == _detectedChapter
-            && _storyMap.Lookup(chapter, story.Value) is { } stepId && stepId != CurrentStory?.Id)
-            SetStoryPosition(chapter.Objectives.First(o => o.Id == stepId));
-        return true;
-    }
-
     static readonly HashSet<string> ItemTypes = ["materia", "aksesori", "armor", "senjata", "summon", "music disc", "manuskrip"];
 
     /// <summary>Whether an item step not yet done follows the current story step (before the next one).</summary>
@@ -303,11 +287,9 @@ public partial class MainWindow : Window
         Save();
     }
 
-    /// <summary>Remembers that the current counter value belongs to the story step you just marked.</summary>
+    /// <summary>Remembers that the game's current objective belongs to the story step you just marked.</summary>
     void LearnStory()
     {
-        if (_story is { } value && CurrentStory is { } step && CurrentChapter?.Number == _detectedChapter)
-            _storyMap.Record(CurrentChapter!.Number, value, step.Id);
         // You marked where you are: remember that the game's current objective belongs to that story step.
         if (_objective is { } objective && CurrentStory is { } current && CurrentChapter?.Number == _detectedChapter)
         {
