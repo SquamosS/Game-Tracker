@@ -510,6 +510,30 @@ public partial class MainWindow : Window
         Render();
     }
 
+    static readonly Brush QuestTitle = Brush("#38BDF8"), QuestText = Brush("#BAE6FD"), SubTitle = Brush("#FBBF24"), SubText = Brush("#E2E8F0");
+
+    /// <summary>
+    /// The live quest as the game shows it: the quest (blue) with its description, then the active sub-quest
+    /// (amber, indented) with its own description.
+    /// </summary>
+    void RenderObjective()
+    {
+        ObjectiveText.Inlines.Clear();
+        ObjectiveText.ToolTip = _subObjective?.Text ?? _objective?.Text;
+        if (_objective is not { } live)
+        {
+            if (_inGame) ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("▶ (mencari objektif aktif...)") { Foreground = QuestTitle });
+            return;
+        }
+        ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("▶ " + (live.Title ?? live.TitleKey)) { Foreground = QuestTitle, FontSize = 14, FontWeight = FontWeights.SemiBold });
+        if (live.Text is { Length: > 0 } text)
+            ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n   " + text) { Foreground = QuestText, FontSize = 12 });
+        if (_subObjective is not { } sub) return;
+        ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n   › " + (sub.Title ?? sub.TitleKey)) { Foreground = SubTitle, FontSize = 12.5, FontWeight = FontWeights.SemiBold });
+        if (sub.Text is { Length: > 0 } subText)
+            ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n      " + subText) { Foreground = SubText, FontSize = 11.5, FontStyle = FontStyles.Italic });
+    }
+
     bool WarningOpen(Objective o) => o.Warning is not null && (o.Needs is not { Length: > 0 } needs || !needs.All(_progress.Done.Contains));
 
     void Render()
@@ -517,14 +541,7 @@ public partial class MainWindow : Window
         List.Children.Clear();
         var chapter = CurrentChapter;
         GameText.Text = _guide?.Game ?? "Game Tracker";
-        // "▶ Find Stamp › Train Yard Security", with the sub-objective's text when there is one.
-        string? liveText = _subObjective?.Text ?? _objective?.Text;
-        ObjectiveText.Text = _objective is { } live
-            ? "▶ " + (live.Title ?? live.TitleKey) + (_subObjective?.Title is { } subTitle ? " › " + subTitle : "")
-                + (liveText is { Length: < 90 } line ? "\n   " + line : "")
-            : "";
-        ObjectiveText.ToolTip = liveText;
-        if (_objective is null && _inGame) ObjectiveText.Text = "▶ (mencari objektif aktif...)";
+        RenderObjective();
         FooterText.Text = (_error is null ? "" : _error + "\n") + _detectStatus + "\n" +
             "Ctrl+Shift+G tampil/sembunyi · Ctrl+Shift+A panduan lengkap / arsip · Space centang berikutnya · Backspace batal · " +
             "PgUp/PgDn ganti chapter · T mode mouse · double-click langkah = posisiku " + (_clickThrough ? "(tembus ke game)" : "(klik overlay)");
