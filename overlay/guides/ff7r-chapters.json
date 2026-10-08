@@ -616,15 +616,6 @@
           "optional": true
         },
         {
-          "id": "c5-08b-poison",
-          "type": "materia",
-          "name": "Poison Materia",
-          "where": "Dijual di vending machine ruang istirahat yang sama. Opsional: juga dijual di toko materia nanti.",
-          "missable": false,
-          "detect": null,
-          "optional": true
-        },
-        {
           "id": "c5-09-disc-stamp",
           "type": "music disc",
           "name": "Stamp",
@@ -694,15 +685,6 @@
           "name": "Elemental Materia",
           "where": "Di area catwalk bawah Section H (dari jalur Collapsed Passageway). Guide beda-beda soal posisi persis, intinya atur catwalk sampai bisa dijangkau. Missable: copy kedua hanya dari Letter from the Guardian Angel (Ch14, butuh semua side quest).",
           "missable": true
-        },
-        {
-          "id": "c6-04b-mp-up-vending",
-          "type": "materia",
-          "name": "MP Up Materia (vending)",
-          "where": "Vending machine di Section H Utility Access. Opsional: juga dijual di toko materia nanti.",
-          "missable": false,
-          "detect": null,
-          "optional": true
         },
         {
           "id": "c6-05-vent-fan",
@@ -1272,13 +1254,6 @@
           "missable": false
         },
         {
-          "id": "c9-13-hardedge",
-          "type": "senjata",
-          "name": "Hardedge",
-          "where": "Dijual di weapon shop Wall Market (ada juga Supernatural Wristguards, Survival Vest, dll). Dijual lagi saat Wall Market dikunjungi di Ch14.",
-          "missable": false
-        },
-        {
           "id": "c9-14-johnny",
           "type": "kejadian",
           "name": "Discovery: Vagabond Johnny",
@@ -1831,15 +1806,6 @@
           "detect": null
         },
         {
-          "id": "c13-04c-sorcerers",
-          "type": "armor",
-          "name": "Sorcerer's Armlet",
-          "where": "Dijual di toko senjata Sector 6. Opsional: ada juga peti di Ch14.",
-          "missable": false,
-          "optional": true,
-          "detect": null
-        },
-        {
           "id": "c13-07-becks-badasses",
           "type": "cerita",
           "name": "Beck's Badasses",
@@ -2078,7 +2044,7 @@
           "id": "c14-18b-sorcerers",
           "type": "armor",
           "name": "Sorcerer's Armlet (chest)",
-          "where": "Gang sempit di seberang Honeybee Inn. Opsional: juga dijual di Ch13.",
+          "where": "Gang sempit di seberang Honeybee Inn. Opsional: juga dijual di toko senjata.",
           "missable": false,
           "optional": true,
           "detect": null
