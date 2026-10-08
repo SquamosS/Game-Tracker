@@ -641,6 +641,8 @@ public partial class MainWindow : Window
             if (phase > current || _progress.Done.Contains(o.Id)) continue;
             // Trophies that come with finishing the chapter need nothing from you.
             if (o.Type == "trofi" && !o.Missable && o.Where.Contains("otomatis", StringComparison.OrdinalIgnoreCase)) continue;
+            // Optional pick-ups (also sold in shops) only matter while you pass them.
+            if (o.Optional && phase < current) continue;
             open.Add((o, phase == current ? "SEKARANG" : "TERTINGGAL"));
         }
         foreach (var (step, tag) in open.OrderByDescending(x => x.Step.Missable))
@@ -655,6 +657,7 @@ public partial class MainWindow : Window
         var title = new TextBlock { TextWrapping = TextWrapping.Wrap, FontWeight = isNext ? FontWeights.SemiBold : FontWeights.Normal };
         if (tag is not null) title.Inlines.Add(new System.Windows.Documents.Run(tag + " ") { Foreground = tag == "SEKARANG" ? Now : Late, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (o.Missable && !done) title.Inlines.Add(new System.Windows.Documents.Run("MISSABLE ") { Foreground = Danger, FontWeight = FontWeights.Bold, FontSize = 10.5 });
+        if (o.Optional && !done) title.Inlines.Add(new System.Windows.Documents.Run("OPSIONAL ") { Foreground = Muted, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         title.Inlines.Add(new System.Windows.Documents.Run(o.Name) { Foreground = done ? Done : Brushes.White, TextDecorations = done ? TextDecorations.Strikethrough : null });
         title.Inlines.Add(new System.Windows.Documents.Run($"  {o.Type}") { Foreground = Accent, FontSize = 10.5 });
 

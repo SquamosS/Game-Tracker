@@ -111,6 +111,14 @@
           "missable": false
         },
         {
+          "id": "c2-02-healing",
+          "type": "materia",
+          "name": "Healing Materia",
+          "where": "Diberikan Jessie otomatis saat tutorial materia di awal chapter. Opsional: juga dijual di toko materia.",
+          "missable": false,
+          "optional": true
+        },
+        {
           "id": "c2-03-sector8-station",
           "type": "cerita",
           "name": "Reach the Sector 8 Station",
@@ -243,6 +251,14 @@
           "name": "A Job for the Neighborhood Watch",
           "where": "Temui Wymer, lalu bersihkan monster (Gorger, Wererat) di Scrap Boulevard.",
           "missable": false
+        },
+        {
+          "id": "c3-09-ice-cave",
+          "type": "materia",
+          "name": "Ice Materia",
+          "where": "Di terowongan/gua tepat di awal Scrap Boulevard; orb hijau di tengah. Opsional: juga dijual di toko materia.",
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c3-10-iron-blade",
@@ -540,6 +556,14 @@
           "missable": false
         },
         {
+          "id": "c5-02-healing",
+          "type": "materia",
+          "name": "Healing Materia",
+          "where": "Di kursi kiri gerbong kereta dekat Barret. Ambil sebelum lompat turun. Opsional: juga dijual di toko materia.",
+          "missable": false,
+          "optional": true
+        },
+        {
           "id": "c5-03-separate",
           "type": "cerita",
           "name": "Separate Ways / Looking for a Friend / Find Barret / Get Your Bearings",
@@ -573,6 +597,14 @@
           "name": "Train Yard Security",
           "where": "Hancurkan Sentry Launcher/Flametrooper di area rel, terus cari jalan rahasia.",
           "missable": false
+        },
+        {
+          "id": "c5-08-lightning",
+          "type": "materia",
+          "name": "Lightning Materia",
+          "where": "Di ruang istirahat (ada vending machine & bangku) setelah fight turret di rail yard. Opsional: juga dijual di toko materia.",
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c5-09-disc-stamp",
@@ -743,6 +775,14 @@
           "name": "Sentenced to Death / Monitor Data / Status of the Airbuster",
           "where": "Kumpulin keycard di tiap ruangan lalu pakai di terminal untuk copot komponen Airbuster. Ambil semua keycard biar boss lebih lemah.",
           "missable": false
+        },
+        {
+          "id": "c7-05-lightning",
+          "type": "materia",
+          "name": "Lightning Materia",
+          "where": "Pojok kanan ruang kontrol kedua (assembly hall), di antara kotak Shinra. Opsional: juga dijual di toko materia.",
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c7-06-sonic-strikers",
@@ -1456,6 +1496,14 @@
           "missable": false
         },
         {
+          "id": "c10-05-poison",
+          "type": "materia",
+          "name": "Poison Materia",
+          "where": "Di platform sebelah kanan saat Crossing the Trunk Line, setelah grup musuh kedua. Opsional: juga dijual di toko materia.",
+          "missable": false,
+          "optional": true
+        },
+        {
           "id": "c10-06-oppressed",
           "type": "music disc",
           "name": "Music Disc: The Oppressed",
@@ -1722,6 +1770,14 @@
           "name": "Reunite with Tifa",
           "where": "Naik tangga, tembak derek untuk bakar serangga, lalu bantu Tifa lawan kawanan bug.",
           "missable": false
+        },
+        {
+          "id": "c13-18-ice-materia",
+          "type": "materia",
+          "name": "Ice Materia",
+          "where": "Kandang kanan, tembak gerbangnya. Opsional: juga dijual di toko materia.",
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c13-20-warding-materia",
@@ -2016,6 +2072,14 @@
           "name": "Recovering the Key",
           "where": "Sector 6 Restricted Area & Old Line. Peti: Hazardous Material x2 (kanan), Phoenix Down x2 (seberang jembatan), Mega-Potion x2, Ether (pojok kiri).",
           "missable": true
+        },
+        {
+          "id": "c14-38-poison-materia",
+          "type": "materia",
+          "name": "Poison Materia",
+          "where": "Pojok ruangan setelah lawan Blugu + 2 Abzu Shoat (Old Line). Opsional: juga dijual di toko materia.",
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c14-39-mischievous-shoat",
@@ -2446,6 +2510,14 @@
           "name": "Find the Others",
           "where": "Party terpisah. Tarik tuas, lawan Monodrive; Red XIII ikut sebagai tamu.",
           "missable": false
+        },
+        {
+          "id": "c17-11-poison",
+          "type": "materia",
+          "name": "Poison",
+          "where": "Jalur samping menyeberangi pod setelah Monodrive pertama. Opsional: juga dijual di toko materia.",
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c17-12-find-barret",
