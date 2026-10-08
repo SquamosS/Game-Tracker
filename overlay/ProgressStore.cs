@@ -9,6 +9,8 @@ public class Progress
     public int Chapter { get; set; } = 1;
     public HashSet<string> Done { get; set; } = new();
     public List<string> History { get; set; } = new();
+    /// <summary>Every step ever ticked in this playthrough, so loading an older save and back loses nothing.</summary>
+    public HashSet<string> Ever { get; set; } = new();
 }
 
 public static class ProgressStore

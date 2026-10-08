@@ -439,6 +439,7 @@ public partial class MainWindow : Window
         if (_guide is null || _detectedChapter is not int loaded || _reader.ReadLiveOwnedIds() is not { } live) return false;
         _reconcile = false;
         ProgressStore.Backup(_guide.Game);
+        _progress.Ever.UnionWith(_progress.Done);
         var ownedNames = live.Select(id => _itemMap.Name(id)).OfType<string>().ToList();
         var itemSteps = _guide.Chapters.SelectMany(c => c.Objectives).Where(o => ItemTypes.Contains(o.Type)).ToList();
         bool sameStory(Chapter c) => (c.Number >= 21) == (loaded >= 21); // INTERmission is its own story
@@ -447,6 +448,9 @@ public partial class MainWindow : Window
             {
                 if (chapter.Number > loaded) Untick(o);
                 else if (o.Type == "cerita") { if (chapter.Number < loaded) Tick(o); }
+                // Earlier chapters: what was once ticked there stays ticked (discoveries, side quests, items that
+                // the inventory cannot vouch for), e.g. after loading an older save and coming back.
+                else if (chapter.Number < loaded && _progress.Ever.Contains(o.Id)) Tick(o);
                 // Only items listed once: owning "an MP Up" says nothing about which of several MP Up spots you
                 // visited. Those are left to the per-quest item monitor (FollowItems).
                 else if (ItemTypes.Contains(o.Type) && itemSteps.Count(s => s.Name == o.Name) == 1)
