@@ -38,6 +38,8 @@ switch (args[0])
     }
     case "recent":Recent(int.Parse(args[1]), args.Length > 2); break;
     case "lists": FindLists(); break;
+    case "names": DumpItemNames(); break;
+    case "text": FindText(args[1], args.Length > 2 ? int.Parse(args[2]) : 40); break;
     case "watch": Watch(Convert.ToInt64(args[1], 16), Convert.ToInt32(args[2], 16), args.Skip(3).Select(a => Convert.ToInt32(a, 16) & ~0xF).ToHashSet()); break;
     case "rsnap": RangeSnap(args[1], Convert.ToInt64(args[2], 16), Convert.ToInt32(args[3], 16)); break;
     case "rdiff": RangeDiff(args[1], args[2], Convert.ToInt64(args[3], 16)); break;
@@ -211,6 +213,57 @@ void Watch(long start, int size, HashSet<int> skip)
         }
         prev = now;
     }
+}
+// Finds a text in memory as UTF-16 and ASCII; prints addresses and some context.
+void FindText(string text, int max)
+{
+    var patterns = new[] { (System.Text.Encoding.Unicode.GetBytes(text), "utf16"), (System.Text.Encoding.ASCII.GetBytes(text), "ascii") };
+    int hits = 0;
+    foreach (var (b, s) in Regions())
+        for (long a = b; a < b + s; a += 1 << 22)
+        {
+            int len = (int)Math.Min((1 << 22) + 256, b + s - a);
+            var buf = Read(a, len);
+            foreach (var (p, kind) in patterns)
+                for (int i = buf.AsSpan(0, Math.Min(len, 1 << 22)).IndexOf(p); i >= 0; )
+                {
+                    if (hits++ < max) Console.WriteLine($"{kind} 0x{a + i:X}");
+                    int next = buf.AsSpan(i + 1, Math.Min(len, 1 << 22) - i - 1).IndexOf(p);
+                    i = next < 0 ? -1 : i + 1 + next;
+                }
+        }
+    Console.WriteLine($"{hits} temuan");
+}
+// Dumps "$Item_..." localization keys with the text that follows them (name, plural, lowercase) to items.txt.
+void DumpItemNames()
+{
+    var key = System.Text.Encoding.Unicode.GetBytes("$Item_");
+    var pairs = new SortedDictionary<string, string>();
+    foreach (var (b, s) in Regions())
+        for (long a = b; a < b + s; a += 1 << 22)
+        {
+            int len = (int)Math.Min((1 << 22) + 512, b + s - a);
+            var buf = Read(a, len);
+            for (int i = buf.AsSpan(0, Math.Min(len, 1 << 22)).IndexOf(key); i >= 0 && i + 512 <= len; )
+            {
+                var texts = new List<string>();
+                int p = i;
+                while (texts.Count < 3 && p + 2 < i + 512)
+                {
+                    int end = p;
+                    while (end + 1 < i + 512 && (buf[end] != 0 || buf[end + 1] != 0)) end += 2;
+                    if (end > p) texts.Add(System.Text.Encoding.Unicode.GetString(buf, p, end - p));
+                    p = end + 2;
+                    while (p + 1 < i + 512 && buf[p] == 0 && buf[p + 1] == 0) p += 2;
+                }
+                if (texts.Count >= 2 && !texts[1].StartsWith("$") && texts[1].Length < 60 && !texts[0].EndsWith("_help"))
+                    pairs.TryAdd(texts[0], texts[1]);
+                int next = buf.AsSpan(i + 2, Math.Min(len, 1 << 22) - i - 2).IndexOf(key);
+                i = next < 0 ? -1 : i + 2 + next;
+            }
+        }
+    File.WriteAllLines(Path.Combine(Dir, "items.txt"), pairs.Select(kv => $"{kv.Key}\t{kv.Value}"));
+    Console.WriteLine($"{pairs.Count} nama item");
 }
 // Raw snapshot of one address range (the save data), and a diff of two such snapshots.
 void RangeSnap(string name, long start, int size) => File.WriteAllBytes(Path.Combine(Dir, name + ".raw"), Read(start, size));

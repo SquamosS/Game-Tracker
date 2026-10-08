@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     string? _itemStatus;
     HashSet<string>? _seenFlags;
     readonly List<(string Flag, DateTime When)> _newFlags = new();
+    (Objective Step, DateTime When)? _pendingStory;
     string _detectStatus = "";
     string? _error;
 
@@ -107,7 +108,15 @@ public partial class MainWindow : Window
         if (chapter is not null) _detectedChapter = chapter;
         if (changed && _guide is not null)
         {
-            if (_guide.Chapters.Any(c => c.Number == chapter)) { _progress.Chapter = chapter!.Value; ProgressStore.Save(_guide.Game, _progress); }
+            if (_guide.Chapters.Any(c => c.Number == chapter))
+            {
+                // Moving on to a later chapter means the previous one's story steps and its completion trophy are done.
+                if (chapter > _progress.Chapter && _guide.Chapters.FirstOrDefault(c => c.Number == _progress.Chapter) is { } finished)
+                    foreach (var o in finished.Objectives.Where(o => o.Type == "cerita" || (o.Type == "trofi" && o.Where.Contains("selesai", StringComparison.OrdinalIgnoreCase))))
+                        if (_progress.Done.Add(o.Id)) _progress.History.Add(o.Id);
+                _progress.Chapter = chapter!.Value;
+                ProgressStore.Save(_guide.Game, _progress);
+            }
             else _error = $"Chapter {chapter} terdeteksi, tapi belum ada di panduan";
         }
         changed |= FollowStory();
@@ -169,11 +178,19 @@ public partial class MainWindow : Window
         if (flags is null) return false;
         bool first = _seenFlags is null;
         if (!first) foreach (var f in flags.Except(_seenFlags!)) _newFlags.Add((f, DateTime.Now));
-        _seenFlags = flags;
+        // Story flags are written at the next autosave, often minutes after you ticked the step: learn them then.
+        if (_pendingStory is var (pending, since) && DateTime.Now - since < TimeSpan.FromMinutes(15)
+            && _newFlags.LastOrDefault(f => f.When > since && _itemMap.FlagName(f.Flag) is null) is { Flag: not null } late)
+        {
+            _itemMap.LearnFlag(late.Flag, pending.Id);
+            _itemStatus = $"Dipelajari: flag {late.Flag} = {pending.Name}";
+            _pendingStory = null;
+            _newFlags.Clear();
+        }        _seenFlags = flags;
         bool changed = false;
         foreach (var flag in flags)
             if (_itemMap.FlagName(flag) is { } name
-                && chapter.Objectives.FirstOrDefault(o => !_progress.Done.Contains(o.Id) && Matches(o, name)) is { } step)
+                && chapter.Objectives.FirstOrDefault(o => !_progress.Done.Contains(o.Id) && (o.Id == name || Matches(o, name))) is { } step)
             {
                 _progress.Done.Add(step.Id);
                 _progress.History.Add(step.Id);
@@ -188,14 +205,21 @@ public partial class MainWindow : Window
     void LearnFlag(Objective step)
     {
         _newFlags.RemoveAll(f => DateTime.Now - f.When > TimeSpan.FromMinutes(3) || _itemMap.FlagName(f.Flag) is not null);
-        if (_newFlags.Count == 0) return;
+        if (_newFlags.Count == 0)
+        {
+            if (step.Type == "cerita") _pendingStory = (step, DateTime.Now);
+            return;
+        }
         var (flag, _) = _newFlags[^1];
         _newFlags.Clear();
-        _itemMap.LearnFlag(flag, step.Name);
+        _itemMap.LearnFlag(flag, step.Id);
         _itemStatus = $"Dipelajari: flag {flag} = {step.Name}";
     }
 
-    static bool Matches(Objective step, string name) => step.Name.Contains(name, StringComparison.OrdinalIgnoreCase);
+    /// <summary>"Shiva Materia" also matches a step called just "Shiva".</summary>
+    static bool Matches(Objective step, string name) =>
+        step.Name.Contains(name, StringComparison.OrdinalIgnoreCase)
+        || (name.EndsWith(" Materia") && step.Name.Contains(name[..^8], StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The open step this item belongs to, preferring ones that are due now or left behind.</summary>
     Objective? StepFor(string name)

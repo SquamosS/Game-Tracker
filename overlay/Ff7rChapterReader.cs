@@ -97,8 +97,8 @@ public sealed class Ff7rChapterReader : IDisposable
 
     /// <summary>
     /// Bit flags the game sets when quests and story events complete, from the copy of the save data that
-    /// changed last (its gil record has the newest time). Key: "offset:bit" relative to materia list + 0x41200.
-    /// Seen so far: +0xC0 bits 29/30/31 = Rat Problem / Nuisance in the Factory / On the Prowl, +0xC4 bit 2 = Chadley's Report.
+    /// changed last (its gil record has the newest time). Key: "offset:bit" relative to materia list + 0x40E00.
+    /// Chapter 3 side quests sit in one run of bits: +0x4C0 bits 29-31, +0x4C4 bits 0-2.
     /// </summary>
     public HashSet<string>? ReadFlags()
     {
@@ -113,10 +113,15 @@ public sealed class Ff7rChapterReader : IDisposable
             for (int bit = 0; bit < 32; bit++)
                 if ((word & (1u << bit)) != 0) set.Add($"{i:X}:{bit}");
         }
+        // Log of side-quest step events (one id per step, e.g. "found cat 2"), kept in the save; -1 = empty slot.
+        var events = new byte[EventBytes];
+        if (ReadProcessMemory(_handle, (IntPtr)(materia + EventStart), events, events.Length, out _))
+            for (int i = 0; i < events.Length; i += 4)
+                if (BitConverter.ToInt32(events, i) is var id && id > 0) set.Add($"E:{id}");
         return set;
     }
 
-    const int FlagStart = 0x41200, FlagBytes = 0x200;
+    const int FlagStart = 0x40E00, FlagBytes = 0x1000, EventStart = 0xE9A4, EventBytes = 0x400;
 
     /// <summary>Scans writable memory for materia lists (6+ consecutive materia records) with the gil record at the known distance.</summary>
     List<(long, long)> FindLists()

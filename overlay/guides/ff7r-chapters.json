@@ -332,7 +332,7 @@
                                                 "id":  "c3-16-intel-wind",
                                                 "type":  "materia",
                                                 "name":  "Wind Materia (Battle Intel Report 2)",
-                                                "where":  "Pukul musuh dengan elemen kelemahannya beberapa kali, lapor ke Chadley; Wind Materia terbuka di tokonya. Battle Intel bisa juga dikejar di chapter lain.",
+                                                "where":  "Selesaikan Battle Intel Report 02 dari Chadley (bisa di Chapter 3, dicek 2026-10-08), lalu Wind Materia muncul di toko Chadley.",
                                                 "missable":  false
                                             },
                                             {
@@ -482,21 +482,21 @@
                                                 "id":  "c4-04-homecoming",
                                                 "type":  "cerita",
                                                 "name":  "Pulang ke rumah Jessie (Homecoming)",
-                                                "where":  "Di rumah Jessie, ambil Shinra ID Card dari seragam di kamar ayahnya.",
-                                                "missable":  false
-                                            },
-                                            {
-                                                "id":  "c4-05-barrier",
-                                                "type":  "materia",
-                                                "name":  "Barrier Materia",
-                                                "where":  "Otomatis dari Jessie (kebanyakan guide: saat di rumahnya; PowerPyx: sebagai Remaining Payment). Dijual juga mulai Chapter 5.",
+                                                "where":  "Ikuti Jessie sampai ke rumahnya di kawasan perumahan pegawai.",
                                                 "missable":  false
                                             },
                                             {
                                                 "id":  "c4-06-jessie-job",
                                                 "type":  "cerita",
                                                 "name":  "Jalankan misi Jessie (The Jessie Job)",
-                                                "where":  "Kembali ke titik kumpul dan siapkan masuk fasilitas; isi stok di vending machine.",
+                                                "where":  "Masuk rumah Jessie lewat pintu belakang, ambil Shinra ID Card dari kamar ayahnya, lalu kembali ke titik kumpul (isi stok di vending machine).",
+                                                "missable":  false
+                                            },
+                                            {
+                                                "id":  "c4-05-barrier",
+                                                "type":  "materia",
+                                                "name":  "Barrier Materia",
+                                                "where":  "Dari Jessie selama atau setelah The Jessie Job (sumber berbeda: di rumahnya atau sebagai Remaining Payment). Dijual juga mulai Chapter 5.",
                                                 "missable":  false
                                             },
                                             {
