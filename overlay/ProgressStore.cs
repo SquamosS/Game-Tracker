@@ -30,6 +30,14 @@ public static class ProgressStore
         }
     }
 
+    /// <summary>Copies the progress file to dataackups (one per minute at most) before it is rewritten wholesale.</summary>
+    public static void Backup(string game)
+    {
+        if (!File.Exists(PathFor(game))) return;
+        var dir = Directory.CreateDirectory(Path.Combine(Dir, "backups")).FullName;
+        File.Copy(PathFor(game), Path.Combine(dir, $"{DateTime.Now:yyyyMMdd-HHmm}.json"), overwrite: true);
+    }
+
     public static void Save(string game, Progress progress)
     {
         Directory.CreateDirectory(Dir);

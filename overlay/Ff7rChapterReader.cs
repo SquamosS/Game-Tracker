@@ -59,6 +59,27 @@ public sealed partial class Ff7rChapterReader : IDisposable
     public record Owned(int Id, int Count, uint Obtained, long Slot = 0);
 
     /// <summary>Everything in the item and materia lists, or null while they are still being looked for.</summary>
+    /// <summary>
+    /// Ids in the copy of the save data that changed last (its gil record has the newest time): what the loaded
+    /// save holds, unlike ReadOwned, which merges every copy. Null while the lists are still being looked for.
+    /// </summary>
+    public HashSet<int>? ReadLiveOwnedIds()
+    {
+        if (ReadOwned() is null || _lists.Count == 0) return null;
+        var (materia, gil) = _lists.MaxBy(l => (uint)ReadInt32(l.Gil));
+        var ids = new HashSet<int>();
+        long items = gil;
+        while (ReadInt32(items - 0x18 + 8) is > 0 and < 100_000 && ReadInt32(items - 0x18 + 4) == 0) items -= 0x18;
+        foreach (var o in ReadRecords(items, 0x18, 600, (b, slot) => new Owned(BitConverter.ToInt32(b, 8), BitConverter.ToInt32(b, 12), 0, slot)))
+            if (o.Id > 0 && o.Count > 0) ids.Add(o.Id);
+        foreach (var o in ReadRecords(materia, 0x20, 600, (b, slot) => new Owned(BitConverter.ToInt32(b, 20), 1, 0, slot)))
+            if (o.Id > 0) ids.Add(o.Id);
+        foreach (var o in ReadRecords(materia - EquipmentBytes, 0x10, EquipmentBytes / 0x10, (b, slot) =>
+                     (BitConverter.ToInt32(b, 0) & 0xFF) is 1 or 2 ? new Owned(BitConverter.ToInt32(b, 4), 1, 0, slot) : new Owned(0, 0, 0, slot)))
+            if (o.Id is >= 1000 and < 10000) ids.Add(o.Id);
+        return ids;
+    }
+
     public List<Owned>? ReadOwned()
     {
         if (!Attach()) return null;

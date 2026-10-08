@@ -118,7 +118,10 @@ public partial class MainWindow : Window
             {
                 // Moving on to a later chapter means the previous one's story steps, its completion trophy and its
                 // end-of-chapter reward are done (that reward arrives during the chapter change, with a save copy).
-                if (chapter > _progress.Chapter && _guide.Chapters.FirstOrDefault(c => c.Number == _progress.Chapter) is { } finished)
+                // Any other jump (an earlier chapter, or several ahead) is another save being loaded: rebuild the
+                // ticks from what that save holds.
+                if (chapter != _progress.Chapter && chapter != _progress.Chapter + 1) _reconcile = true;
+                else if (chapter > _progress.Chapter && _guide.Chapters.FirstOrDefault(c => c.Number == _progress.Chapter) is { } finished)
                     foreach (var o in finished.Objectives.Where(o => o.Type == "cerita" || RewardTag(o) == "REWARD CHAPTER"
                         || (o.Type == "trofi" && ChapterEndTrophy(o))))
                         if (_progress.Done.Add(o.Id)) _progress.History.Add(o.Id);
@@ -130,6 +133,7 @@ public partial class MainWindow : Window
         // An item step right after the current story step may be handed over any moment: look for it more often.
         _reader.ListRefresh = ExpectingItem() ? TimeSpan.FromSeconds(15) : TimeSpan.FromMinutes(1);
         changed |= FollowItems();
+        if (_reconcile && _seenOwned is not null) changed |= Reconcile();
         changed |= FollowFlags();
         changed |= FollowObjective();
         changed |= FollowCompleted();
@@ -172,6 +176,7 @@ public partial class MainWindow : Window
             .Select(o => o.Slot).ToHashSet();
         foreach (var o in owned) _slotIds[o.Slot] = o.Id;
         bool handedOver = changedSlots.Count is > 0 and <= 3;
+        if (changedSlots.Count > 3) _reconcile = true; // a save was loaded (or copied): check the ticks against it
         bool IsNew(Ff7rChapterReader.Owned o) =>
             (_seenOwned.Add((o.Id, o.Obtained)) && o.Obtained >= _startedAt - 120) | (handedOver && changedSlots.Contains(o.Slot));
         foreach (var o in owned.Where(o => o.Id > 0 && o.Id != 20).Where(IsNew).ToList())
@@ -421,6 +426,45 @@ public partial class MainWindow : Window
         WeaponColor = Brush("#FB923C"), ArmorColor = Brush("#2DD4BF"), AccessoryColor = Brush("#A3E635"), DiscColor = Brush("#F472B6"),
         SummonColor = Brush("#E879F9"), TrophyColor = Brush("#FCD34D"), ManuscriptColor = Brush("#D6A77A");
 
+    bool _reconcile, _storyMayGoBack;
+
+    /// <summary>
+    /// Another save was loaded: make the ticks match it. Steps of later chapters are not done yet; earlier
+    /// chapters' story steps are; gear, discs and summons listed once in the guide are done when the save holds
+    /// them. Weapons, discs and summons cannot be sold, so a missing one is unticked. Trophies belong to the account and stay.
+    /// The story position follows the game's objective once it is read. The old progress is backed up first.
+    /// </summary>
+    bool Reconcile()
+    {
+        if (_guide is null || _detectedChapter is not int loaded || _reader.ReadLiveOwnedIds() is not { } live) return false;
+        _reconcile = false;
+        ProgressStore.Backup(_guide.Game);
+        var ownedNames = live.Select(id => _itemMap.Name(id)).OfType<string>().ToList();
+        var itemSteps = _guide.Chapters.SelectMany(c => c.Objectives).Where(o => ItemTypes.Contains(o.Type)).ToList();
+        bool sameStory(Chapter c) => (c.Number >= 21) == (loaded >= 21); // INTERmission is its own story
+        foreach (var chapter in _guide.Chapters.Where(sameStory))
+            foreach (var o in chapter.Objectives.Where(o => o.Type != "trofi"))
+            {
+                if (chapter.Number > loaded) Untick(o);
+                else if (o.Type == "cerita") { if (chapter.Number < loaded) Tick(o); }
+                // Only items listed once: owning "an MP Up" says nothing about which of several MP Up spots you
+                // visited. Those are left to the per-quest item monitor (FollowItems).
+                else if (ItemTypes.Contains(o.Type) && itemSteps.Count(s => s.Name == o.Name) == 1)
+                {
+                    if (ownedNames.Any(n => Matches(o, n))) Tick(o);
+                    else if (o.Type is "senjata" or "music disc" or "summon") Untick(o);
+                }
+            }
+        _progress.Chapter = loaded;
+        _storyMayGoBack = true;
+        _itemStatus = $"Progress disesuaikan dengan save Chapter {loaded} (backup tersimpan)";
+        Save();
+        return true;
+
+        void Tick(Objective o) { if (_progress.Done.Add(o.Id)) _progress.History.Add(o.Id); }
+        void Untick(Objective o) { if (_progress.Done.Remove(o.Id)) _progress.History.Remove(o.Id); }
+    }
+
     bool FollowObjective()
     {
         var objective = _inGame && _detectedChapter is int chapterNow ? _reader.ReadObjective(chapterNow) : null;
@@ -458,9 +502,13 @@ public partial class MainWindow : Window
             && (StepFor(sub, chapter) ?? StepFor(objective, chapter)) is { } step
             && step != CurrentStory)
         {
-            // The guide only moves forward: ticked steps stay ticked. The objective shown is still the game's.
-            if (CurrentStory is not { } now || Array.IndexOf(chapter.Objectives, step) > Array.IndexOf(chapter.Objectives, now))
+            // The guide only moves forward (browsing the Story menu must not undo progress), except right after
+            // another save was loaded, when the game's objective is where that save really is.
+            if (_storyMayGoBack || CurrentStory is not { } now || Array.IndexOf(chapter.Objectives, step) > Array.IndexOf(chapter.Objectives, now))
+            {
                 SetStoryPosition(step);
+                _storyMayGoBack = false;
+            }
         }
         return true;
     }
