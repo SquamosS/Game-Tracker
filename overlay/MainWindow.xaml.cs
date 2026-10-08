@@ -660,11 +660,9 @@ public partial class MainWindow : Window
         var chapter = CurrentChapter;
         GameText.Text = _guide?.Game ?? "Game Tracker";
         RenderObjective();
-        FooterText.Text = (_error is null ? "" : _error + "\n") + _detectStatus + "\n" +
-            "Ctrl+Shift+G tampil/sembunyi · Ctrl+Shift+A panduan lengkap / arsip · Space centang berikutnya · Backspace batal · " +
-            "PgUp/PgDn ganti chapter · T mode mouse · double-click langkah = posisiku " + (_clickThrough ? "(tembus ke game)" : "(klik overlay)");
-        // Compact tracker: as tall as its content, no footer unless something is wrong.
-        FooterText.Visibility = _full || _error is not null || _reader.Problem is not null ? Visibility.Visible : Visibility.Collapsed;
+        // No status or hotkey help (the user knows them): the footer only appears when something is wrong.
+        FooterText.Text = _error ?? _reader.Problem ?? "";
+        FooterText.Visibility = _error is not null || _reader.Problem is not null ? Visibility.Visible : Visibility.Collapsed;
         if (_full) { SizeToContent = SizeToContent.Manual; MaxHeight = double.PositiveInfinity; if (Height < 400) Height = 640; }
         else { SizeToContent = SizeToContent.Height; MaxHeight = 520; }
 
