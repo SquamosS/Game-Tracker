@@ -378,6 +378,19 @@ public partial class MainWindow : Window
     static bool SameQuest(string guideName, string title) =>
         guideName.Replace("Discovery:", "").Trim().StartsWith(title, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Items handed over automatically need no searching: "REWARD BOSS" (after a boss), "REWARD CHAPTER" (at the
+    /// end of the chapter) or "REWARD" (otherwise automatic). Null for anything you have to find yourself.
+    /// </summary>
+    static string? RewardTag(Objective o)
+    {
+        if (o.Type is "cerita" or "trofi" || o.Optional || !o.Where.Contains("otomatis", StringComparison.OrdinalIgnoreCase)) return null;
+        string where = o.Where.ToLowerInvariant();
+        if (where.Contains("akhir chapter")) return "REWARD CHAPTER";
+        if (new[] { "boss", "kalah", "drop", "fight" }.Any(where.Contains)) return "REWARD BOSS";
+        return "REWARD";
+    }
+
     /// <summary>What a step is, as shown next to its name.</summary>
     static string TypeLabel(Objective o) => o.Type == "kejadian" && o.Name.StartsWith("Discovery") ? "discovery" : o.Type;
 
@@ -693,6 +706,7 @@ public partial class MainWindow : Window
         if (tag is not null) title.Inlines.Add(new System.Windows.Documents.Run(tag + " ") { Foreground = tag == "SEKARANG" ? Now : Late, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (o.Missable && !done) title.Inlines.Add(new System.Windows.Documents.Run("MISSABLE ") { Foreground = Danger, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (o.Optional && !done) title.Inlines.Add(new System.Windows.Documents.Run("OPSIONAL ") { Foreground = Muted, FontWeight = FontWeights.Bold, FontSize = 10.5 });
+        if (RewardTag(o) is { } reward && !done) title.Inlines.Add(new System.Windows.Documents.Run(reward + " ") { Foreground = TrophyColor, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         title.Inlines.Add(new System.Windows.Documents.Run(o.Name) { Foreground = done ? Done : o.Type == "cerita" ? Brushes.White : TypeBrush(TypeLabel(o)), TextDecorations = done ? TextDecorations.Strikethrough : null });
         title.Inlines.Add(new System.Windows.Documents.Run($"  {TypeLabel(o)}") { Foreground = TypeBrush(TypeLabel(o)), FontSize = 10.5, FontWeight = FontWeights.SemiBold });
 
