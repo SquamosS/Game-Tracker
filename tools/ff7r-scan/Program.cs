@@ -47,6 +47,28 @@ switch (args[0])
     case "dump": Dump(Convert.ToInt64(args[1], 16), Convert.ToInt32(args[2], 16)); break;
     case "find":Find(int.Parse(args[1]), Path.Combine(Dir, args[2] + ".cand"), args.Length > 3 ? int.Parse(args[3]) : 4); break;
     case "who": Who(args[1..].Select(a => Convert.ToInt64(a, 16)).ToHashSet()); break;
+    case "vt": // vt <vtable> <offset> <value>: objects with that vtable whose int at offset equals value, with their first 0xC0 bytes
+    {
+        long vt = Convert.ToInt64(args[1], 16); int off = Convert.ToInt32(args[2], 16), val = int.Parse(args[3]), n = 0, all = 0;
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 8 <= len; i += 8)
+                {
+                    if (BitConverter.ToInt64(buf, i) != vt) continue;
+                    all++;
+                    var o = Read(a + i, 0xC0);
+                    if (BitConverter.ToInt32(o, off) != val) continue;
+                    n++;
+                    Console.WriteLine($"0x{a + i:X}");
+                    for (int r = 0; r < 0xC0; r += 0x20) Console.WriteLine($"  +{r:X2}: {Convert.ToHexString(o, r, 0x20)}");
+                }
+            }
+        Console.WriteLine($"{n} dari {all} objek");
+        break;
+    }
     case "strs": // strs <addr> <count>: the FStrings (pointer, length, capacity) of an array, 16 bytes apart
         for (int k = -Convert.ToInt32(args[2]); k < Convert.ToInt32(args[2]); k++)
         {
