@@ -17,22 +17,23 @@ public static class ProgressStore
 {
     static readonly string Dir = DataPaths.Data;
 
-    static string PathFor(string game) =>
-        Path.Combine(Dir, string.Concat(game.Split(Path.GetInvalidFileNameChars())) + ".json");
+    static string FileName(string game) => string.Concat(game.Split(Path.GetInvalidFileNameChars()));
+
+    static string PathFor(string game) => Path.Combine(Dir, FileName(game) + ".json");
 
     /// <summary>Set when the progress file was unreadable and the newest backup was used instead.</summary>
     public static string? Recovered { get; private set; }
 
     /// <summary>
     /// The saved progress. A damaged file (the PC lost power mid-write) falls back to the newest readable backup
-    /// rather than silently starting from zero.
+    /// of the same game rather than silently starting from zero.
     /// </summary>
     public static Progress Load(string game)
     {
+        Recovered = null; // a recovery reported by an earlier load must not stick to this one
         if (!File.Exists(PathFor(game))) return new();
         if (TryRead(PathFor(game)) is { } progress) return progress;
-        var backups = Directory.Exists(BackupDir) ? Directory.GetFiles(BackupDir, "*.json").OrderByDescending(f => f) : Enumerable.Empty<string>();
-        foreach (var backup in backups)
+        foreach (var backup in BackupsOf(game))
             if (TryRead(backup) is { } restored)
             {
                 Recovered = $"File progress rusak; dipulihkan dari backup {Path.GetFileName(backup)}";
@@ -50,16 +51,47 @@ public static class ProgressStore
 
     static string BackupDir => Path.Combine(Dir, "backups");
 
-    /// <summary>Copies the progress file to the backups folder (one per minute at most) before it is rewritten wholesale.</summary>
+    const int KeepBackups = 50;
+
+    /// <summary>
+    /// This game's backups ("&lt;game&gt;-yyyyMMdd-HHmm.json"), newest first. The exact length check keeps game "X" from
+    /// picking up the backups of a game named "X-something". Old backups named only by time are left alone: they
+    /// cannot say which game they belong to, so restoring one into another game would be worse than not restoring.
+    /// </summary>
+    static IEnumerable<string> BackupsOf(string game)
+    {
+        string prefix = FileName(game) + "-";
+        try
+        {
+            if (!Directory.Exists(BackupDir)) return [];
+            return Directory.GetFiles(BackupDir, prefix + "*.json")
+                .Where(f => Path.GetFileNameWithoutExtension(f) is var name
+                    && name.Length == prefix.Length + "yyyyMMdd-HHmm".Length
+                    && DateTime.TryParseExact(name[prefix.Length..], "yyyyMMdd-HHmm", null, System.Globalization.DateTimeStyles.None, out _))
+                .OrderByDescending(f => f)
+                .ToList();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return []; }
+    }
+
+    /// <summary>
+    /// Copies the progress file to the backups folder (one per minute at most) before it is rewritten wholesale,
+    /// then drops this game's backups beyond the newest <see cref="KeepBackups"/> so the folder does not grow forever.
+    /// </summary>
     public static void Backup(string game)
     {
         if (!File.Exists(PathFor(game))) return;
         try
         {
             var dir = Directory.CreateDirectory(BackupDir).FullName;
-            File.Copy(PathFor(game), Path.Combine(dir, $"{DateTime.Now:yyyyMMdd-HHmm}.json"), overwrite: true);
+            File.Copy(PathFor(game), Path.Combine(dir, $"{FileName(game)}-{DateTime.Now:yyyyMMdd-HHmm}.json"), overwrite: true);
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { } // best effort: the progress file itself is untouched
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return; } // best effort: the progress file itself is untouched
+        foreach (var old in BackupsOf(game).Skip(KeepBackups))
+        {
+            try { File.Delete(old); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { } // try again on the next backup
+        }
     }
 
     /// <summary>
