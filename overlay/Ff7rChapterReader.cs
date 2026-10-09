@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -126,11 +127,11 @@ public sealed partial class Ff7rChapterReader : IDisposable
         // A failed search counts as finding nothing (looked for again below); its Result would throw on every poll.
         if (_search is { IsCompleted: true }) { _lists = _search.IsCompletedSuccessfully ? _search.Result : new(); _search = null; _listsFound = DateTime.Now; }
         // The game makes new copies of the save data (autosave, chapter change): look for new lists now and then.
-        if (_lists.Count > 0 && DateTime.Now - _listsFound > ListRefresh) _search ??= Task.Run(FindLists);
+        if (_lists.Count > 0 && DateTime.Now - _listsFound > ListRefresh) _search ??= Scan(FindLists);
         _lists.RemoveAll(l => ReadInt32(l.Gil + 8) != 20);
         if (_lists.Count == 0)
         {
-            _search ??= Task.Run(FindLists);
+            _search ??= Scan(FindLists);
             return null;
         }
         var owned = new List<Owned>();
@@ -179,34 +180,68 @@ public sealed partial class Ff7rChapterReader : IDisposable
     const int FlagStart = 0x40E00, FlagBytes = 0x1000, EventStart = 0xE9A4, EventBytes = 0x400;
 
     /// <summary>Scans writable memory for materia lists (6+ consecutive materia records) with the gil record at the known distance.</summary>
-    List<(long, long)> FindLists()
+    List<(long, long)> FindLists(CancellationToken cancel)
     {
         var found = new List<(long, long)>();
-        long address = 0;
-        while (VirtualQueryEx(_handle, (IntPtr)address, out var mbi, (uint)Marshal.SizeOf<MemoryInfo>()) != 0)
+        // One 4 MB buffer for the whole scan (a new one per chunk churned the large object heap). Chunks at the
+        // end of a region are shorter and a rented array may be longer: only the chunk's length is scanned.
+        var buf = ArrayPool<byte>.Shared.Rent(1 << 22);
+        try
         {
-            long start = (long)mbi.BaseAddress, size = (long)mbi.RegionSize;
-            address = start + size;
-            if (mbi.State != 0x1000 || (mbi.Protect & 0x04) == 0 || (mbi.Protect & 0x100) != 0) continue;
-            for (long a = start; a < start + size; a += 1 << 22)
+            long address = 0;
+            while (VirtualQueryEx(_handle, (IntPtr)address, out var mbi, (uint)Marshal.SizeOf<MemoryInfo>()) != 0)
             {
-                var buf = new byte[(int)Math.Min(1 << 22, start + size - a)];
-                if (!ReadProcessMemory(_handle, (IntPtr)a, buf, buf.Length, out _)) continue;
-                for (int i = 0; i + 0x20 * 6 <= buf.Length; i += 0x20)
+                long start = (long)mbi.BaseAddress, size = (long)mbi.RegionSize;
+                address = start + size;
+                if (mbi.State != 0x1000 || (mbi.Protect & 0x04) == 0 || (mbi.Protect & 0x100) != 0) continue;
+                for (long a = start; a < start + size; a += 1 << 22)
                 {
-                    bool run = true;
-                    for (int k = 0; k < 6 && run; k++)
+                    cancel.ThrowIfCancellationRequested();
+                    int length = (int)Math.Min(1 << 22, start + size - a);
+                    if (!ReadProcessMemory(_handle, (IntPtr)a, buf, length, out _)) continue;
+                    for (int i = 0; i + 0x20 * 6 <= length; i += 0x20)
                     {
-                        int p = i + k * 0x20;
-                        run = BitConverter.ToInt32(buf, p + 4) == 0 && BitConverter.ToInt32(buf, p + 8) == k && BitConverter.ToInt32(buf, p + 12) == 0
-                            && BitConverter.ToInt32(buf, p + 20) is >= 10000 and < 20000 && buf[p + 16] is >= 1 and <= 5;
+                        bool run = true;
+                        for (int k = 0; k < 6 && run; k++)
+                        {
+                            int p = i + k * 0x20;
+                            run = BitConverter.ToInt32(buf, p + 4) == 0 && BitConverter.ToInt32(buf, p + 8) == k && BitConverter.ToInt32(buf, p + 12) == 0
+                                && BitConverter.ToInt32(buf, p + 20) is >= 10000 and < 20000 && buf[p + 16] is >= 1 and <= 5;
+                        }
+                        if (run && ReadInt32(a + i + ItemsToGil + 8) == 20) found.Add((a + i, a + i + ItemsToGil));
                     }
-                    if (run && ReadInt32(a + i + ItemsToGil + 8) == 20) found.Add((a + i, a + i + ItemsToGil));
                 }
+                if (address <= 0 || address >= 0x7FFFFFFFFFFF) break;
             }
-            if (address <= 0 || address >= 0x7FFFFFFFFFFF) break;
         }
+        finally { ArrayPool<byte>.Shared.Return(buf); }
         return found;
+    }
+
+    /// <summary>
+    /// Cancelled by Detach: a scan of a game that closed (or restarted) stops at its next chunk instead of running
+    /// on next to the scan of the new process. Its result is never used anyway (Detach drops the task).
+    /// </summary>
+    CancellationTokenSource _scanCancel = new();
+
+    /// <summary>
+    /// Runs a full memory scan on a worker thread at below-normal priority, so the game wins any fight for the CPU
+    /// and the scan only takes the time the game leaves free.
+    /// </summary>
+    Task<T> Scan<T>(Func<CancellationToken, T> scan)
+    {
+        var cancel = _scanCancel.Token; // this session's, taken now: Detach may replace it before the task starts
+        return Task.Run(() => AtLowPriority(() => scan(cancel)), cancel);
+    }
+
+    static T AtLowPriority<T>(Func<T> work)
+    {
+        // Pool threads are shared: put the priority back when done.
+        var thread = Thread.CurrentThread;
+        var before = thread.Priority;
+        thread.Priority = ThreadPriority.BelowNormal;
+        try { return work(); }
+        finally { thread.Priority = before; }
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -298,6 +333,9 @@ public sealed partial class Ff7rChapterReader : IDisposable
         Version = null;
         Problem = null;
         _lists.Clear();
+        // Not disposed: a running scan may still check its token. Without timers or links it holds nothing to free.
+        _scanCancel.Cancel();
+        _scanCancel = new();
         _search = null;
         _objectiveRows = null;
         _slotRows.Clear();
