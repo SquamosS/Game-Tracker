@@ -1006,7 +1006,13 @@ public partial class MainWindow : Window
         bool compact = !_full;
         FrameworkElement marker;
         if (compact)
-            marker = new TextBlock { Text = TypeIcon(o), Foreground = TypeBrush(TypeLabel(o)), FontSize = 12, Width = 16, Margin = new Thickness(0, 1, 6, 0), VerticalAlignment = VerticalAlignment.Top };
+        {
+            // Icon column: the type icon, then a red "!" for a missable step (a fixed width keeps names aligned).
+            var icons = new TextBlock { Width = 34, Margin = new Thickness(0, -2, 4, 0), VerticalAlignment = VerticalAlignment.Top };
+            icons.Inlines.Add(new System.Windows.Documents.Run(TypeIcon(o)) { Foreground = TypeBrush(TypeLabel(o)), FontSize = 17 });
+            if (o.Missable && !done) icons.Inlines.Add(new System.Windows.Documents.Run(" !") { Foreground = Danger, FontWeight = FontWeights.Black, FontSize = 18 });
+            marker = icons;
+        }
         else
         {
             var box = new CheckBox { IsChecked = done, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 8, 0) };
@@ -1016,7 +1022,7 @@ public partial class MainWindow : Window
 
         var title = new TextBlock { TextWrapping = TextWrapping.Wrap, FontWeight = isNext ? FontWeights.SemiBold : FontWeights.Normal };
         if (tag is not null) title.Inlines.Add(new System.Windows.Documents.Run(tag + " ") { Foreground = tag is "SEKARANG" or "DI SINI" ? Now : Late, FontWeight = FontWeights.Bold, FontSize = 10.5 });
-        if (o.Missable && !done) title.Inlines.Add(new System.Windows.Documents.Run("! ") { Foreground = Danger, FontWeight = FontWeights.Black, FontSize = 14 });
+        if (o.Missable && !done && !compact) title.Inlines.Add(new System.Windows.Documents.Run("! ") { Foreground = Danger, FontWeight = FontWeights.Black, FontSize = 14 });
         if (o.Optional && !done && !compact) title.Inlines.Add(new System.Windows.Documents.Run("OPSIONAL ") { Foreground = Muted, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (RewardTag(o) is { } reward && !done) title.Inlines.Add(new System.Windows.Documents.Run(reward + " ") { Foreground = TrophyColor, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         // The icon alone is too small to tell a music disc from an item: name the kind unless the name already says it.
