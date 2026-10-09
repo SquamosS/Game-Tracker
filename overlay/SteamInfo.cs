@@ -121,8 +121,7 @@ public sealed class SteamInfo
             InstallPath = install,
             SizeOnDisk = manifest is null ? null : Number(manifest, "SizeOnDisk"),
             BuildId = manifest is null ? null : Value(manifest, "buildid"),
-            // StateFlags 4 = fully installed; anything else (update required, updating...) is not up to date.
-            UpToDate = manifest is null ? null : Number(manifest, "StateFlags") == 4,
+            UpToDate = manifest is null ? null : Number(manifest, "StateFlags") is long flags ? IsUpToDate(flags) : null,
             LastUpdated = manifest is not null && Number(manifest, "LastUpdated") is long lu and > 0 ? DateTimeOffset.FromUnixTimeSeconds(lu).LocalDateTime : null,
             Account = account,
             PersonaName = account is null ? null : Persona(steam, account),
@@ -137,6 +136,13 @@ public sealed class SteamInfo
             LatestScreenshot = latest?.FullName,
         };
     }
+
+    /// <summary>
+    /// StateFlags is a bit field (Steam's EAppState), so other bits such as 64 = app running may be set too.
+    /// Up to date = 4 (fully installed) without 2 (update required), 256 (update running), 512 (update paused)
+    /// or 1024 (update started).
+    /// </summary>
+    static bool IsUpToDate(long flags) => (flags & 4) != 0 && (flags & (2 | 256 | 512 | 1024)) == 0;
 
     static IEnumerable<string> Libraries(string steam)
     {
@@ -162,8 +168,9 @@ public sealed class SteamInfo
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
     }
 
-    /// <summary>The text of a "key" { ... } block, nested blocks included.</summary>
-    static string? Block(string text, string key)
+    /// <summary>The text of a "key" { ... } block, nested blocks included: the app's block in localconfig.vdf (the
+    /// one holding LastPlayed or Playtime; the same number can also name other blocks). Shared with SteamStats.</summary>
+    internal static string? Block(string text, string key)
     {
         foreach (Match m in Regex.Matches(text, $"\"{Regex.Escape(key)}\"\\s*\\{{"))
         {
@@ -185,7 +192,7 @@ public sealed class SteamInfo
     static string? Value(string text, string key) =>
         Regex.Match(text, $"\"{key}\"\\s*\"([^\"]*)\"", RegexOptions.IgnoreCase) is { Success: true } m ? m.Groups[1].Value : null;
 
-    static long? Number(string text, string key) => long.TryParse(Value(text, key), out long n) ? n : null;
+    internal static long? Number(string text, string key) => long.TryParse(Value(text, key), out long n) ? n : null;
 
     // ---- Web (public, no key) ------------------------------------------------------------------------------
 

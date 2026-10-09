@@ -23,6 +23,9 @@ public partial class DashboardWindow : Window
 
     GameModule? _selected = GameRegistry.All.FirstOrDefault();
     string? _shownPicture;
+    // Which games ran at the last refresh: looking up processes is not free, so once per refresh for every row.
+    HashSet<GameModule> _running = new();
+    DateTime _refreshedAt;
 
     public DashboardWindow()
     {
@@ -43,7 +46,7 @@ public partial class DashboardWindow : Window
         Loaded += (_, _) => BringToFront();
         // Running state and play time follow the games while the dashboard is open.
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-        timer.Tick += (_, _) => { if (IsVisible) Refresh(); };
+        timer.Tick += (_, _) => { if (IsVisible) Tick(); };
         timer.Start();
         Refresh();
     }
@@ -80,8 +83,20 @@ public partial class DashboardWindow : Window
         MaxButton.ToolTip = max ? "Restore" : "Maximize";
     }
 
+    /// <summary>
+    /// While a game is played the dashboard usually sits behind it: then only watch which games run (a start or exit
+    /// still shows within 3 seconds) and rebuild everything every 30 seconds for the play time.
+    /// </summary>
+    void Tick()
+    {
+        if (IsActive || _running.Count == 0 || DateTime.Now - _refreshedAt > TimeSpan.FromSeconds(30)) Refresh();
+        else if (!_running.SetEquals(GameRegistry.All.Where(g => g.IsRunning))) Refresh();
+    }
+
     public void Refresh()
     {
+        _running = GameRegistry.All.Where(g => g.IsRunning).ToHashSet();
+        _refreshedAt = DateTime.Now;
         string query = Search.Text.Trim();
         var games = GameRegistry.All.Where(g => query.Length == 0 || g.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
         Games.Children.Clear();
@@ -93,7 +108,7 @@ public partial class DashboardWindow : Window
 
     FrameworkElement RowFor(GameModule game)
     {
-        bool running = game.IsRunning, selected = game == _selected;
+        bool running = _running.Contains(game), selected = game == _selected;
         var cover = new Border { Width = 46, Height = 68, Background = Brush("#1E293B"), Margin = new Thickness(0, 0, 12, 0), ClipToBounds = true };
         if (Image(game.Cover ?? SteamOf(game)?.CoverArt, 120) is { } image) cover.Background = new ImageBrush(image) { Stretch = Stretch.UniformToFill };
         else cover.Child = new TextBlock { Text = Initials(game.DisplayName), Foreground = Muted, FontFamily = Display, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
@@ -102,7 +117,7 @@ public partial class DashboardWindow : Window
         info.Children.Add(new TextBlock { Text = game.DisplayName, FontFamily = Display, FontSize = 14, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap, Foreground = selected ? Brushes.White : Brush("#CBD5E1") });
         info.Children.Add(new TextBlock
         {
-            Text = running ? "● SEDANG BERJALAN" : TimeOf(game) is { } time ? $"{Duration(time.Seconds)} dimainkan" : "Steam belum login",
+            Text = running ? "● SEDANG BERJALAN" : TimeOf(game, running) is { } time ? $"{Duration(time.Seconds)} dimainkan" : "Steam belum login",
             Foreground = running ? Live : Faint, FontSize = 11.5, Margin = new Thickness(0, 4, 0, 0),
         });
 
@@ -146,8 +161,8 @@ public partial class DashboardWindow : Window
         }
         if (game is null) return;
 
-        bool running = game.IsRunning;
-        var time = TimeOf(game);
+        bool running = _running.Contains(game);
+        var time = TimeOf(game, running);
         HeroTitle.Text = game.DisplayName;
         StatusText.Text = running ? "● SEDANG BERJALAN" : "SIAP DIMAINKAN";
         StatusText.Foreground = running ? Live : Mako;
@@ -240,7 +255,12 @@ public partial class DashboardWindow : Window
                 panel.Children.Add(new TextBlock { Text = item.Title, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White, FontSize = 12.5 });
                 panel.Children.Add(new TextBlock { Text = item.Date.ToString("dd MMM yyyy"), Foreground = Faint, FontSize = 11 });
                 var link = new Border { Child = panel, Padding = new Thickness(10, 7, 10, 7), Background = Brush("#990A1220"), BorderBrush = Brush("#2238BDF8"), BorderThickness = new Thickness(1), Cursor = Cursors.Hand, Margin = new Thickness(0, 0, 0, 6) };
-                link.MouseLeftButtonDown += (_, _) => OpenPath(item.Url);
+                // The address comes from the web: hand only real web links to the shell, never a file or program.
+                link.MouseLeftButtonDown += (_, _) =>
+                {
+                    if (Uri.TryCreate(item.Url, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+                        OpenPath(uri.AbsoluteUri);
+                };
                 Side.Children.Add(link);
             }
         }
@@ -261,10 +281,10 @@ public partial class DashboardWindow : Window
     }
 
     /// <summary>Play time and last played: Steam's own record when the game is on Steam, else the tracker's.</summary>
-    static (long Seconds, DateTime? LastPlayed)? TimeOf(GameModule game)
+    static (long Seconds, DateTime? LastPlayed)? TimeOf(GameModule game, bool running)
     {
         // Steam games: only the logged-in account's time; nothing when Steam is not logged in.
-        if (game.SteamAppId is int id) return SteamStats.For(id) is { } steam ? (steam.Seconds, steam.LastPlayed) : null;
+        if (game.SteamAppId is int id) return SteamStats.For(id, running) is { } steam ? (steam.Seconds, steam.LastPlayed) : null;
         var tracked = PlayTime.Instance.For(game.Id);
         return (tracked.Seconds, tracked.LastPlayed);
     }
@@ -287,10 +307,26 @@ public partial class DashboardWindow : Window
         return grid;
     }
 
+    // Decoded pictures by file and size, so the refresh every 3 seconds does not decode covers and screenshots
+    // (up to 4K) again; a picture is decoded again only when its file is rewritten.
+    static readonly Dictionary<(string Path, int Width), (DateTime Written, BitmapImage? Image)> Images = new();
+
     /// <summary>Loads a picture without locking the file, so it can be replaced while the app runs.</summary>
     static BitmapImage? Image(string? path, int decodeWidth = 0)
     {
         if (path is null) return null;
+        DateTime written;
+        try { written = System.IO.File.GetLastWriteTimeUtc(path); }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { return null; }
+        if (Images.TryGetValue((path, decodeWidth), out var cached) && cached.Written == written) return cached.Image;
+        if (Images.Count > 32) Images.Clear(); // old screenshots would pile up otherwise
+        var loaded = Decode(path, decodeWidth);
+        Images[(path, decodeWidth)] = (written, loaded);
+        return loaded;
+    }
+
+    static BitmapImage? Decode(string path, int decodeWidth)
+    {
         try
         {
             var image = new BitmapImage();
