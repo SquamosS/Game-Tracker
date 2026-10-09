@@ -19,6 +19,12 @@
         </Grid>
         <!-- Where you are, as the game's map names it: saves opening the map to match the guide's "where". -->
         <TextBlock x:Name="LocationText" Margin="0,0,0,8" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
+        <!-- The way to the next step's room, through rooms you have walked between before (only when fully known). -->
+        <TextBlock x:Name="RouteText" Margin="0,-4,0,8" TextWrapping="Wrap" FontSize="12" Visibility="Collapsed" />
+        <!-- What the overlay just did on its own (ticked, learned, undone) or missed at a chapter's end; fades after a while. -->
+        <Border x:Name="NoticeBox" Background="#264ADE80" BorderBrush="#4ADE80" BorderThickness="3,0,0,0" Padding="8,3" Margin="0,0,0,8" Visibility="Collapsed">
+          <TextBlock x:Name="NoticeText" TextWrapping="Wrap" FontSize="12.5" Foreground="White" />
+        </Border>
         <!-- Open steps in the area you are in: pulses when you walk in, so nothing has to be read to notice it. -->
         <Border x:Name="HereBox" Background="#2614B8A6" BorderBrush="#5EEAD4" BorderThickness="3,0,0,0" Padding="8,4" Margin="0,0,0,8" Visibility="Collapsed">
           <TextBlock x:Name="HereText" TextWrapping="Wrap" FontSize="13" />

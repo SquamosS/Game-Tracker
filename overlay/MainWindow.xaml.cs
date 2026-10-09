@@ -36,6 +36,10 @@ public partial class MainWindow : Window
     readonly long _startedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     readonly List<(int Id, DateTime When)> _unknownNew = new();
     string? _itemStatus;
+    /// <summary>The notice line: what the overlay just did on its own, shown for a few seconds of visible time.</summary>
+    string? _notice;
+    bool _noticeAlert;
+    int _noticeSeconds;
     HashSet<string>? _seenFlags;
     Ff7rChapterReader.Objective? _objective;
     /// <summary>The live sub-objective of _objective ("Find Stamp" › "Train Yard Security"), if any.</summary>
@@ -144,6 +148,8 @@ public partial class MainWindow : Window
                     foreach (var o in finished.Objectives.Where(o => o.Type == "cerita" || RewardTag(o) == "REWARD CHAPTER"
                         || (o.Type == "trofi" && ChapterEndTrophy(o))))
                         if (_progress.Done.Add(o.Id)) _progress.History.Add(o.Id);
+                if (chapter == _progress.Chapter + 1 && _guide.Chapters.FirstOrDefault(c => c.Number == _progress.Chapter) is { } ended)
+                    RecapMissed(ended);
                 _progress.Chapter = chapter!.Value;
                 Persist();
             }
@@ -156,9 +162,12 @@ public partial class MainWindow : Window
         changed |= FollowFlags();
         changed |= FollowObjective();
         changed |= FollowCompleted();
-        LogPosition();
+        var position = _inGame ? _reader.ReadPosition() : null;
+        LogPosition(position);
         FollowGameState();
-        changed |= FollowLocation();
+        changed |= FollowLocation(position);
+        // The notice counts down only while you can see it: a chapter's recap must not run out behind a cutscene.
+        if (_notice is not null && IsVisible && --_noticeSeconds <= 0) { _notice = null; RenderNotice(); }
 
         string status = _reader.Problem
             ?? (_reader.Version is null ? "FF7R belum jalan"
@@ -212,7 +221,7 @@ public partial class MainWindow : Window
             if (step is null || !_progress.Done.Add(step.Id)) continue;
             _progress.History.Add(step.Id);
             Save();
-            _itemStatus = $"Otomatis dicentang: {step.Name}";
+            Notify($"Otomatis dicentang: {step.Name}");
             changed = true;
         }
         return changed;
@@ -239,13 +248,13 @@ public partial class MainWindow : Window
             if (late.Count == 1)
             {
                 _itemMap.LearnFlag(late[0], pending.Id);
-                _itemStatus = $"Dipelajari: flag {late[0]} = {pending.Name}";
+                Notify($"Dipelajari: flag {late[0]} = {pending.Name}");
                 _pendingStory = null;
                 _newFlags.Clear();
             }
             else if (late.Count > 1)
             {
-                _itemStatus = "Tidak dipelajari: lebih dari satu flag baru";
+                Notify("Tidak dipelajari: lebih dari satu flag baru");
                 _pendingStory = null;
             }
         }
@@ -257,7 +266,7 @@ public partial class MainWindow : Window
             {
                 _progress.Done.Add(step.Id);
                 _progress.History.Add(step.Id);
-                _itemStatus = $"Otomatis dicentang: {step.Name}";
+                Notify($"Otomatis dicentang: {step.Name}");
                 changed = true;
             }
         if (changed) Save();
@@ -277,10 +286,10 @@ public partial class MainWindow : Window
             return;
         }
         var flags = _newFlags.Select(f => f.Flag).Distinct().ToList();
-        if (flags.Count > 1) { _itemStatus = "Tidak dipelajari: lebih dari satu flag baru"; return; }
+        if (flags.Count > 1) { Notify("Tidak dipelajari: lebih dari satu flag baru"); return; }
         _newFlags.Clear();
         _itemMap.LearnFlag(flags[0], step.Id);
-        _itemStatus = $"Dipelajari: flag {flags[0]} = {step.Name}";
+        Notify($"Dipelajari: flag {flags[0]} = {step.Name}");
     }
 
     /// <summary>
@@ -323,11 +332,11 @@ public partial class MainWindow : Window
         // Materia ids are 10000 and up; learn only when a single unknown of the right kind for this step came in.
         var ids = _unknownNew.Where(u => (u.Id >= 10000) == (step.Type == "materia")).Select(u => u.Id).Distinct().ToList();
         if (ids.Count == 0) return;
-        if (ids.Count > 1) { _itemStatus = "Tidak dipelajari: lebih dari satu item baru"; return; }
+        if (ids.Count > 1) { Notify("Tidak dipelajari: lebih dari satu item baru"); return; }
         int id = ids[0];
         _unknownNew.RemoveAll(u => u.Id == id);
         _itemMap.Learn(id, step.Name);
-        _itemStatus = $"Dipelajari: item {id} = {step.Name}";
+        Notify($"Dipelajari: item {id} = {step.Name}");
     }
 
     static readonly HashSet<string> ItemTypes = ["materia", "aksesori", "armor", "senjata", "summon", "music disc", "manuskrip"];
@@ -360,7 +369,7 @@ public partial class MainWindow : Window
         if (_objective is { } objective && CurrentStory is { } current && CurrentChapter?.Number == _detectedChapter)
         {
             _itemMap.LearnFlag("Q:" + objective.TitleKey, current.Id);
-            _itemStatus = $"Dipelajari: objektif {objective.TitleKey} = {current.Name}";
+            Notify($"Dipelajari: objektif {objective.TitleKey} = {current.Name}");
         }
     }
 
@@ -371,7 +380,7 @@ public partial class MainWindow : Window
     string _lastChoiceLog = "";
 
     /// <summary>Sub-objective keys: "..._Step060_s030_030", "..._Step20_S10", "..._toPark_sub01".</summary>
-    static bool IsSub(string key) => System.Text.RegularExpressions.Regex.IsMatch(key, @"_(s|S|sub)\d+(_\d+)?$");
+    static bool IsSub(string key) => SubPattern.IsMatch(key);
 
     /// <summary>The objective of the last entry in the longest run of adjacent entries, ignoring chapter titles.</summary>
     Ff7rChapterReader.Objective? NewestEntry()
@@ -424,7 +433,7 @@ public partial class MainWindow : Window
                 if (_progress.Done.Add(step.Id))
                 {
                     _progress.History.Add(step.Id);
-                    _itemStatus = $"Otomatis dicentang: {step.Name}";
+                    Notify($"Otomatis dicentang: {step.Name}");
                     changed = true;
                 }
         if (changed) Save();
@@ -434,13 +443,18 @@ public partial class MainWindow : Window
     Ff7rChapterReader.Location? _here;
 
     /// <summary>Names the area you are in from the game's own area volumes (Ff7rMapArea.cs).</summary>
-    bool FollowLocation()
+    bool FollowLocation(Ff7rChapterReader.Position? p)
     {
-        var here = _inGame && _reader.ReadPosition() is { } p ? _reader.ReadLocation(p) : null;
+        var here = p is not null ? _reader.ReadLocation(p) : null;
+        var (lastHere, lastPosition) = (_here, _herePosition);
+        _herePosition = p;
         if (here == _here) return false;
+        LearnLink(lastHere, lastPosition, here, p);
         _here = here;
         return true;
     }
+
+    Ff7rChapterReader.Position? _herePosition;
 
     Ff7rChapterReader.Position? _loggedPosition;
 
@@ -448,9 +462,9 @@ public partial class MainWindow : Window
     /// Appends the controlled character's position to data\logs\position.log whenever it moved 2 m or more, with the
     /// chapter and the live objective: samples for naming the location later (not shown on the overlay yet).
     /// </summary>
-    void LogPosition()
+    void LogPosition(Ff7rChapterReader.Position? position)
     {
-        if (!_inGame || _reader.ReadPosition() is not { } p) return;
+        if (position is not { } p) return;
         if (_loggedPosition is { } last
             && Math.Sqrt((p.X - last.X) * (p.X - last.X) + (p.Y - last.Y) * (p.Y - last.Y) + (p.Z - last.Z) * (p.Z - last.Z)) < 200) return;
         _loggedPosition = p;
@@ -468,11 +482,16 @@ public partial class MainWindow : Window
     /// </summary>
     static (string Area, string? Floor)? AreaOf(Objective o)
     {
-        var m = System.Text.RegularExpressions.Regex.Match(o.Where, @"^([^:(]{3,60}?)\s*(?:\(([^)]*)\))?\s*:");
+        var m = AreaPattern.Match(o.Where);
         if (!m.Success) return null;
-        var floor = System.Text.RegularExpressions.Regex.Match(m.Groups[2].Value, @"\bB\d+\b");
+        var floor = FloorPattern.Match(m.Groups[2].Value);
         return (m.Groups[1].Value.Trim(), floor.Success ? floor.Value : null);
     }
+
+    static readonly System.Text.RegularExpressions.Regex AreaPattern = new(@"^([^:(]{3,60}?)\s*(?:\(([^)]*)\))?\s*:", System.Text.RegularExpressions.RegexOptions.Compiled),
+        FloorPattern = new(@"\bB\d+\b", System.Text.RegularExpressions.RegexOptions.Compiled),
+        SubPattern = new(@"_(s|S|sub)\d+(_\d+)?$", System.Text.RegularExpressions.RegexOptions.Compiled),
+        HardNote = new(@"\s*\(?Hard:.*$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <summary>Whether the step is in the area you are in now (and on its floor, when the guide names one).</summary>
     bool IsHere(Objective o) => _here is { } here && AreaOf(o) is var (area, floor)
@@ -512,7 +531,8 @@ public partial class MainWindow : Window
         // The banner stays while something is left here: it fades in for something new to see (another area), only
         // updates when a step was just ticked, and fades out once nothing is left or you walk out.
         var before = _hereShown.Split('|').ToHashSet();
-        if (_menuOpen || _userHidden) { _hereShown = string.Join("|", steps.Select(s => s.Id)); return; } // hidden with the overlay
+        // Hidden with the overlay: drawn when it shows again (FollowGameState), new steps then still fade in.
+        if (_menuOpen || _userHidden) return;
         if (steps.Count == 0) _toast.FadeOut();
         else _toast.Show(_here?.Area ?? "",steps.Select(o => (o.Name, o.Missable)).ToList(), steps.Any(o => !before.Contains(o.Id)));
         if (shown != _hereShown && steps.Count > 0)
@@ -522,7 +542,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>A step's "where" as shown: its closing "Hard: ..." note (Hard-only rewards) only in Hard mode.</summary>
-    string ShownWhere(Objective o) => _hardMode ? o.Where : System.Text.RegularExpressions.Regex.Replace(o.Where, @"\s*\(?Hard:.*$", "");
+    string ShownWhere(Objective o) => _hardMode ? o.Where : HardNote.Replace(o.Where, "");
 
     /// <summary>"Discovery: Collapsed Passageway" is the game's "Collapsed Passageway".</summary>
     static bool SameQuest(string guideName, string title) =>
@@ -624,7 +644,7 @@ public partial class MainWindow : Window
             }
         _progress.Chapter = loaded;
         _storyMayGoBack = true;
-        _itemStatus = $"Progress disesuaikan dengan save Chapter {loaded} (backup tersimpan)";
+        Notify($"Progress disesuaikan dengan save Chapter {loaded} (backup tersimpan)");
         Save();
         return true;
 
@@ -725,6 +745,7 @@ public partial class MainWindow : Window
     {
         _userHidden = !_userHidden;
         ApplyVisibility();
+        if (!_userHidden) RenderHere();
     }
 
     bool _userHidden, _menuOpen;
@@ -757,7 +778,13 @@ public partial class MainWindow : Window
         // Shown only while exploring (1): menus (3, also a battle's command menu), cutscenes (5) and battles (0) hide
         // it. Unknown (another game version) shows it.
         bool menu = state is { } && !state.Exploring;
-        if (menu != _menuOpen) { _menuOpen = menu; ApplyVisibility(); }
+        if (menu != _menuOpen)
+        {
+            _menuOpen = menu;
+            ApplyVisibility();
+            // The banner kept what it showed before the menu: bring it up to date (picked up, walked on, new steps).
+            if (!menu) RenderHere();
+        }
     }
 
     /// <summary>Ctrl+Shift+A: compact tracker, then the full checklist, then the full checklist with finished steps.</summary>
@@ -798,7 +825,9 @@ public partial class MainWindow : Window
     void TickNext()
     {
         var next = NextStep(CurrentChapter?.Objectives ?? []);
-        if (next is not null) SetDone(next.Id, true);
+        if (next is null) return;
+        Notify($"✓ Dicentang: {next.Name}");
+        SetDone(next.Id, true);
     }
 
     /// <summary>
@@ -818,8 +847,11 @@ public partial class MainWindow : Window
         string id = _progress.History[^1];
         _progress.History.RemoveAt(_progress.History.Count - 1);
         _progress.Done.Remove(id);
+        Notify($"↶ Dibatalkan: {StepName(id)}");
         Save();
     }
+
+    string StepName(string id) => _guide?.Chapters.SelectMany(c => c.Objectives).FirstOrDefault(o => o.Id == id)?.Name ?? id;
 
     void SetDone(string id, bool done)
     {
@@ -889,6 +921,8 @@ public partial class MainWindow : Window
             if (at.Floor is { } floor) LocationText.Inlines.Add(new System.Windows.Documents.Run("   " + floor) { Foreground = Muted, FontSize = 11.5 });
         }
         LocationText.Visibility = _here is null ? Visibility.Collapsed : Visibility.Visible;
+        RenderRoute(chapter);
+        RenderNotice();
         RenderHere();
         // No status or hotkey help (the user knows them): the footer only appears when something is wrong.
         FooterText.Text = _error ?? _reader.Problem ?? "";
@@ -940,7 +974,7 @@ public partial class MainWindow : Window
         WarnBox.BorderBrush = WarnText.Foreground = urgent ? Danger : Late;
         WarnText.Text = toGet.Count == 0 ? "" : string.Join(Environment.NewLine, new[]
         {
-            gate is null ? $"⚠ Belum diambil: {string.Join(" · ", toGet)}" : $"⚠ Sebelum {gate.Name}: {string.Join(" · ", toGet)}",
+            gate is null ? $"⚠ Belum diambil ({toGet.Count}): {string.Join(" · ", toGet)}" : $"⚠ {toGet.Count} lagi sebelum {gate.Name}: {string.Join(" · ", toGet)}",
             urgent || _full ? reason : null,
         }.Where(s => s is not null));
 
@@ -987,6 +1021,16 @@ public partial class MainWindow : Window
         // Only once the live objective is known: before that the guide position is just the last saved one.
         if (_objective is not null && CurrentStory is { } story && !string.IsNullOrWhiteSpace(story.Where))
             List.Children.Add(new TextBlock { Text = story.Where, TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12, Margin = new Thickness(2, 0, 0, 6) });
+        foreach (var (step, tag) in OpenSteps(objectives, current))
+            List.Children.Add(Row(step, false, false, tag));
+    }
+
+    /// <summary>
+    /// The compact tracker's steps: open items and side quests up to the current story step, those in your area
+    /// first ("DI SINI"), then missables; earlier ones tagged "TERTINGGAL". Optional pick-ups only while you pass them.
+    /// </summary>
+    List<(Objective Step, string? Tag)> OpenSteps(Objective[] objectives, int current)
+    {
         int phase = -1;
         var open = new List<(Objective Step, string? Tag)>();
         for (int i = 0; i < objectives.Length; i++)
@@ -996,14 +1040,10 @@ public partial class MainWindow : Window
             if (phase > current || _progress.Done.Contains(o.Id)) continue;
             // Trophies are not tracked here: the rewards they come with are steps of their own.
             if (o.Type == "trofi") continue;
-            // Optional pick-ups (also sold in shops) only matter while you pass them.
             if (o.Optional && phase < current) continue;
-            // Everything listed here is "now" unless left behind, so only that is tagged.
             open.Add((o, IsHere(o) ? "DI SINI" : phase == current ? null : "TERTINGGAL"));
         }
-        // What is in the area you are in comes first, then missables.
-        foreach (var (step, tag) in open.OrderByDescending(x => x.Tag == "DI SINI").ThenByDescending(x => x.Step.Missable))
-            List.Children.Add(Row(step, false, false, tag));
+        return open.OrderByDescending(x => x.Tag == "DI SINI").ThenByDescending(x => x.Step.Missable).ToList();
     }
 
     /// <summary>

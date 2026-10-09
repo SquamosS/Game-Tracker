@@ -16,6 +16,10 @@ public sealed partial class Ff7rChapterReader : IDisposable
     [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
     [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
     [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr process, IntPtr address, byte[] buffer, int size, out int read);
+    // Single values straight into a local: no array per read (several hundred reads a second while playing).
+    [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr process, IntPtr address, out long value, int size, out int read);
+    [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr process, IntPtr address, out int value, int size, out int read);
+    [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr process, IntPtr address, out byte value, int size, out int read);
 
     Process? _process;
     IntPtr _handle;
@@ -76,14 +80,13 @@ public sealed partial class Ff7rChapterReader : IDisposable
         else return null; // asked again on the next poll
         var (materia, gil) = live;
         var ids = new HashSet<int>();
-        long items = gil;
-        while (ReadInt32(items - 0x18 + 8) is > 0 and < 100_000 && ReadInt32(items - 0x18 + 4) == 0) items -= 0x18;
-        foreach (var o in ReadRecords(items, 0x18, 600, (b, slot) => new Owned(BitConverter.ToInt32(b, 8), BitConverter.ToInt32(b, 12), 0, slot)))
+        long items = ItemsStart(gil);
+        foreach (var o in ReadRecords(items, 0x18, 600, (b, slot) => new Owned(BitConverter.ToInt32(b[8..]), BitConverter.ToInt32(b[12..]), 0, slot)))
             if (o.Id > 0 && o.Count > 0) ids.Add(o.Id);
-        foreach (var o in ReadRecords(materia, 0x20, 600, (b, slot) => new Owned(BitConverter.ToInt32(b, 20), 1, 0, slot)))
+        foreach (var o in ReadRecords(materia, 0x20, 600, (b, slot) => new Owned(BitConverter.ToInt32(b[20..]), 1, 0, slot)))
             if (o.Id > 0) ids.Add(o.Id);
         foreach (var o in ReadRecords(materia - EquipmentBytes, 0x10, EquipmentBytes / 0x10, (b, slot) =>
-                     (BitConverter.ToInt32(b, 0) & 0xFF) is 1 or 2 ? new Owned(BitConverter.ToInt32(b, 4), 1, 0, slot) : new Owned(0, 0, 0, slot)))
+                     (BitConverter.ToInt32(b[0..]) & 0xFF) is 1 or 2 ? new Owned(BitConverter.ToInt32(b[4..]), 1, 0, slot) : new Owned(0, 0, 0, slot)))
             if (o.Id is >= 1000 and < 10000) ids.Add(o.Id);
         return ids;
     }
@@ -137,15 +140,14 @@ public sealed partial class Ff7rChapterReader : IDisposable
         var owned = new List<Owned>();
         foreach (var (materia, gil) in _lists)
         {
-            long items = gil;
-            while (ReadInt32(items - 0x18 + 8) is > 0 and < 100_000 && ReadInt32(items - 0x18 + 4) == 0) items -= 0x18;
-            owned.AddRange(ReadRecords(items, 0x18, 600, (b, slot) => new Owned(BitConverter.ToInt32(b, 8), BitConverter.ToInt32(b, 12), BitConverter.ToUInt32(b, 0), slot)));
-            owned.AddRange(ReadRecords(materia, 0x20, 600, (b, slot) => new Owned(BitConverter.ToInt32(b, 20), 1, BitConverter.ToUInt32(b, 0), slot)));
+            long items = ItemsStart(gil);
+            owned.AddRange(ReadRecords(items, 0x18, 600, (b, slot) => new Owned(BitConverter.ToInt32(b[8..]), BitConverter.ToInt32(b[12..]), BitConverter.ToUInt32(b[0..]), slot)));
+            owned.AddRange(ReadRecords(materia, 0x20, 600, (b, slot) => new Owned(BitConverter.ToInt32(b[20..]), 1, BitConverter.ToUInt32(b[0..]), slot)));
             // Weapons (and other equipment) sit in a list of 0x10-byte records {kind 1/2, id} just before the
             // materia list (Metal Knuckles 3002 at materia - 0xF50); new ones are appended into empty records.
             owned.AddRange(ReadRecords(materia - EquipmentBytes, 0x10, EquipmentBytes / 0x10, (b, slot) =>
-                BitConverter.ToInt32(b, 0) is var kind && (kind & 0xFF) is 1 or 2 && kind >> 16 == 0
-                    && BitConverter.ToInt32(b, 4) is var id && id is >= 1000 and < 10000
+                BitConverter.ToInt32(b[0..]) is var kind && (kind & 0xFF) is 1 or 2 && kind >> 16 == 0
+                    && BitConverter.ToInt32(b[4..]) is var id && id is >= 1000 and < 10000
                     ? new Owned(id, 1, 0, slot) : new Owned(0, 0, 0, slot)));
         }
         return owned;
@@ -162,6 +164,11 @@ public sealed partial class Ff7rChapterReader : IDisposable
         var (materia, _) = _lists.MaxBy(l => (uint)ReadInt32(l.Gil));
         var buffer = new byte[FlagBytes];
         if (!ReadProcessMemory(_handle, (IntPtr)(materia + FlagStart), buffer, buffer.Length, out _)) return null;
+        var events = new byte[EventBytes];
+        bool eventsRead = ReadProcessMemory(_handle, (IntPtr)(materia + EventStart), events, events.Length, out _);
+        // Flags rarely change: the same bytes give the same set (callers only read it), without rebuilding thousands of strings.
+        if (_flagsFrom == materia && _flagSet is not null && eventsRead == _flagEventsRead
+            && buffer.AsSpan().SequenceEqual(_flagBytes) && events.AsSpan().SequenceEqual(_flagEvents)) return _flagSet;
         var set = new HashSet<string>();
         for (int i = 0; i < buffer.Length; i += 4)
         {
@@ -170,12 +177,17 @@ public sealed partial class Ff7rChapterReader : IDisposable
                 if ((word & (1u << bit)) != 0) set.Add($"{i:X}:{bit}");
         }
         // Log of side-quest step events (one id per step, e.g. "found cat 2"), kept in the save; -1 = empty slot.
-        var events = new byte[EventBytes];
-        if (ReadProcessMemory(_handle, (IntPtr)(materia + EventStart), events, events.Length, out _))
+        if (eventsRead)
             for (int i = 0; i < events.Length; i += 4)
                 if (BitConverter.ToInt32(events, i) is var id && id > 0) set.Add($"E:{id}");
+        (_flagsFrom, _flagBytes, _flagEvents, _flagEventsRead, _flagSet) = (materia, buffer, events, eventsRead, set);
         return set;
     }
+
+    long _flagsFrom;
+    byte[] _flagBytes = [], _flagEvents = [];
+    bool _flagEventsRead;
+    HashSet<string>? _flagSet;
 
     const int FlagStart = 0x40E00, FlagBytes = 0x1000, EventStart = 0xE9A4, EventBytes = 0x400;
 
@@ -248,29 +260,52 @@ public sealed partial class Ff7rChapterReader : IDisposable
     struct MemoryInfo { public IntPtr BaseAddress, AllocationBase; public uint AllocationProtect; public ushort PartitionId; public IntPtr RegionSize; public uint State, Protect, Type; }
     [DllImport("kernel32.dll")] static extern int VirtualQueryEx(IntPtr process, IntPtr address, out MemoryInfo info, uint length);
 
-    int ReadInt32(long address)
-    {
-        var buffer = new byte[4];
-        return ReadProcessMemory(_handle, (IntPtr)address, buffer, 4, out _) ? BitConverter.ToInt32(buffer) : 0;
-    }
+    int ReadInt32(long address) => ReadProcessMemory(_handle, (IntPtr)address, out int value, 4, out _) ? value : 0;
 
-    List<Owned> ReadRecords(long address, int size, int max, Func<byte[], long, Owned> parse)
+    delegate Owned RecordParser(ReadOnlySpan<byte> record, long slot);
+
+    /// <summary>Records parsed straight from one read (no copy per record: this runs for every save copy every second).</summary>
+    List<Owned> ReadRecords(long address, int size, int max, RecordParser parse)
     {
-        var buffer = new byte[size * max];
-        var list = new List<Owned>();
-        if (!ReadProcessMemory(_handle, (IntPtr)address, buffer, buffer.Length, out _)) return list;
-        for (int i = 0; i < max; i++)
+        var buffer = ArrayPool<byte>.Shared.Rent(size * max);
+        var list = new List<Owned>(max);
+        try
         {
-            var o = parse(buffer[(i * size)..((i + 1) * size)], address + (long)i * size);
-            if (o.Id >= 0 && o.Id < 100_000) list.Add(o); // empty slots (id 0) too: a new item may go there
+            if (!ReadProcessMemory(_handle, (IntPtr)address, buffer, size * max, out _)) return list;
+            for (int i = 0; i < max; i++)
+            {
+                var o = parse(buffer.AsSpan(i * size, size), address + (long)i * size);
+                if (o.Id >= 0 && o.Id < 100_000) list.Add(o); // empty slots (id 0) too: a new item may go there
+            }
         }
+        finally { ArrayPool<byte>.Shared.Return(buffer); }
         return list;
     }
-    int ReadByte(IntPtr address)
+
+    /// <summary>
+    /// The first record of the item list ending at the gil record: records before it while they look like items
+    /// (id 1..99999, zero high word). One read of the area before it instead of two reads per record.
+    /// </summary>
+    long ItemsStart(long gil)
     {
-        var buffer = new byte[1];
-        return ReadProcessMemory(_handle, address, buffer, 1, out _) ? buffer[0] : -1;
+        const int Max = 2000;
+        var buffer = ArrayPool<byte>.Shared.Rent(0x18 * Max);
+        try
+        {
+            long from = gil - 0x18 * Max;
+            if (!ReadProcessMemory(_handle, (IntPtr)from, buffer, 0x18 * Max, out _)) return gil;
+            long items = gil;
+            for (int i = Max - 1; i >= 0; i--)
+            {
+                var r = buffer.AsSpan(i * 0x18, 0x18);
+                if (BitConverter.ToInt32(r[8..]) is not (> 0 and < 100_000) || BitConverter.ToInt32(r[4..]) != 0) break;
+                items = from + i * 0x18;
+            }
+            return items;
+        }
+        finally { ArrayPool<byte>.Shared.Return(buffer); }
     }
+    int ReadByte(IntPtr address) => ReadProcessMemory(_handle, address, out byte value, 1, out _) ? value : -1;
 
     bool Attach()
     {
@@ -317,11 +352,7 @@ public sealed partial class Ff7rChapterReader : IDisposable
         _ => (null, 0),
     };
 
-    int ReadInt(IntPtr address)
-    {
-        var buffer = new byte[4];
-        return ReadProcessMemory(_handle, address, buffer, 4, out _) ? BitConverter.ToInt32(buffer) : 0;
-    }
+    int ReadInt(IntPtr address) => ReadInt32(address);
 
     void Detach()
     {
@@ -344,6 +375,8 @@ public sealed partial class Ff7rChapterReader : IDisposable
         _objectiveSlots = new();
         _objectiveSearch = null;
         _positionObjects = new();
+        _nearScan = null;
+        _flagSet = null;
         _playerPosition = 0;
         _naviTexts = new();
         _naviVolumes = new();

@@ -76,11 +76,26 @@ public sealed partial class Ff7rChapterReader
             return null;
         }
 
-        // New objectives get a new entry next to the existing ones: look around them every few seconds.
-        if (DateTime.Now - _lastNearbyScan > TimeSpan.FromSeconds(3))
+        // New objectives get a new entry next to the existing ones: look around them every few seconds, on a worker
+        // thread (up to 64 MB read), and add what it found here, where the lists are used.
+        if (_nearScan is { IsCompleted: true })
+        {
+            if (_nearScan.IsCompletedSuccessfully && ReferenceEquals(_nearScanRows, _objectiveRows))
+                foreach (var (slot, row, parent) in _nearScan.Result)
+                    if (!_slotRows.ContainsKey(slot))
+                    {
+                        _objectiveSlots.Add(slot);
+                        _slotRows[slot] = (row, ++_changes);
+                        _slotParents[slot] = parent;
+                    }
+            _nearScan = null;
+        }
+        if (_nearScan is null && DateTime.Now - _lastNearbyScan > TimeSpan.FromSeconds(3))
         {
             _lastNearbyScan = DateTime.Now;
-            ScanNearEntries();
+            var (rows, slots) = (_objectiveRows, _objectiveSlots.ToList());
+            _nearScanRows = rows;
+            _nearScan = Scan(cancel => ScanNearEntries(rows, slots, cancel));
         }
 
         Candidates.Clear();
@@ -112,29 +127,34 @@ public sealed partial class Ff7rChapterReader
         return best;
     }
     DateTime _lastNearbyScan, _lastSearch;
-    // Reused by every window of every nearby scan (every 3 s on the UI thread) instead of a new 2 MB array each.
+    Task<List<(long Slot, long Row, long Parent)>>? _nearScan;
+    Dictionary<long, Objective>? _nearScanRows;
+    // Reused by every window of every nearby scan (one runs at a time) instead of a new 2 MB array each.
     byte[]? _nearWindow;
 
-    void ScanNearEntries()
+    /// <summary>New entries next to the known ones (same parent pointer, pointing at a row). Runs on a worker thread.</summary>
+    List<(long Slot, long Row, long Parent)> ScanNearEntries(Dictionary<long, Objective> rows, List<long> slots, CancellationToken cancel)
     {
-        if (_objectiveRows is null || _objectiveSlots.Count == 0) return;
-        var parents = _objectiveSlots.Select(s => ReadInt64(s - 8)).ToHashSet();
-        var known = _objectiveSlots.ToHashSet();
-        foreach (long window in _objectiveSlots.Select(s => s & ~0xFFFFFL).Distinct().Take(32).ToList())
+        var found = new List<(long, long, long)>();
+        if (slots.Count == 0) return found;
+        var parents = slots.Select(s => ReadInt64(s - 8)).ToHashSet();
+        var known = slots.ToHashSet();
+        var buf = _nearWindow ??= new byte[0x200000];
+        foreach (long window in slots.Select(s => s & ~0xFFFFFL).Distinct().Take(32))
         {
-            var buf = _nearWindow ??= new byte[0x200000];
+            cancel.ThrowIfCancellationRequested();
             if (!ReadProcessMemory(_handle, (IntPtr)(window - 0x80000), buf, buf.Length, out _)) continue;
             for (int i = 8; i + 8 <= buf.Length; i += 8)
             {
-                long slot = window - 0x80000 + i;
-                if (known.Contains(slot) || !_objectiveRows.ContainsKey(BitConverter.ToInt64(buf, i))) continue;
-                if (!parents.Contains(BitConverter.ToInt64(buf, i - 8))) continue;
-                _objectiveSlots.Add(slot);
+                long slot = window - 0x80000 + i, row = BitConverter.ToInt64(buf, i);
+                if (!rows.ContainsKey(row) || known.Contains(slot)) continue;
+                long parent = BitConverter.ToInt64(buf, i - 8);
+                if (!parents.Contains(parent)) continue;
                 known.Add(slot);
-                _slotRows[slot] = (BitConverter.ToInt64(buf, i), ++_changes);
-                _slotParents[slot] = BitConverter.ToInt64(buf, i - 8);
+                found.Add((slot, row, parent));
             }
         }
+        return found;
     }
 
     static bool InChapter(Objective row, int chapter) => ChapterOf(row.TitleKey) == chapter;
@@ -294,11 +314,7 @@ public sealed partial class Ff7rChapterReader
         }
     }
 
-    long ReadInt64(long address)
-    {
-        var buffer = new byte[8];
-        return ReadProcessMemory(_handle, (IntPtr)address, buffer, 8, out _) ? BitConverter.ToInt64(buffer) : 0;
-    }
+    long ReadInt64(long address) => ReadProcessMemory(_handle, (IntPtr)address, out long value, 8, out _) ? value : 0;
 
     string ReadUtf16(long address, int lengthWithNull)
     {
