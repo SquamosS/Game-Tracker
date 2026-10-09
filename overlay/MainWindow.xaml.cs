@@ -456,6 +456,52 @@ public partial class MainWindow : Window
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
+    /// <summary>
+    /// The area a step's "where" starts with, as the guide writes it: "Connecting Passageway (B5): ..." gives the area
+    /// and the floor hint B5; null when the text does not start with an area.
+    /// </summary>
+    static (string Area, string? Floor)? AreaOf(Objective o)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(o.Where, @"^([^:(]{3,60}?)\s*(?:\(([^)]*)\))?\s*:");
+        if (!m.Success) return null;
+        var floor = System.Text.RegularExpressions.Regex.Match(m.Groups[2].Value, @"\bB\d+\b");
+        return (m.Groups[1].Value.Trim(), floor.Success ? floor.Value : null);
+    }
+
+    /// <summary>Whether the step is in the area you are in now (and on its floor, when the guide names one).</summary>
+    bool IsHere(Objective o) => _here is { } here && AreaOf(o) is var (area, floor)
+        && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase)
+        && (floor is null || (here.Floor ?? "").Split(' ', '-').Contains(floor));
+
+    /// <summary>Open items, side quests and discoveries of this chapter in the area you are in.</summary>
+    List<Objective> HereSteps() => _here is null || CurrentChapter is not { } chapter ? []
+        : chapter.Objectives.Where(o => o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id) && IsHere(o)).ToList();
+
+    string _hereShown = "";
+
+    /// <summary>The "here" box: what is still to get in this area, missables in red. Pulses when it changes.</summary>
+    void RenderHere()
+    {
+        var steps = _inGame ? HereSteps() : [];
+        HereBox.Visibility = steps.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        HereText.Inlines.Clear();
+        if (steps.Count > 0)
+        {
+            HereText.Inlines.Add(new System.Windows.Documents.Run("DI AREA INI  ") { Foreground = Mako, FontWeight = FontWeights.Bold, FontSize = 11 });
+            for (int i = 0; i < steps.Count; i++)
+            {
+                if (i > 0) HereText.Inlines.Add(new System.Windows.Documents.Run("  ·  ") { Foreground = Muted });
+                HereText.Inlines.Add(new System.Windows.Documents.Run(steps[i].Name)
+                    { Foreground = steps[i].Missable ? Danger : Brushes.White, FontWeight = FontWeights.SemiBold });
+            }
+        }
+        string shown = string.Join("|", steps.Select(s => s.Id));
+        if (shown != _hereShown && steps.Count > 0)
+            HereBox.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0.25, 1, TimeSpan.FromMilliseconds(350))
+                { AutoReverse = false, RepeatBehavior = new System.Windows.Media.Animation.RepeatBehavior(4) });
+        _hereShown = shown;
+    }
+
     /// <summary>"Discovery: Collapsed Passageway" is the game's "Collapsed Passageway".</summary>
     static bool SameQuest(string guideName, string title) =>
         guideName.Replace("Discovery:", "").Trim().StartsWith(title, StringComparison.OrdinalIgnoreCase);
@@ -773,6 +819,7 @@ public partial class MainWindow : Window
             if (at.Floor is { } floor) LocationText.Inlines.Add(new System.Windows.Documents.Run("   " + floor) { Foreground = Muted, FontSize = 11.5 });
         }
         LocationText.Visibility = _here is null ? Visibility.Collapsed : Visibility.Visible;
+        RenderHere();
         // No status or hotkey help (the user knows them): the footer only appears when something is wrong.
         FooterText.Text = _error ?? _reader.Problem ?? "";
         FooterText.Visibility = _error is not null || _reader.Problem is not null ? Visibility.Visible : Visibility.Collapsed;
@@ -882,9 +929,10 @@ public partial class MainWindow : Window
             // Optional pick-ups (also sold in shops) only matter while you pass them.
             if (o.Optional && phase < current) continue;
             // Everything listed here is "now" unless left behind, so only that is tagged.
-            open.Add((o, phase == current ? null : "TERTINGGAL"));
+            open.Add((o, IsHere(o) ? "DI SINI" : phase == current ? null : "TERTINGGAL"));
         }
-        foreach (var (step, tag) in open.OrderByDescending(x => x.Step.Missable))
+        // What is in the area you are in comes first, then missables.
+        foreach (var (step, tag) in open.OrderByDescending(x => x.Tag == "DI SINI").ThenByDescending(x => x.Step.Missable))
             List.Children.Add(Row(step, false, false, tag));
     }
 
@@ -907,7 +955,7 @@ public partial class MainWindow : Window
         }
 
         var title = new TextBlock { TextWrapping = TextWrapping.Wrap, FontWeight = isNext ? FontWeights.SemiBold : FontWeights.Normal };
-        if (tag is not null) title.Inlines.Add(new System.Windows.Documents.Run(tag + " ") { Foreground = tag == "SEKARANG" ? Now : Late, FontWeight = FontWeights.Bold, FontSize = 10.5 });
+        if (tag is not null) title.Inlines.Add(new System.Windows.Documents.Run(tag + " ") { Foreground = tag is "SEKARANG" or "DI SINI" ? Now : Late, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (o.Missable && !done) title.Inlines.Add(new System.Windows.Documents.Run("MISSABLE ") { Foreground = Danger, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (o.Optional && !done && !compact) title.Inlines.Add(new System.Windows.Documents.Run("OPSIONAL ") { Foreground = Muted, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (RewardTag(o) is { } reward && !done) title.Inlines.Add(new System.Windows.Documents.Run(reward + " ") { Foreground = TrophyColor, FontWeight = FontWeights.Bold, FontSize = 10.5 });
