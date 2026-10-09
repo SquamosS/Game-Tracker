@@ -45,7 +45,17 @@ switch (args[0])
     case "rdiff": RangeDiff(args[1], args[2], Convert.ToInt64(args[3], 16)); break;
     case "seq": Seq(args[1..].Select(int.Parse).ToArray()); break;
     case "dump": Dump(Convert.ToInt64(args[1], 16), Convert.ToInt32(args[2], 16)); break;
-    case "find":Find(int.Parse(args[1]), Path.Combine(Dir, args[2] + ".cand")); break;
+    case "find":Find(int.Parse(args[1]), Path.Combine(Dir, args[2] + ".cand"), args.Length > 3 ? int.Parse(args[3]) : 4); break;
+    case "who": Who(args[1..].Select(a => Convert.ToInt64(a, 16)).ToHashSet()); break;
+    case "strs": // strs <addr> <count>: the FStrings (pointer, length, capacity) of an array, 16 bytes apart
+        for (int k = -Convert.ToInt32(args[2]); k < Convert.ToInt32(args[2]); k++)
+        {
+            var e = Read(Convert.ToInt64(args[1], 16) + k * 16, 16);
+            long sp = BitConverter.ToInt64(e, 0); int sl = BitConverter.ToInt32(e, 8);
+            string str = sp > 0x10000000000 && sp < 0x7FF000000000 && sl is > 1 and < 200 ? System.Text.Encoding.Unicode.GetString(Read(sp, (sl - 1) * 2)) : "-";
+            Console.WriteLine($"{k,4}: {str}");
+        }
+        break;
     case "paths": // paths <file> <expected>: keep chains that still resolve to the expected value
         var keep = File.ReadAllLines(Path.Combine(Dir, args[1])).Where(l => Chain(l.Split(' ')).EndsWith("= " + args[2])).ToList();
         File.WriteAllLines(Path.Combine(Dir, args[3]), keep);
@@ -215,6 +225,35 @@ void Watch(long start, int size, HashSet<int> skip)
     }
 }
 // Finds a text in memory as UTF-16 and ASCII; prints addresses and some context.
+// Every qword that points exactly at one of the addresses, with the UTF-16 strings (FString: pointer, length,
+// capacity) found in the 0x60 bytes around it, to see which key or object holds a text.
+void Who(HashSet<long> targets)
+{
+    var hits = new List<(long Loc, long Target)>();
+    foreach (var (b, s) in Regions())
+        for (long a = b; a < b + s; a += 1 << 22)
+        {
+            int len = (int)Math.Min(1 << 22, b + s - a);
+            var buf = Read(a, len);
+            for (int i = 0; i + 8 <= len; i += 8)
+                if (targets.Contains(BitConverter.ToInt64(buf, i))) hits.Add((a + i, BitConverter.ToInt64(buf, i)));
+        }
+    foreach (var (loc, target) in hits)
+    {
+        Console.WriteLine($"0x{loc:X} -> 0x{target:X}");
+        var around = Read(loc - 0x60, 0xC0);
+        for (int i = 0; i + 16 <= around.Length; i += 8)
+        {
+            long p = BitConverter.ToInt64(around, i);
+            int l = BitConverter.ToInt32(around, i + 8);
+            if (p < 0x10000000000 || p > 0x7FF000000000 || l < 2 || l > 200) continue;
+            var text = System.Text.Encoding.Unicode.GetString(Read(p, (l - 1) * 2));
+            if (text.All(c => c >= 32 && c < 0xD800)) Console.WriteLine($"   {i - 0x60:+0;-0}: \"{text}\"");
+        }
+    }
+    Console.WriteLine($"{hits.Count} pointer");
+}
+
 void FindText(string text, int max)
 {
     var patterns = new[] { (System.Text.Encoding.Unicode.GetBytes(text), "utf16"), (System.Text.Encoding.ASCII.GetBytes(text), "ascii") };
@@ -306,7 +345,8 @@ void FindLists()
         }
 }
 // Known-value scan: every 4-byte-aligned int32 equal to value.
-void Find(int value, string outPath)
+// find <value> <out> [width]: width 4 (aligned int, default), 2 (aligned ushort) or 1 (byte).
+void Find(int value, string outPath, int width)
 {
     using var w = new BinaryWriter(new BufferedStream(File.Create(outPath), 1 << 22));
     long count = 0;
@@ -315,8 +355,9 @@ void Find(int value, string outPath)
         {
             int len = (int)Math.Min(1 << 22, b + s - a);
             var buf = Read(a, len);
-            for (int i = 0; i + 4 <= len; i += 4)
-                if (BitConverter.ToInt32(buf, i) == value) { Rec(w, a + i, 4, value, value); count++; }
+            for (int i = 0; i + width <= len; i += width)
+                if ((width == 4 ? BitConverter.ToInt32(buf, i) : width == 2 ? BitConverter.ToUInt16(buf, i) : buf[i]) == value)
+                { Rec(w, a + i, (byte)width, value, value); count++; }
         }
     Console.WriteLine($"kandidat: {count:N0}");
 }
@@ -335,7 +376,7 @@ int Current(long addr, byte width, Dictionary<long, byte[]> pages)
     long page = addr & ~0xFFFL;
     if (!pages.TryGetValue(page, out var buf)) pages[page] = buf = Read(page, 0x1004);
     int off = (int)(addr - page);
-    return width == 1 ? buf[off] : BitConverter.ToInt32(buf, off);
+    return width == 1 ? buf[off] : width == 2 ? BitConverter.ToUInt16(buf, off) : BitConverter.ToInt32(buf, off);
 }
 
 void Filter(string inPath, string outPath, string op)
