@@ -4,6 +4,8 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <!-- Only for the tray icon (NotifyIcon); its global usings would clash with WPF names. -->
+    <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- Lets the project also compile on non-Windows machines (CI, containers). -->
@@ -11,6 +13,11 @@
     <AssemblyName>GameTracker</AssemblyName>
     <RootNamespace>GameTracker</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="guides\**\*.json" CopyToOutputDirectory="PreserveNewest" />

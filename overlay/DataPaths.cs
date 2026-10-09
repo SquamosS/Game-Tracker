@@ -10,6 +10,9 @@ namespace GameTracker;
 public static class DataPaths
 {
     public static string Data { get; } = FindData();
+    /// <summary>The project folder (the one holding "overlay" and "data"), or the exe's folder outside the project.</summary>
+    public static string Root { get; } = Directory.GetParent(Data) is { } parent && Directory.Exists(Path.Combine(parent.FullName, "overlay"))
+        ? parent.FullName : AppContext.BaseDirectory;
     public static string Logs { get; } = Directory.CreateDirectory(Path.Combine(Data, "logs")).FullName;
 
     static string FindData()

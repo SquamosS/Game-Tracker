@@ -42,8 +42,14 @@ public partial class MainWindow : Window
     string _detectStatus = "";
     string? _error;
 
-    public MainWindow()
+    /// <summary>The game this overlay tracks; null keeps the old behaviour (the first guide in guides\).</summary>
+    readonly GameModule? _game;
+
+    public MainWindow() : this(null) { }
+
+    public MainWindow(GameModule? game)
     {
+        _game = game;
         InitializeComponent();
         Header.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) DragMove(); };
         Loaded += (_, _) => DockRight();
@@ -61,7 +67,9 @@ public partial class MainWindow : Window
     {
         try
         {
-            string? file = Directory.Exists(GuidesDir) ? Directory.GetFiles(GuidesDir, "*.json").OrderBy(f => f).FirstOrDefault() : null;
+            string? file = _game is not null
+                ? (File.Exists(Path.Combine(GuidesDir, _game.GuideFile)) ? Path.Combine(GuidesDir, _game.GuideFile) : null)
+                : Directory.Exists(GuidesDir) ? Directory.GetFiles(GuidesDir, "*.json").OrderBy(f => f).FirstOrDefault() : null;
             if (file is null)
             {
                 _error = $"Tidak ada file panduan di {GuidesDir}";
@@ -71,7 +79,7 @@ public partial class MainWindow : Window
             {
                 _guide = Guide.Load(file);
                 _progress = ProgressStore.Load(_guide.Game);
-                _error = null;
+                _error = ProgressStore.Recovered;
             }
         }
         catch (Exception e) when (e is IOException or System.Text.Json.JsonException or InvalidDataException)
@@ -86,7 +94,7 @@ public partial class MainWindow : Window
     void WatchGuides()
     {
         if (!Directory.Exists(GuidesDir)) return;
-        _watcher = new FileSystemWatcher(GuidesDir, "*.json") { EnableRaisingEvents = true };
+        _watcher = new FileSystemWatcher(GuidesDir, _game?.GuideFile ?? "*.json") { EnableRaisingEvents = true };
         _watcher.Changed += (_, _) => Dispatcher.BeginInvoke(LoadGuide);
     }
 

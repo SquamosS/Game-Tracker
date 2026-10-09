@@ -20,29 +20,50 @@ public static class ProgressStore
     static string PathFor(string game) =>
         Path.Combine(Dir, string.Concat(game.Split(Path.GetInvalidFileNameChars())) + ".json");
 
+    /// <summary>Set when the progress file was unreadable and the newest backup was used instead.</summary>
+    public static string? Recovered { get; private set; }
+
+    /// <summary>
+    /// The saved progress. A damaged file (the PC lost power mid-write) falls back to the newest readable backup
+    /// rather than silently starting from zero.
+    /// </summary>
     public static Progress Load(string game)
     {
-        try
-        {
-            return JsonSerializer.Deserialize<Progress>(File.ReadAllText(PathFor(game))) ?? new();
-        }
-        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException)
-        {
-            return new();
-        }
+        if (!File.Exists(PathFor(game))) return new();
+        if (TryRead(PathFor(game)) is { } progress) return progress;
+        var backups = Directory.Exists(BackupDir) ? Directory.GetFiles(BackupDir, "*.json").OrderByDescending(f => f) : Enumerable.Empty<string>();
+        foreach (var backup in backups)
+            if (TryRead(backup) is { } restored)
+            {
+                Recovered = $"File progress rusak; dipulihkan dari backup {Path.GetFileName(backup)}";
+                return restored;
+            }
+        Recovered = "File progress rusak dan tidak ada backup yang bisa dibaca";
+        return new();
     }
 
-    /// <summary>Copies the progress file to dataackups (one per minute at most) before it is rewritten wholesale.</summary>
+    static Progress? TryRead(string path)
+    {
+        try { return JsonSerializer.Deserialize<Progress>(File.ReadAllText(path)); }
+        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return null; }
+    }
+
+    static string BackupDir => Path.Combine(Dir, "backups");
+
+    /// <summary>Copies the progress file to the backups folder (one per minute at most) before it is rewritten wholesale.</summary>
     public static void Backup(string game)
     {
         if (!File.Exists(PathFor(game))) return;
-        var dir = Directory.CreateDirectory(Path.Combine(Dir, "backups")).FullName;
+        var dir = Directory.CreateDirectory(BackupDir).FullName;
         File.Copy(PathFor(game), Path.Combine(dir, $"{DateTime.Now:yyyyMMdd-HHmm}.json"), overwrite: true);
     }
 
+    /// <summary>Writes a temporary file and then swaps it in, so a power loss mid-write never leaves a half file.</summary>
     public static void Save(string game, Progress progress)
     {
         Directory.CreateDirectory(Dir);
-        File.WriteAllText(PathFor(game), JsonSerializer.Serialize(progress, new JsonSerializerOptions { WriteIndented = true }));
+        string path = PathFor(game), temp = path + ".tmp";
+        File.WriteAllText(temp, JsonSerializer.Serialize(progress, new JsonSerializerOptions { WriteIndented = true }));
+        File.Move(temp, path, overwrite: true);
     }
 }
