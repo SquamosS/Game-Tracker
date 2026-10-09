@@ -1,99 +1,236 @@
 <Window x:Class="GameTracker.DashboardWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Game Tracker" Width="960" Height="560" MinWidth="640" MinHeight="400"
+        Title="Game Tracker" Width="1180" Height="680" MinWidth="900" MinHeight="560"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="CanResizeWithGrip" WindowStartupLocation="CenterScreen"
         FontFamily="Segoe UI" FontSize="13" Foreground="#E2E8F0">
-  <Border CornerRadius="12" BorderBrush="#22FFFFFF" BorderThickness="1" ClipToBounds="True">
-    <Border.Background>
-      <SolidColorBrush Color="#0F172A" />
-    </Border.Background>
-    <Grid>
-      <!-- The selected game's picture, darkened on the left where the list sits. -->
-      <Border x:Name="Picture" CornerRadius="12" />
-      <Border CornerRadius="12">
-        <Border.Background>
-          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-            <GradientStop Color="#F20F172A" Offset="0" />
-            <GradientStop Color="#D90F172A" Offset="0.42" />
-            <GradientStop Color="#330F172A" Offset="1" />
-          </LinearGradientBrush>
-        </Border.Background>
-      </Border>
-
-      <DockPanel Margin="22,14,22,18">
-        <!-- Title bar: drag to move. -->
-        <DockPanel DockPanel.Dock="Top" x:Name="TitleBar" Background="Transparent" Height="34">
-          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-            <Button x:Name="MinButton" Content="—" Style="{DynamicResource ChromeButton}" />
-            <Button x:Name="CloseButton" Content="✕" Style="{DynamicResource ChromeButton}" />
-          </StackPanel>
-          <TextBlock Text="Game Tracker" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
-        </DockPanel>
-
-        <StackPanel DockPanel.Dock="Left" Width="400" Margin="0,14,0,0">
-          <!-- Search: filters the list by name as you type. -->
-          <Grid Margin="0,0,0,12">
-            <TextBox x:Name="Search" Height="34" Padding="34,7,10,0" FontSize="13" Foreground="#E2E8F0"
-                     Background="#990F172A" BorderBrush="#33FFFFFF" BorderThickness="1" CaretBrush="#38BDF8" />
-            <TextBlock Text="⌕" FontSize="17" Foreground="#64748B" Margin="12,0,0,1" VerticalAlignment="Center" IsHitTestVisible="False" />
-            <TextBlock x:Name="SearchHint" Text="Cari game..." Foreground="#64748B" Margin="35,0,0,1"
-                       VerticalAlignment="Center" IsHitTestVisible="False" />
-          </Grid>
-          <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="420">
-            <StackPanel x:Name="Games" />
-          </ScrollViewer>
-          <TextBlock x:Name="Empty" Text="Tidak ada game yang cocok." Foreground="#64748B" Margin="4,8,0,0" Visibility="Collapsed" />
-        </StackPanel>
-        <Grid />
-      </DockPanel>
-    </Grid>
-  </Border>
-
   <Window.Resources>
+    <FontFamily x:Key="Display">Bahnschrift</FontFamily>
+    <SolidColorBrush x:Key="Mako" Color="#5EEAD4" />
+    <SolidColorBrush x:Key="Cyan" Color="#38BDF8" />
+
+    <!-- Title bar buttons. -->
     <Style x:Key="ChromeButton" TargetType="Button">
-      <Setter Property="Width" Value="34" />
-      <Setter Property="Height" Value="28" />
+      <Setter Property="Width" Value="42" />
+      <Setter Property="Height" Value="30" />
       <Setter Property="Foreground" Value="#94A3B8" />
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="FontSize" Value="12" />
       <Setter Property="Cursor" Value="Hand" />
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
-            <Border x:Name="Bg" Background="{TemplateBinding Background}" CornerRadius="6">
+            <Border x:Name="Bg" Background="{TemplateBinding Background}">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bg" Property="Background" Value="#22FFFFFF" />
+                <Setter TargetName="Bg" Property="Background" Value="#26FFFFFF" />
+                <Setter Property="Foreground" Value="White" />
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
         </Setter.Value>
       </Setter>
     </Style>
-    <Style x:Key="ActionButton" TargetType="Button">
-      <Setter Property="Padding" Value="14,6" />
+    <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource ChromeButton}">
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Background" Value="#CCE11D48" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- Big angular START button with a mako glow. -->
+    <Style x:Key="StartButton" TargetType="Button">
+      <Setter Property="Foreground" Value="#04121A" />
+      <Setter Property="FontFamily" Value="{StaticResource Display}" />
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Grid x:Name="Root" Height="58" MinWidth="230">
+              <Path x:Name="Shape" Stretch="Fill" Data="M14,0 L230,0 L230,44 L216,58 L0,58 L0,14 Z">
+                <Path.Fill>
+                  <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#5EEAD4" Offset="0" />
+                    <GradientStop Color="#38BDF8" Offset="1" />
+                  </LinearGradientBrush>
+                </Path.Fill>
+                <Path.Effect>
+                  <DropShadowEffect x:Name="Glow" Color="#5EEAD4" BlurRadius="22" ShadowDepth="0" Opacity="0.55" />
+                </Path.Effect>
+              </Path>
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="28,0" />
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Shape" Property="Effect">
+                  <Setter.Value>
+                    <DropShadowEffect Color="#5EEAD4" BlurRadius="34" ShadowDepth="0" Opacity="0.9" />
+                  </Setter.Value>
+                </Setter>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Root" Property="RenderTransform">
+                  <Setter.Value>
+                    <TranslateTransform Y="1" />
+                  </Setter.Value>
+                </Setter>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Outlined angular secondary button. -->
+    <Style x:Key="GhostButton" TargetType="Button">
       <Setter Property="Foreground" Value="#E2E8F0" />
-      <Setter Property="Background" Value="#22FFFFFF" />
+      <Setter Property="FontFamily" Value="{StaticResource Display}" />
+      <Setter Property="FontSize" Value="14" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Cursor" Value="Hand" />
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
-            <Border x:Name="Bg" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-            </Border>
+            <Grid Height="58" MinWidth="170">
+              <Path x:Name="Shape" Stretch="Fill" Fill="#330F172A" Stroke="#8038BDF8" StrokeThickness="1.2"
+                    Data="M12,0 L170,0 L170,46 L158,58 L0,58 L0,12 Z" />
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="22,0" />
+            </Grid>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bg" Property="Opacity" Value="0.85" />
+                <Setter TargetName="Shape" Property="Fill" Value="#3338BDF8" />
+                <Setter TargetName="Shape" Property="Stroke" Value="#38BDF8" />
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
         </Setter.Value>
       </Setter>
     </Style>
+
+    <!-- Faint HUD grid laid over the art. -->
+    <DrawingBrush x:Key="Grid" TileMode="Tile" Viewport="0,0,48,48" ViewportUnits="Absolute" Opacity="0.07">
+      <DrawingBrush.Drawing>
+        <GeometryDrawing Geometry="M0,0 L48,0 M0,0 L0,48">
+          <GeometryDrawing.Pen>
+            <Pen Brush="#38BDF8" Thickness="1" />
+          </GeometryDrawing.Pen>
+        </GeometryDrawing>
+      </DrawingBrush.Drawing>
+    </DrawingBrush>
   </Window.Resources>
+
+  <Border x:Name="Frame" CornerRadius="10" BorderThickness="1" ClipToBounds="True" Background="#05070D">
+    <Border.BorderBrush>
+      <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#8038BDF8" Offset="0" />
+        <GradientStop Color="#1A5EEAD4" Offset="0.5" />
+        <GradientStop Color="#805EEAD4" Offset="1" />
+      </LinearGradientBrush>
+    </Border.BorderBrush>
+    <Grid>
+      <!-- The selected game's art, with shading so text stays readable. -->
+      <Border x:Name="Picture" />
+      <Border>
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#F205070D" Offset="0" />
+            <GradientStop Color="#D905070D" Offset="0.27" />
+            <GradientStop Color="#4005070D" Offset="0.42" />
+            <GradientStop Color="#3305070D" Offset="0.62" />
+            <GradientStop Color="#2605070D" Offset="1" />
+          </LinearGradientBrush>
+        </Border.Background>
+      </Border>
+      <Border>
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#9905070D" Offset="0" />
+            <GradientStop Color="#0005070D" Offset="0.22" />
+            <GradientStop Color="#0005070D" Offset="0.55" />
+            <GradientStop Color="#F205070D" Offset="1" />
+          </LinearGradientBrush>
+        </Border.Background>
+      </Border>
+      <Border Background="{StaticResource Grid}" />
+
+      <DockPanel>
+        <!-- Title bar: drag to move, double-click to maximise. -->
+        <DockPanel DockPanel.Dock="Top" x:Name="TitleBar" Background="Transparent" Height="44">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+            <Button x:Name="MinButton" Content="&#xE921;" FontFamily="Segoe MDL2 Assets" Style="{StaticResource ChromeButton}" ToolTip="Minimize" />
+            <Button x:Name="MaxButton" Content="&#xE922;" FontFamily="Segoe MDL2 Assets" Style="{StaticResource ChromeButton}" ToolTip="Maximize" />
+            <Button x:Name="CloseButton" Content="&#xE8BB;" FontFamily="Segoe MDL2 Assets" Style="{StaticResource CloseButton}" ToolTip="Keluar" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="22,0,0,0">
+            <Path Data="M0,8 L8,0 L16,8 L8,16 Z" Fill="{StaticResource Mako}" Width="12" Height="12" Stretch="Fill" Margin="0,0,10,0">
+              <Path.Effect>
+                <DropShadowEffect Color="#5EEAD4" BlurRadius="10" ShadowDepth="0" Opacity="0.8" />
+              </Path.Effect>
+            </Path>
+            <TextBlock Text="GAME TRACKER" FontFamily="{StaticResource Display}" FontSize="15" FontWeight="SemiBold" Foreground="White" />
+            <TextBlock Text="  //  COLLECTION HUD" FontFamily="{StaticResource Display}" FontSize="12" Foreground="#64748B" VerticalAlignment="Center" />
+          </StackPanel>
+        </DockPanel>
+
+        <Grid Margin="22,8,22,22">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="330" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+
+          <!-- Library: search + game list. -->
+          <DockPanel Grid.Column="0">
+            <TextBlock DockPanel.Dock="Top" Text="LIBRARY" FontFamily="{StaticResource Display}" FontSize="12" Foreground="#5EEAD4" Margin="2,0,0,8" />
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+              <Path Stretch="Fill" Fill="#B30A1220" Stroke="#4038BDF8" StrokeThickness="1" Data="M10,0 L330,0 L330,30 L320,40 L0,40 L0,10 Z" Height="40" />
+              <TextBox x:Name="Search" Height="40" Padding="36,10,12,0" FontSize="13" Foreground="#E2E8F0"
+                       Background="Transparent" BorderThickness="0" CaretBrush="#5EEAD4" />
+              <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#38BDF8" Margin="13,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" />
+              <TextBlock x:Name="SearchHint" Text="Cari game..." Foreground="#64748B" Margin="37,0,0,1" VerticalAlignment="Center" IsHitTestVisible="False" />
+            </Grid>
+            <TextBlock DockPanel.Dock="Bottom" x:Name="Count" Foreground="#475569" FontSize="11" Margin="2,8,0,0" />
+            <Grid>
+              <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel x:Name="Games" />
+              </ScrollViewer>
+              <TextBlock x:Name="Empty" Text="Tidak ada game yang cocok." Foreground="#64748B" Margin="4,8,0,0" Visibility="Collapsed" />
+            </Grid>
+          </DockPanel>
+
+          <!-- The selected game. -->
+          <Grid Grid.Column="1" Margin="48,0,0,0">
+            <StackPanel x:Name="Hero" VerticalAlignment="Bottom" Margin="0,0,0,8">
+              <Border x:Name="StatusChip" HorizontalAlignment="Left" Padding="10,3" Margin="0,0,0,12" Background="#262DD4BF" BorderBrush="#805EEAD4" BorderThickness="1">
+                <TextBlock x:Name="StatusText" FontFamily="{StaticResource Display}" FontSize="12" Foreground="#5EEAD4" />
+              </Border>
+              <TextBlock x:Name="HeroTitle" FontFamily="{StaticResource Display}" FontSize="40" FontWeight="Bold" Foreground="White" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left">
+                <TextBlock.Effect>
+                  <DropShadowEffect Color="#000000" BlurRadius="14" ShadowDepth="0" Opacity="0.8" />
+                </TextBlock.Effect>
+              </TextBlock>
+              <Rectangle Height="2" Width="120" HorizontalAlignment="Left" Margin="2,10,0,18">
+                <Rectangle.Fill>
+                  <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                    <GradientStop Color="#5EEAD4" Offset="0" />
+                    <GradientStop Color="#005EEAD4" Offset="1" />
+                  </LinearGradientBrush>
+                </Rectangle.Fill>
+              </Rectangle>
+              <WrapPanel x:Name="Stats" Margin="0,0,0,24" />
+              <StackPanel Orientation="Horizontal">
+                <Button x:Name="StartButton" Style="{StaticResource StartButton}" Margin="0,0,14,0" />
+                <Button x:Name="OverlayButton" Style="{StaticResource GhostButton}" Content="OVERLAY SAJA" ToolTip="Buka overlay tanpa menjalankan game" />
+              </StackPanel>
+            </StackPanel>
+          </Grid>
+        </Grid>
+      </DockPanel>
+    </Grid>
+  </Border>
 </Window>
