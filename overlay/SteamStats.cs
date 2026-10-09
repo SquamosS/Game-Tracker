@@ -13,18 +13,12 @@ public static class SteamStats
 {
     public sealed record Stats(long Seconds, DateTime? LastPlayed);
 
+    /// <summary>The logged-in account's record; null when Steam is not logged in, zero when that account never played.</summary>
     public static Stats? For(int appId)
     {
-        string? steam = Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null) as string;
-        if (steam is null || !Directory.Exists(Path.Combine(steam, "userdata"))) return null;
-        Stats? best = null;
-        foreach (var account in Directory.GetDirectories(Path.Combine(steam, "userdata")))
-        {
-            string file = Path.Combine(account, "config", "localconfig.vdf");
-            if (!File.Exists(file) || Read(file, appId) is not { } stats) continue;
-            if (best is null || (stats.LastPlayed ?? DateTime.MinValue) > (best.LastPlayed ?? DateTime.MinValue)) best = stats;
-        }
-        return best;
+        if (SteamInfo.SteamPath is not { } steam || SteamInfo.ActiveAccount is not { } account) return null;
+        string file = Path.Combine(steam, "userdata", account, "config", "localconfig.vdf");
+        return (File.Exists(file) ? Read(file, appId) : null) ?? new Stats(0, null);
     }
 
     static Stats? Read(string file, int appId)

@@ -30,8 +30,39 @@ public sealed class SteamInfo
     public int ScreenshotCount { get; init; }
     public string? LatestScreenshot { get; init; }
 
+    public string? Account { get; init; }
+    public string? PersonaName { get; init; }
+
     public static string? SteamPath =>
         Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null) is string p && Directory.Exists(p) ? p : null;
+
+    /// <summary>The account logged in to the running Steam client (its userdata folder name), or null when Steam
+    /// is closed or nobody is logged in. Steam sets ActiveUser to 0 on logout and exit.</summary>
+    public static string? ActiveAccount
+    {
+        get
+        {
+            const string key = @"HKEY_CURRENT_USER\Software\Valve\Steam\ActiveProcess";
+            if (Registry.GetValue(key, "ActiveUser", 0) is not int user || user == 0) return null;
+            // A crash can leave ActiveUser set: also require the Steam process to be alive.
+            if (Registry.GetValue(key, "pid", 0) is not int pid || pid == 0) return null;
+            try
+            {
+                using var process = System.Diagnostics.Process.GetProcessById(pid);
+                if (!process.ProcessName.Equals("steam", StringComparison.OrdinalIgnoreCase)) return null;
+            }
+            catch (ArgumentException) { return null; }
+            return ((uint)user).ToString();
+        }
+    }
+
+    /// <summary>The Steam profile name of an account, from loginusers.vdf (keyed by SteamID64).</summary>
+    static string? Persona(string steam, string account)
+    {
+        if (Read(Path.Combine(steam, "config", "loginusers.vdf")) is not { } users || !ulong.TryParse(account, out ulong id)) return null;
+        var m = Regex.Match(users, $"\"{76561197960265728UL + id}\"\\s*\\{{[^}}]*?\"PersonaName\"\\s*\"([^\"]*)\"");
+        return m.Success ? m.Groups[1].Value : null;
+    }
 
     /// <summary>Reads the local part. <paramref name="screenshotGlob"/> is a game's own screenshot folder and file
     /// pattern relative to its install folder (e.g. "End\Binaries\Win64\ff7remake_*.png"), besides Steam's.</summary>
@@ -49,15 +80,10 @@ public sealed class SteamInfo
         string? installDir = manifest is null ? null : Value(manifest, "installdir");
         string? install = library is null || installDir is null ? null : Path.Combine(library, "steamapps", "common", installDir);
 
-        // The Steam account that played it last, and its settings for the game.
-        string? account = null, block = null;
-        long lastPlayed = -1;
-        foreach (var dir in Directory.Exists(Path.Combine(steam, "userdata")) ? Directory.GetDirectories(Path.Combine(steam, "userdata")) : [])
-        {
-            if (Read(Path.Combine(dir, "config", "localconfig.vdf")) is not { } config || Block(config, appId.ToString()) is not { } b) continue;
-            long lp = Number(b, "LastPlayed") ?? 0;
-            if (lp > lastPlayed) { lastPlayed = lp; account = Path.GetFileName(dir); block = b; }
-        }
+        // Only the logged-in account: its settings for the game (none when it never played it).
+        string? account = ActiveAccount, block = null;
+        if (account is not null && Read(Path.Combine(steam, "userdata", account, "config", "localconfig.vdf")) is { } config)
+            block = Block(config, appId.ToString());
 
         // Achievements: unlocked = recorded unlock times; total = achievement bits in the schema.
         int? unlocked = null, total = null;
@@ -67,8 +93,8 @@ public sealed class SteamInfo
             var schema = BinaryKeyValues.Flatten(File.ReadAllBytes(Path.Combine(stats, $"UserGameStatsSchema_{appId}.bin")));
             total = schema.Count(kv => Regex.IsMatch(kv.Key, @"/stats/\d+/bits/\d+/name$"));
             string user = Path.Combine(stats, $"UserGameStats_{account}_{appId}.bin");
-            if (account is not null && File.Exists(user))
-                unlocked = BinaryKeyValues.Flatten(File.ReadAllBytes(user)).Count(kv => kv.Key.Contains("/AchievementTimes/"));
+            if (account is not null)
+                unlocked = File.Exists(user) ? BinaryKeyValues.Flatten(File.ReadAllBytes(user)).Count(kv => kv.Key.Contains("/AchievementTimes/")) : 0;
         }
 
         // Steam's own artwork for the game (newer clients keep it in a folder per app).
@@ -98,7 +124,9 @@ public sealed class SteamInfo
             // StateFlags 4 = fully installed; anything else (update required, updating...) is not up to date.
             UpToDate = manifest is null ? null : Number(manifest, "StateFlags") == 4,
             LastUpdated = manifest is not null && Number(manifest, "LastUpdated") is long lu and > 0 ? DateTimeOffset.FromUnixTimeSeconds(lu).LocalDateTime : null,
-            Playtime2WeeksMinutes = block is null ? null : Number(block, "Playtime2wks") ?? 0,
+            Account = account,
+            PersonaName = account is null ? null : Persona(steam, account),
+            Playtime2WeeksMinutes = account is null ? null : block is null ? 0 : Number(block, "Playtime2wks") ?? 0,
             CloudState = block is null ? null : Value(block, "last_sync_state"),
             AchievementsUnlocked = unlocked,
             AchievementsTotal = total,

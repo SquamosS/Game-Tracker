@@ -102,7 +102,7 @@ public partial class DashboardWindow : Window
         info.Children.Add(new TextBlock { Text = game.DisplayName, FontFamily = Display, FontSize = 14, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap, Foreground = selected ? Brushes.White : Brush("#CBD5E1") });
         info.Children.Add(new TextBlock
         {
-            Text = running ? "● SEDANG BERJALAN" : $"{Duration(TimeOf(game).Seconds)} dimainkan",
+            Text = running ? "● SEDANG BERJALAN" : TimeOf(game) is { } time ? $"{Duration(time.Seconds)} dimainkan" : "Steam belum login",
             Foreground = running ? Live : Faint, FontSize = 11.5, Margin = new Thickness(0, 4, 0, 0),
         });
 
@@ -157,8 +157,11 @@ public partial class DashboardWindow : Window
         var steam = SteamOf(game);
         var online = game.SteamAppId is int appId ? OnlineOf(appId) : null;
         Stats.Children.Clear();
-        Stats.Children.Add(Stat("WAKTU MAIN", Duration(time.Seconds)));
-        Stats.Children.Add(Stat("TERAKHIR MAIN", time.LastPlayed is { } last ? Ago(last) : "—"));
+        if (time is { } t)
+        {
+            Stats.Children.Add(Stat("WAKTU MAIN", Duration(t.Seconds)));
+            Stats.Children.Add(Stat("TERAKHIR MAIN", t.LastPlayed is { } last ? Ago(last) : "—"));
+        }
         if (steam?.Playtime2WeeksMinutes is long recent) Stats.Children.Add(Stat("2 MINGGU TERAKHIR", Duration(recent * 60)));
         if (steam?.AchievementsUnlocked is int got && steam.AchievementsTotal is int all and > 0)
             Stats.Children.Add(Stat("ACHIEVEMENT", $"{got}/{all} · {got * 100 / all}%"));
@@ -174,7 +177,9 @@ public partial class DashboardWindow : Window
         if (online?.Price is { } price)
             Stats.Children.Add(Stat("HARGA STEAM", online.DiscountPercent is int off and > 0 ? $"{price} (-{off}%)" : price,
                 online.DiscountPercent is > 0 ? Live : null));
-        Stats.Children.Add(Stat("PLATFORM", game.SteamAppId is null ? "—" : "Steam"));
+        if (game.SteamAppId is null) Stats.Children.Add(Stat("PLATFORM", "—"));
+        else if (steam?.Account is null) Stats.Children.Add(Stat("AKUN STEAM", "Belum login", Brush("#FBBF24"), tip: "Data akun (waktu main, achievement, cloud) tampil setelah login Steam"));
+        else Stats.Children.Add(Stat("AKUN STEAM", steam.PersonaName ?? steam.Account));
         ShowSide(steam, online);
     }
 
@@ -187,7 +192,8 @@ public partial class DashboardWindow : Window
     SteamInfo? SteamOf(GameModule game)
     {
         if (game.SteamAppId is not int id) return null;
-        if (_steam.TryGetValue(game.Id, out var c) && DateTime.Now - c.At < TimeSpan.FromSeconds(30)) return c.Info;
+        // Re-read at once when the logged-in account changes.
+        if (_steam.TryGetValue(game.Id, out var c) && DateTime.Now - c.At < TimeSpan.FromSeconds(30) && c.Info?.Account == SteamInfo.ActiveAccount) return c.Info;
         var info = SteamInfo.Local(id, game.ScreenshotGlob);
         _steam[game.Id] = (DateTime.Now, info);
         return info;
@@ -255,9 +261,10 @@ public partial class DashboardWindow : Window
     }
 
     /// <summary>Play time and last played: Steam's own record when the game is on Steam, else the tracker's.</summary>
-    static (long Seconds, DateTime? LastPlayed) TimeOf(GameModule game)
+    static (long Seconds, DateTime? LastPlayed)? TimeOf(GameModule game)
     {
-        if (game.SteamAppId is int id && SteamStats.For(id) is { } steam) return (steam.Seconds, steam.LastPlayed);
+        // Steam games: only the logged-in account's time; nothing when Steam is not logged in.
+        if (game.SteamAppId is int id) return SteamStats.For(id) is { } steam ? (steam.Seconds, steam.LastPlayed) : null;
         var tracked = PlayTime.Instance.For(game.Id);
         return (tracked.Seconds, tracked.LastPlayed);
     }
