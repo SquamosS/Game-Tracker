@@ -343,6 +343,8 @@ public sealed partial class Ff7rChapterReader : IDisposable
         _questCounter = int.MinValue;
         _objectiveSlots = new();
         _objectiveSearch = null;
+        _positionObjects = new();
+        _playerPosition = 0;
     }
 
     public void Dispose() => Detach();

@@ -151,6 +151,7 @@ public partial class MainWindow : Window
         changed |= FollowFlags();
         changed |= FollowObjective();
         changed |= FollowCompleted();
+        LogPosition();
 
         string status = _reader.Problem
             ?? (_reader.Version is null ? "FF7R belum jalan"
@@ -421,6 +422,26 @@ public partial class MainWindow : Window
                 }
         if (changed) Save();
         return changed;
+    }
+
+    Ff7rChapterReader.Position? _loggedPosition;
+
+    /// <summary>
+    /// Appends the controlled character's position to data\logs\position.log whenever it moved 2 m or more, with the
+    /// chapter and the live objective: samples for naming the location later (not shown on the overlay yet).
+    /// </summary>
+    void LogPosition()
+    {
+        if (!_inGame || _reader.ReadPosition() is not { } p) return;
+        if (_loggedPosition is { } last
+            && Math.Sqrt((p.X - last.X) * (p.X - last.X) + (p.Y - last.Y) * (p.Y - last.Y) + (p.Z - last.Z) * (p.Z - last.Z)) < 200) return;
+        _loggedPosition = p;
+        try
+        {
+            File.AppendAllText(Path.Combine(DataPaths.Logs, "position.log"),
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\tch {_detectedChapter}\t{p.X:F0}\t{p.Y:F0}\t{p.Z:F0}\t{_objective?.Title}{Environment.NewLine}");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
     /// <summary>"Discovery: Collapsed Passageway" is the game's "Collapsed Passageway".</summary>

@@ -226,11 +226,15 @@ public sealed partial class Ff7rChapterReader
         }
         // Entries pointing at a row; skip the table's own lists (several row pointers side by side).
         var found = new System.Collections.Concurrent.ConcurrentBag<long>();
+        // The same pass picks up the characters' position objects by their vtable (Ff7rPosition.cs).
+        long positionVtable = PositionVtable;
+        var positions = new System.Collections.Concurrent.ConcurrentBag<long>();
         ForEachChunk(cancel, (a, buf, length) =>
         {
             for (int i = 8; i + 16 <= length; i += 8)
             {
                 long p = BitConverter.ToInt64(buf, i);
+                if (positionVtable != 0 && p == positionVtable) positions.Add(a + i);
                 if (!byAddress.ContainsKey(p)) continue;
                 if (byAddress.ContainsKey(BitConverter.ToInt64(buf, i - 8)) || byAddress.ContainsKey(BitConverter.ToInt64(buf, i + 8))) continue;
                 if (found.Count < 100_000) found.Add(a + i);
@@ -240,7 +244,8 @@ public sealed partial class Ff7rChapterReader
         // Objective entries share a parent pointer just before the row pointer; keep only those groups.
         var parents = slots.GroupBy(s => ReadInt64(s - 8)).Where(g => g.Key > 0x10000000000 && g.Key < 0x7FF000000000 && g.Count() >= 2).ToList();
         var entries = parents.SelectMany(g => g).ToList();
-        ObjectiveDebug = $"rows {byAddress.Count} ({rowsMs} ms, {stringReads} reads), slots {slots.Count} ({sw.ElapsedMilliseconds - rowsMs} ms), entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}";
+        _positionObjects = positions.ToList(); // swapped whole: the UI thread reads it
+        ObjectiveDebug = $"rows {byAddress.Count} ({rowsMs} ms, {stringReads} reads), slots {slots.Count} ({sw.ElapsedMilliseconds - rowsMs} ms), entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}, positions {positions.Count}";
         return (byAddress, entries.Count > 0 ? entries : slots);
     }
 
