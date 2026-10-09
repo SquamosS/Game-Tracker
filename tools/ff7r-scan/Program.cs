@@ -231,6 +231,9 @@ switch (args[0])
     case "rec": // rec <name> <minutes>: record the module's writable data 4x a second (create research\scan\stop to end early)
         Record(args[1], double.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture));
         break;
+    case "nrec": // nrec <name> <minutes> <depth>: like rec, but for the player actor and the heap objects it points to
+        NeighbourRecord(args[1], double.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture), int.Parse(args[3]));
+        break;
     case "paths": // paths <file> <expected>: keep chains that still resolve to the expected value
         var keep = File.ReadAllLines(Path.Combine(Dir, args[1])).Where(l => Chain(l.Split(' ')).EndsWith("= " + args[2])).ToList();
         File.WriteAllLines(Path.Combine(Dir, args[3]), keep);
@@ -266,8 +269,8 @@ void Record(string name, double minutes)
         for (int i = 0; i < regs.Count; i++) { bw.Write(regs[i].Base - modBase); bw.Write(prev[i].Length); bw.Write(prev[i]); }
     Console.WriteLine($"{regs.Count} region, {regs.Sum(r => r.Size) >> 20} MB");
     var hot = new Dictionary<int, int>();
-    using var diff = new BinaryWriter(new BufferedStream(File.Create(Path.Combine(Dir, name + ".diff")), 1 << 20));
-    using var tsv = new StreamWriter(Path.Combine(Dir, name + ".tsv"));
+    using var diff = new BinaryWriter(new BufferedStream(new FileStream(Path.Combine(Dir, name + ".diff"), FileMode.Create, FileAccess.Write, FileShare.Read), 1 << 20));
+    using var tsv = new StreamWriter(new FileStream(Path.Combine(Dir, name + ".tsv"), FileMode.Create, FileAccess.Write, FileShare.Read));
     string stop = Path.Combine(Dir, "stop");
     File.Delete(stop);
     var end = DateTime.Now.AddMinutes(minutes);
@@ -294,6 +297,82 @@ void Record(string name, double minutes)
         if (n % 40 == 0) { tsv.Flush(); diff.Flush(); }
     }
     Console.WriteLine($"{hot.Count} offset berubah");
+}
+
+// The player actor ([[module+0x53DD150]+0x60], 0x1000 bytes) plus every heap object it points to (0x800 bytes each),
+// followed <depth> levels, laid end to end as one buffer and recorded like Record (<name>.base holds one region at 0,
+// <name>.blocks maps buffer offsets back to addresses: "start addr length").
+void NeighbourRecord(string name, double minutes, int depth)
+{
+    long actor = BitConverter.ToInt64(Read(BitConverter.ToInt64(Read(modBase + 0x53DD150, 8)) + 0x60, 8));
+    if (actor == 0) throw new Exception("aktor pemain tidak ketemu");
+    var regs = Regions();
+    bool Heap(long p) => (p & 7) == 0 && (p < modBase || p >= modEnd) && regs.Any(r => p >= r.Base && p + 0x800 <= r.Base + r.Size);
+    var blocks = new List<(long Addr, int Len)> { (actor, 0x1000) };
+    var seen = new HashSet<long> { actor };
+    var level = new List<(long, int)>(blocks);
+    for (int d = 0; d < depth && blocks.Count < 20000; d++)
+    {
+        var next = new List<(long, int)>();
+        foreach (var (a, len) in level)
+        {
+            var buf = Read(a, len);
+            for (int o = 0; o + 8 <= len; o += 8)
+            {
+                long p = BitConverter.ToInt64(buf, o);
+                if (blocks.Count + next.Count >= 20000 || !Heap(p) || !seen.Add(p)) continue;
+                next.Add((p, 0x800));
+            }
+        }
+        blocks.AddRange(next);
+        level = next;
+    }
+    int total = blocks.Sum(b => b.Len);
+    Console.WriteLine($"aktor 0x{actor:X}, {blocks.Count} objek, {total >> 10} KB");
+    byte[] Snapshot()
+    {
+        var all = new byte[total];
+        int pos = 0;
+        foreach (var (a, len) in blocks) { Tmp(a, len, all, pos); pos += len; }
+        return all;
+    }
+    var prev = Snapshot();
+    using (var w = new StreamWriter(Path.Combine(Dir, name + ".blocks")))
+    {
+        int pos = 0;
+        foreach (var (a, len) in blocks) { w.WriteLine($"{pos} {a:X} {len}"); pos += len; }
+    }
+    using (var bw = new BinaryWriter(File.Create(Path.Combine(Dir, name + ".base")))) { bw.Write(0L); bw.Write(prev.Length); bw.Write(prev); }
+    var hot = new Dictionary<int, int>();
+    using var diff = new BinaryWriter(new BufferedStream(new FileStream(Path.Combine(Dir, name + ".diff"), FileMode.Create, FileAccess.Write, FileShare.Read), 1 << 20));
+    using var tsv = new StreamWriter(new FileStream(Path.Combine(Dir, name + ".tsv"), FileMode.Create, FileAccess.Write, FileShare.Read));
+    string stop = Path.Combine(Dir, "stop");
+    File.Delete(stop);
+    var end = DateTime.Now.AddMinutes(minutes);
+    for (int n = 1; DateTime.Now < end && !File.Exists(stop); n++)
+    {
+        Thread.Sleep(250);
+        var cur = Snapshot();
+        for (int j = 0; j < cur.Length; j++)
+        {
+            if (cur[j] == prev[j]) continue;
+            int c = hot.GetValueOrDefault(j) + 1;
+            hot[j] = c;
+            if (c <= 300) { diff.Write(n); diff.Write(j); diff.Write(cur[j]); }
+        }
+        prev = cur;
+        var s = Read(modBase + 0x59039B8, 1)[0]; var st = Read(modBase + 0x5A06764, 1)[0]; var s2 = Read(modBase + 0x57E9ABB, 1)[0];
+        tsv.WriteLine($"{n}\t{DateTime.Now:HH:mm:ss.f}\t{s}\t{st}\t{s2}");
+        if (n % 40 == 0) { tsv.Flush(); diff.Flush(); }
+    }
+    Console.WriteLine($"{hot.Count} offset berubah");
+}
+
+byte[] Tmp(long addr, int len, byte[] into, int pos)
+{
+    var b = Read(addr, len);
+    Buffer.BlockCopy(b, 0, into, pos, len);
+    return into;
 }
 
 byte[] Read(long addr, int size)
