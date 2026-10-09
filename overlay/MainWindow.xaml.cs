@@ -1008,9 +1008,15 @@ public partial class MainWindow : Window
         if (compact)
         {
             // Icon column: the type icon, then a red "!" for a missable step (a fixed width keeps names aligned).
-            var icons = new TextBlock { Width = 34, Margin = new Thickness(0, -2, 4, 0), VerticalAlignment = VerticalAlignment.Top };
-            icons.Inlines.Add(new System.Windows.Documents.Run(TypeIcon(o)) { Foreground = TypeBrush(TypeLabel(o)), FontSize = 17 });
-            if (o.Missable && !done) icons.Inlines.Add(new System.Windows.Documents.Run(" !") { Foreground = Danger, FontWeight = FontWeights.Black, FontSize = 18 });
+            // Two equal centred cells so the icon and the "!" line up whatever font draws each glyph.
+            TextBlock Cell(string text, Brush brush, FontWeight weight) => new()
+            {
+                Text = text, Foreground = brush, FontWeight = weight, FontSize = 16, Width = 16, Height = 20,
+                TextAlignment = TextAlignment.Center, LineStackingStrategy = LineStackingStrategy.BlockLineHeight, LineHeight = 20,
+            };
+            var icons = new StackPanel { Orientation = Orientation.Horizontal, Width = 34, Margin = new Thickness(0, -1, 4, 0), VerticalAlignment = VerticalAlignment.Top };
+            icons.Children.Add(Cell(TypeIcon(o), TypeBrush(TypeLabel(o)), FontWeights.Normal));
+            if (o.Missable && !done) icons.Children.Add(Cell("!", Danger, FontWeights.Black));
             marker = icons;
         }
         else
