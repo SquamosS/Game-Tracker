@@ -157,6 +157,7 @@ public partial class MainWindow : Window
         changed |= FollowObjective();
         changed |= FollowCompleted();
         LogPosition();
+        FollowGameState();
         changed |= FollowLocation();
 
         string status = _reader.Problem
@@ -505,6 +506,7 @@ public partial class MainWindow : Window
         // The banner stays while something is left here: it fades in for something new to see (another area), only
         // updates when a step was just ticked, and fades out once nothing is left or you walk out.
         var before = _hereShown.Split('|').ToHashSet();
+        if (_menuOpen || _userHidden) { _hereShown = string.Join("|", steps.Select(s => s.Id)); return; } // hidden with the overlay
         if (steps.Count == 0) _toast.FadeOut();
         else _toast.Show(_here!.Area, steps.Select(o => (o.Name, o.Missable)).ToList(), steps.Any(o => !before.Contains(o.Id)));
         if (shown != _hereShown && steps.Count > 0)
@@ -708,10 +710,42 @@ public partial class MainWindow : Window
         Top = area.Top + area.Height * 0.3; // below the game's minimap
     }
 
+    /// <summary>Ctrl+Shift+G: hidden by you stays hidden; a menu only hides it while it is open (FollowGameState).</summary>
     void ToggleVisible()
     {
-        if (IsVisible) Hide();
-        else { Show(); Topmost = true; }
+        _userHidden = !_userHidden;
+        ApplyVisibility();
+    }
+
+    bool _userHidden, _menuOpen;
+
+    void ApplyVisibility()
+    {
+        bool show = !_userHidden && !_menuOpen;
+        if (show && !IsVisible) { Show(); Topmost = true; }
+        else if (!show && IsVisible) Hide();
+        _toast.Visibility = show ? Visibility.Visible : Visibility.Hidden;
+    }
+
+    Ff7rChapterReader.GameState? _gameState;
+
+    /// <summary>
+    /// Hides the overlay and the area banner while a menu or the map is open, and logs every change of the game's
+    /// state values to data\logs\state.log with the objective, to learn what cutscenes and battles look like.
+    /// </summary>
+    void FollowGameState()
+    {
+        var state = _reader.ReadGameState();
+        if (state == _gameState) return;
+        _gameState = state;
+        try
+        {
+            File.AppendAllText(Path.Combine(DataPaths.Logs, "state.log"),
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}	{(state is null ? "-" : $"paused {(state.Paused ? 1 : 0)}	state {state.State}	state2 {state.State2}")}	{_here?.Area}	{_objective?.Title}{Environment.NewLine}");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        bool menu = state?.Paused == true;
+        if (menu != _menuOpen) { _menuOpen = menu; ApplyVisibility(); }
     }
 
     /// <summary>Ctrl+Shift+A: compact tracker, then the full checklist, then the full checklist with finished steps.</summary>
