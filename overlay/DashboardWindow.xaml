@@ -180,12 +180,21 @@
 
         <Grid Margin="22,8,22,22">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="330" />
+            <ColumnDefinition Width="352" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
 
-          <!-- Library: search + game list. -->
-          <DockPanel Grid.Column="0">
+          <!-- Library panel, set off from the game by a glowing divider. -->
+          <Border Grid.Column="0" Margin="-22,-8,0,-22" Padding="22,8,20,22" Background="#B305070D" BorderThickness="0,0,1,0">
+            <Border.BorderBrush>
+              <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="#005EEAD4" Offset="0" />
+                <GradientStop Color="#995EEAD4" Offset="0.25" />
+                <GradientStop Color="#9938BDF8" Offset="0.75" />
+                <GradientStop Color="#0038BDF8" Offset="1" />
+              </LinearGradientBrush>
+            </Border.BorderBrush>
+          <DockPanel>
             <TextBlock DockPanel.Dock="Top" Text="LIBRARY" FontFamily="{StaticResource Display}" FontSize="12" Foreground="#5EEAD4" Margin="2,0,0,8" />
             <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
               <Path Stretch="Fill" Fill="#B30A1220" Stroke="#4038BDF8" StrokeThickness="1" Data="M10,0 L330,0 L330,30 L320,40 L0,40 L0,10 Z" Height="40" />
@@ -202,6 +211,7 @@
               <TextBlock x:Name="Empty" Text="Tidak ada game yang cocok." Foreground="#64748B" Margin="4,8,0,0" Visibility="Collapsed" />
             </Grid>
           </DockPanel>
+          </Border>
 
           <!-- The selected game. -->
           <Grid Grid.Column="1" Margin="48,0,0,0">
