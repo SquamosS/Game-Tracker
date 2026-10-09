@@ -479,9 +479,15 @@ public partial class MainWindow : Window
         && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase)
         && (floor is null || (here.Floor ?? "").Split(' ', '-').Contains(floor));
 
-    /// <summary>Open items, side quests and discoveries of this chapter in the area you are in.</summary>
-    List<Objective> HereSteps() => _here is null || CurrentChapter is not { } chapter ? []
-        : chapter.Objectives.Where(o => o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id) && IsHere(o)).ToList();
+    /// <summary>
+    /// Open items, side quests and discoveries of this chapter in the area you are in, plus the side quest or
+    /// discovery the game has active now wherever you are: once started it stays up until it is ticked.
+    /// </summary>
+    List<Objective> HereSteps() => CurrentChapter is not { } chapter ? []
+        : chapter.Objectives.Where(o => o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id) && (IsHere(o) || IsActive(o))).ToList();
+
+    /// <summary>A side quest or discovery that is the game's live objective now.</summary>
+    bool IsActive(Objective o) => o.Type is "side quest" or "kejadian" && _objective?.Title is { Length: >= 3 } title && SameQuest(o.Name, title);
 
     string _hereShown = "";
     readonly ToastWindow _toast = new();
@@ -508,7 +514,7 @@ public partial class MainWindow : Window
         var before = _hereShown.Split('|').ToHashSet();
         if (_menuOpen || _userHidden) { _hereShown = string.Join("|", steps.Select(s => s.Id)); return; } // hidden with the overlay
         if (steps.Count == 0) _toast.FadeOut();
-        else _toast.Show(_here!.Area, steps.Select(o => (o.Name, o.Missable)).ToList(), steps.Any(o => !before.Contains(o.Id)));
+        else _toast.Show(_here?.Area ?? "",steps.Select(o => (o.Name, o.Missable)).ToList(), steps.Any(o => !before.Contains(o.Id)));
         if (shown != _hereShown && steps.Count > 0)
             HereBox.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0.25, 1, TimeSpan.FromMilliseconds(350))
                 { AutoReverse = false, RepeatBehavior = new System.Windows.Media.Animation.RepeatBehavior(4) });
