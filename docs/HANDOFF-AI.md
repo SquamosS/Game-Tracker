@@ -1,6 +1,40 @@
 # Handoff: Game Tracker — FF VII Remake Intergrade
 
-Status per **9 Oktober 2026**. Ditulis untuk AI berikutnya (Antigravity) yang melanjutkan proyek ini. Baca seluruhnya sebelum mengubah apa pun.
+Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0. Ditulis untuk AI berikutnya yang melanjutkan proyek ini. Baca seluruhnya sebelum mengubah apa pun.
+
+---
+
+## 0. Pembaruan 10 Oktober 2026 (sesi Claude, baca dulu)
+
+**Aturan baru dari user**
+- **Push otomatis**: setiap commit langsung di-push ke `backup/local-2026-10-08` tanpa bertanya. Tetap jangan sentuh `main`/PR. Tanya dulu hanya untuk force-push, file besar/sensitif, atau build gagal.
+- Restart overlay untuk perbaikan boleh: `Stop-Process GameTracker`, `dotnet build`, jalankan `GameTracker.exe --game ff7r` (langsung overlay).
+- Ini playthrough PERTAMA user, mode **Normal** (Hard belum terbuka).
+
+**Fitur baru di overlay** (semua khusus Steam 1.0.0.7; alamat & cara menemukannya di `research/notes.md`)
+- **Posisi pemain** (`Ff7rPosition.cs`): aktor = `[[modul+0x53DD150]+0x60]`, objek posisi (vtable modul+0x4DD7148) yang +0x20 == aktor, XYZ float di +0x160. Dicatat ke `data/logs/position.log` tiap 2 m.
+- **Nama area dari database game** (`Ff7rMapArea.cs`): aktor `EndNaviMapVolume` (vtable modul+0x4C1C358) bernama `Navi070_Layer07_060_...` (peta, lantai, part/10) -> kunci `$navi070_name_part007_600` -> teks dari tabel bahasa; batas = kotak Bounds di BrushComponent (+0x160 aktor, +0x160 komponen). Volume terkecil yang memuat posisi = area sekarang. FNamePool blok di modul+0x5981310. Nomor peta TIDAK selalu = chapter x 10 (Ch10 navi090, Ch11 navi100, Ch14 pakai navi080/090, navi140 = Shinra Building).
+- **Pop-up "DI AREA INI"** (`ToastWindow.cs`) di tengah atas layar + kotak & tag DI SINI di overlay saat area sekarang = area langkah yang belum selesai (dari awal teks "where": `Area (B5): ...`). Bertahan sampai item diambil/keluar area.
+- **Auto-hide**: overlay & pop-up hanya tampil saat menjelajah. `modul+0x57E9ABB`: 1 menjelajah, 0 battle, 3 menu (termasuk menu taktis battle & pause cutscene), 5 cutscene/dialog. Perubahan dicatat ke `data/logs/state.log`.
+- **Mode Hard**: langkah khusus Hard punya `"hard": true`; catatan "Hard: ..." di akhir teks disembunyikan di Normal. Saklar manual **Ctrl+Shift+H** (disimpan di progres). Deteksi difficulty dari memori BELUM ketemu.
+- Tampilan: label chapter kecil + hitungan, nama quest terbesar, peringatan garis kuning (merah saat langkah gate aktif), ikon tipe pengganti checkbox di mode ringkas, Bahnschrift.
+- Perbaikan audit: overlay yang ditutup berhenti total, gil tidak dicocokkan ke "Gil Up", error file tidak membuat crash (`data/logs/crash.log`), belajar flag/item hanya kalau buktinya tunggal, scan memori prioritas rendah, backup progres per game (50 terbaru), dashboard hemat refresh.
+
+**Panduan** (`overlay/guides/ff7r-chapters.json`, 461 langkah)
+- Semua kolom "where" item/quest/discovery ditulis ulang dengan **nama area resmi game** di depan (riset 5 agen dari PowerPyx/Fextralife/Game8 dll; bahan & hasil di `research/locations/`, termasuk `REVIEW.md` yang sudah disetujui user).
+- Koreksi disetujui: item yang bisa dibeli jadi opsional, disc Ch14 missable, duplikat dihapus (Otherworldly Crystal Ch9, Moogle Medal Ch13, Bahamut Ch14), item baru (Crescent Moon Charm Ch3, Barrier Materia Ch4, Champion Belt, Enemy Skill, Whack-a-Box Hard, Pull-Up Challenge, Chakra (2) Ch21).
+- Ch7+ tetap belum diverifikasi di game; koreksi saat user main.
+
+**Progres user**: Ch7, sebelum Airbuster, 5/12. Masih terbuka: Discovery: Waste Recovery (Security Ops), Magic Up (Waste Storage), Bombing Mission (Gate Office), Titanium Bangle (otomatis). Crescent Moon Charm, Barrier Materia, Power Wristguards sudah dicentang (dicek dari inventory).
+
+**Tools**: scanner `tools/ff7r-scan` (menulis ke `research/scan/`, di-ignore git) punya perintah baru: who, strs, vt, base, obj, module, navi, inventory, pair, vecnear, fdiff, bdiff, find dengan lebar 1/2/4, filter float (fsame, fchg, fdir, fnear, fmoved).
+
+**Masih terbuka**
+- Deteksi difficulty otomatis (coba saat user main Hard).
+- Batas area masih kotak (bisa meleset di ruangan miring); bentuk persis ada di Model/BodySetup volume.
+- Penanda di atas peti dalam game (butuh posisi peti + kamera): belum.
+- Data panduan Ch11 & Ch15-18: sebagian area null (peta tak termuat saat ekspor nama).
+- README masih usang.
 
 ---
 
@@ -122,6 +156,7 @@ File utama: `MainWindow.xaml.cs`, `Ff7rChapterReader.cs`, `Ff7rObjective.cs`, `I
 | Ctrl+Shift+PageDown / PageUp | Chapter berikut / sebelumnya |
 | Ctrl+Shift+T | Mode klik-tembus |
 | Ctrl+Shift+A | Ganti tampilan (Ctrl+Shift+L sudah dipakai aplikasi lain) |
+| Ctrl+Shift+H | Mode Normal / Hard (tampilkan langkah khusus Hard) |
 
 ## 7. Dashboard (dibuat 9 Okt 2026)
 
