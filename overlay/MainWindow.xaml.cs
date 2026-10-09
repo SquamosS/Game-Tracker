@@ -1016,7 +1016,7 @@ public partial class MainWindow : Window
 
         var title = new TextBlock { TextWrapping = TextWrapping.Wrap, FontWeight = isNext ? FontWeights.SemiBold : FontWeights.Normal };
         if (tag is not null) title.Inlines.Add(new System.Windows.Documents.Run(tag + " ") { Foreground = tag is "SEKARANG" or "DI SINI" ? Now : Late, FontWeight = FontWeights.Bold, FontSize = 10.5 });
-        if (o.Missable && !done) title.Inlines.Add(new System.Windows.Documents.Run("MISSABLE ") { Foreground = Danger, FontWeight = FontWeights.Bold, FontSize = 10.5 });
+        if (o.Missable && !done) title.Inlines.Add(new System.Windows.Documents.Run("! ") { Foreground = Danger, FontWeight = FontWeights.Black, FontSize = 14 });
         if (o.Optional && !done && !compact) title.Inlines.Add(new System.Windows.Documents.Run("OPSIONAL ") { Foreground = Muted, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (RewardTag(o) is { } reward && !done) title.Inlines.Add(new System.Windows.Documents.Run(reward + " ") { Foreground = TrophyColor, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         // The icon alone is too small to tell a music disc from an item: name the kind unless the name already says it.

@@ -52,7 +52,7 @@ public sealed class ToastWindow : Window
         {
             if (i > 0) _text.Inlines.Add(new System.Windows.Documents.Run("   ·   ") { Foreground = Muted, FontSize = 24 });
             _text.Inlines.Add(new System.Windows.Documents.Run(steps[i].Name) { Foreground = steps[i].Missable ? Danger : Brushes.White, FontSize = 26, FontWeight = FontWeights.SemiBold });
-            if (steps[i].Missable) _text.Inlines.Add(new System.Windows.Documents.Run(" MISSABLE") { Foreground = Danger, FontSize = 13, FontWeight = FontWeights.Bold });
+            if (steps[i].Missable) _text.Inlines.Add(new System.Windows.Documents.Run(" !") { Foreground = Danger, FontSize = 16, FontWeight = FontWeights.Black });
         }
         if (!IsVisible) Show();
         Place();
