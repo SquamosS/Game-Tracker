@@ -56,7 +56,7 @@ public partial class MainWindow : Window
         SourceInitialized += (_, _) => SetupHotkeys();
         // The poll timer and the guide watcher must stop too: left running, a closed overlay keeps reading the game
         // and saving its own, older progress over the one a reopened overlay saves.
-        Closed += (_, _) => { _poll.Stop(); _watcher?.Dispose(); _native?.Dispose(); _reader.Dispose(); };
+        Closed += (_, _) => { _toast.Close(); _poll.Stop(); _watcher?.Dispose(); _native?.Dispose(); _reader.Dispose(); };
         LoadGuide();
         WatchGuides();
         WatchGame();
@@ -478,6 +478,7 @@ public partial class MainWindow : Window
         : chapter.Objectives.Where(o => o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id) && IsHere(o)).ToList();
 
     string _hereShown = "";
+    readonly ToastWindow _toast = new();
 
     /// <summary>The "here" box: what is still to get in this area, missables in red. Pulses when it changes.</summary>
     void RenderHere()
@@ -496,6 +497,10 @@ public partial class MainWindow : Window
             }
         }
         string shown = string.Join("|", steps.Select(s => s.Id));
+        // The banner only for something new to see (another area), not for a step just ticked here.
+        var before = _hereShown.Split('|').ToHashSet();
+        if (steps.Any(o => !before.Contains(o.Id)))
+            _toast.Show(_here!.Area, steps.Select(o => (o.Name, o.Missable)).ToList());
         if (shown != _hereShown && steps.Count > 0)
             HereBox.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0.25, 1, TimeSpan.FromMilliseconds(350))
                 { AutoReverse = false, RepeatBehavior = new System.Windows.Media.Animation.RepeatBehavior(4) });
