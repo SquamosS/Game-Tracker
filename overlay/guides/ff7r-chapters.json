@@ -352,6 +352,13 @@
           "missable": true
         },
         {
+          "id": "c3-23b-crescent-moon",
+          "type": "aksesori",
+          "name": "Crescent Moon Charm",
+          "where": "Residential Area: Marle memberikannya di Stargazer Heights setelah event Alone at Last selesai. Ikut missable bersama Alone at Last.",
+          "missable": true
+        },
+        {
           "id": "c3-24-disc-barret",
           "type": "music disc",
           "name": "Barret's Theme",
@@ -499,6 +506,13 @@
           "type": "cerita",
           "name": "Remaining Payment",
           "where": "Terima sisa bayaran misi; Barret juga memberi gil.",
+          "missable": false
+        },
+        {
+          "id": "c4-14b-barrier",
+          "type": "materia",
+          "name": "Barrier Materia",
+          "where": "Residential Area (slum): Jessie memberikannya otomatis sebagai sisa bayaran saat Remaining Payment. Juga dijual (1500 gil).",
           "missable": false
         },
         {
@@ -995,7 +1009,7 @@
           "id": "c8-19-kids-patrol",
           "type": "side quest",
           "name": "Kids on Patrol",
-          "where": "Center District: dari Ms. Folia di Leaf House. 5 anak berpedang kayu: celah dua pipa beton di pojok barat daya, kerumunan dekat Item Shop, depan Weapon Shop, depan nenek di bangku dekat ruang jukebox, gerbang ke Station Way. Lalu Hedgehog Pie King di ujung Children's Secret Hideout.",
+          "where": "Center District: dari Ms. Folia di Leaf House. 5 anak berpedang kayu: celah dua pipa beton di pojok barat daya, kerumunan dekat Item Shop, depan Weapon Shop, depan nenek di bangku dekat ruang jukebox, gerbang ke Station Way. Lalu Hedgehog Pie King di ujung Children's Secret Hideout. Hard: + Telluric Scriptures Vol. VI.",
           "missable": true
         },
         {
@@ -1080,14 +1094,14 @@
           "id": "c8-30-angel",
           "type": "side quest",
           "name": "The Angel of the Slums",
-          "where": "Center District: dari Damon di depan community center; tanya Mireille di dalam, lalu ke Lookout Point (timur laut slums), kalahkan Chromogger, bawa calling card balik. Hadiah 2.000 gil.",
+          "where": "Center District: dari Damon di depan community center; tanya Mireille di dalam, lalu ke Lookout Point (timur laut slums), kalahkan Chromogger, bawa calling card balik. Hadiah 2.000 gil. Hard: + Telluric Scriptures Vol. VII.",
           "missable": true
         },
         {
           "id": "c8-31-weapons-rampage",
           "type": "side quest",
           "name": "Weapons on a Rampage",
-          "where": "Station Way: dari pria ketakutan; hancurkan 5 Mark II Monodrive di Scrapyard Back Alley (sebagian guide: grup kedua di Twilight Valley), lalu lapor ke dia (dekat Item Shop Center District). Lemah angin.",
+          "where": "Station Way: dari pria ketakutan; hancurkan 5 Mark II Monodrive di Scrapyard Back Alley (sebagian guide: grup kedua di Twilight Valley), lalu lapor ke dia (dekat Item Shop Center District). Lemah angin. Hard: + Telluric Scriptures Vol. V.",
           "missable": true
         },
         {
@@ -1359,21 +1373,29 @@
           "id": "c9-27-dynamite-body",
           "type": "side quest",
           "name": "A Dynamite Body",
-          "where": "Wall Market: dari Chocobo Sam (route Sam), lalu Special Match lawan 2 Bomb di Underground Arena. Hadiah Arcane Scepter.",
+          "where": "Wall Market: dari Chocobo Sam (route Sam), lalu Special Match lawan 2 Bomb di Underground Arena. Hadiah Arcane Scepter. Hard: + The Art of Swordplay Vol. X.",
           "missable": true
         },
         {
           "id": "c9-28-price-thievery",
           "type": "side quest",
           "name": "The Price of Thievery",
-          "where": "Wall Market: Mireille di sisi timur kota (route Madam M). Bandit (Beck, Butch, Burke + Grungy Bandit) ada di Collapsed Expressway - Utility Tunnel, lewat Evergreen Park. Hadiah Real Calling Card.",
+          "where": "Wall Market: Mireille di sisi timur kota (route Madam M). Bandit (Beck, Butch, Burke + Grungy Bandit) ada di Collapsed Expressway - Utility Tunnel, lewat Evergreen Park. Hadiah Real Calling Card. Hard: + The Art of Swordplay Vol. VIII.",
           "missable": true
+        },
+        {
+          "id": "c9-28b-champion-belt",
+          "type": "aksesori",
+          "name": "Champion Belt",
+          "where": "Collapsed Expressway - Utility Tunnel: curi dari Grungy Bandit saat The Price of Thievery (route Madam M). Salinan lain dari Pull-Up Challenge Pro di Ch14.",
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c9-29-shears",
           "type": "side quest",
           "name": "Shears' Counterattack",
-          "where": "Underground Arena: dari gatekeeper Colosseum (route Madam M), Special Match lawan Jury-Rigged Cutter. Hadiah Arcane Scepter.",
+          "where": "Underground Arena: dari gatekeeper Colosseum (route Madam M), Special Match lawan Jury-Rigged Cutter. Hadiah Arcane Scepter. Hard: + The Art of Swordplay Vol. IX.",
           "missable": true
         },
         {
@@ -1469,13 +1491,6 @@
           "missable": true
         },
         {
-          "id": "c9-44-otherworldly",
-          "type": "aksesori",
-          "name": "Otherworldly Crystal",
-          "where": "Underground Passage: basement mansion Corneo. Resminya di Ch14 (Intel Gathering): masuk pintu ketiga di lantai atas, turun tangga, chest di bawah. Di Ch9 mungkin bisa lebih awal lewat karpet yang menggeser rak buku.",
-          "missable": true
-        },
-        {
           "id": "c9-45-fury-ring",
           "type": "aksesori",
           "name": "Fury Ring",
@@ -1488,7 +1503,7 @@
           "name": "Showdown with Corneo",
           "where": "Interogasi Corneo soal rencana Shinra; jawabanmu nggak ngaruh. Chapter selesai saat kalian dijatuhin ke selokan.",
           "missable": false,
-          "warning": "SEBELUM LANJUT: pastikan Otherworldly Crystal, Fury Ring, dan disc Don of the Slums sudah diambil."
+          "warning": "SEBELUM LANJUT: pastikan Fury Ring, dan disc Don of the Slums sudah diambil."
         }
       ]
     },
@@ -1775,14 +1790,6 @@
           "missable": false
         },
         {
-          "id": "c13-02b-moogle-medal",
-          "type": "kejadian",
-          "name": "Moogle Medal",
-          "where": "Wall Market: tidak ada sumber yang menaruh chest Moogle Medal di Ch13; chest medal di gang buntu utara pintu masuk Wall Market itu Ch14 (Intel Gathering). Di Ch13 medal cuma dari Shinra box di In Solitude.",
-          "missable": true,
-          "detect": null
-        },
-        {
           "id": "c13-03-mythical-amulet",
           "type": "aksesori",
           "name": "Mythical Amulet",
@@ -1817,7 +1824,8 @@
           "type": "senjata",
           "name": "Big Bertha (Barret)",
           "where": "Evergreen Park: beli di vendor senjata di perkemahan pengungsi Sector 7 (taman bermain), 2.500 gil.",
-          "missable": true
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c13-10-on-our-way",
@@ -1867,7 +1875,8 @@
           "type": "materia",
           "name": "Warding Materia",
           "where": "Underground Test Site (B2, Finding Wedge): naik tangga ke kandang di balik pintu, tembak gerbangnya.",
-          "missable": true
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c13-21-main-theme",
@@ -1938,21 +1947,21 @@
           "id": "c14-04-chadley",
           "type": "kejadian",
           "name": "Chadley: Battle Intel & VR Bahamut",
-          "where": "Center District: Chadley berdiri di tempat yang sama seperti Ch8. Setor Battle Intel yang tersisa (#16 Enemy Skill, #17 Skill Master, #18 MP Absorption, #19 HP Absorption), lalu VR Bahamut (#20) terbuka.",
-          "missable": true
-        },
-        {
-          "id": "c14-05-bahamut",
-          "type": "summon",
-          "name": "Bahamut",
-          "where": "Center District: setelah Battle Intel #1-19 beres, pilih VR Combat Simulation: Bahamut di Chadley. Kalahkan untuk Bahamut materia; laporan #20 memberi trofi Intelligence Agent.",
-          "missable": true
+          "where": "Center District: Chadley berdiri di tempat yang sama seperti Ch8. Setor Battle Intel yang tersisa (#16 Enemy Skill, #17 Skill Master, #18 MP Absorption, #19 HP Absorption), lalu VR Bahamut (#20) terbuka. Masih bisa disetor ke Chadley di Ch16 (Combat Simulator Lounge).",
+          "missable": false
         },
         {
           "id": "c14-06-moogle-emporium",
           "type": "kejadian",
           "name": "Moogle Emporium (Children's Secret Hideout)",
           "where": "Children's Secret Hideout: tukar Moogle Medal ke Moggie. Stok Ch14: Steel Pincers (7), Silver Staff (2), Enfeeblement Ring (1), Whistlewind Scarf (3), Salvation Badge (1), manuskrip Vol. I tiap karakter (5), Moogle's Mortar (1) untuk Secret Medicine.",
+          "missable": true
+        },
+        {
+          "id": "c14-06b-whack-hard",
+          "type": "aksesori",
+          "name": "Whack-a-Box (Hard): Transference Module",
+          "where": "Children's Secret Hideout: main Whack-a-Box tingkat Hard (terbuka di Ch14). 30.000 poin = Transference Module; semua target Hard = trofi Whack-a-Box Wunderkind.",
           "missable": true
         },
         {
@@ -1968,7 +1977,8 @@
           "type": "armor",
           "name": "Mythril Armlet",
           "where": "Station Way: peti di jalan utara Station Way (selatan titik disc Descendant of Shinobi, dekat pria bersenjata). Juga dijual di toko senjata Wall Market (3.200 gil).",
-          "missable": true
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c14-09-tomboy-bandit",
@@ -1981,8 +1991,15 @@
           "id": "c14-10-chocobo-search",
           "type": "side quest",
           "name": "Chocobo Search",
-          "where": "Station Way: quest dari stablehand. Chocobo 1 di ujung utara Nuts 'n' Bolts Hills (kalahkan Rust Drake), chocobo 2 di Sanctuary Way, jalan dari stasiun ke arah gereja (tanpa musuh), chocobo 3 di Collapsed Expressway - Old Bypass (kalahkan 3 Trypapolis). Lapor ke Sam di Wall Market. Hadiah: Sam's Delivery Lifetime Pass.",
+          "where": "Station Way: quest dari stablehand. Chocobo 1 di ujung utara Nuts 'n' Bolts Hills (kalahkan Rust Drake), chocobo 2 di Sanctuary Way, jalan dari stasiun ke arah gereja (tanpa musuh), chocobo 3 di Collapsed Expressway - Old Bypass (kalahkan 3 Trypapolis). Lapor ke Sam di Wall Market. Hadiah: Sam's Delivery Lifetime Pass. Hard: Rust Drake (Nuts 'n' Bolts Hills) = Sharpshooter's Companion Vol. XI, Trypapolis (Collapsed Expressway - Old Bypass) = Way of the Fist Vol. XI.",
           "missable": true
+        },
+        {
+          "id": "c14-10b-self-destruct",
+          "type": "kejadian",
+          "name": "Enemy Skill: Self-Destruct",
+          "where": "Steel Mountain: biarkan Smogger (timur laut Sector 5) memakai Self-Destruct ke pemegang Enemy Skill materia. Alternatif: Proto-Trypapolis (Chocobo Search) atau H0512-OPT di Ch16.",
+          "missable": false
         },
         {
           "id": "c14-11-missing-children",
@@ -1996,7 +2013,15 @@
           "type": "materia",
           "name": "Time Materia",
           "where": "Slum Public Cemetery: hadiah otomatis setelah menyelesaikan Missing Children.",
-          "missable": true
+          "missable": false,
+          "optional": true
+        },
+        {
+          "id": "c14-12b-spirit-siphon",
+          "type": "kejadian",
+          "name": "Enemy Skill: Spirit Siphon",
+          "where": "Slum Public Cemetery: saat Missing Children, biarkan Phantom memakai Essence Drain ke karakter yang memasang Enemy Skill materia. Untuk trofi Master of Mimicry.",
+          "missable": false
         },
         {
           "id": "c14-13-secret-medicine",
@@ -2009,7 +2034,7 @@
           "id": "c14-14-corneo-stash",
           "type": "side quest",
           "name": "Corneo's Secret Stash",
-          "where": "Sanctuary Way: quest dari reporter Damon (pindah ke depan Church kalau Tomboy Bandit sudah diambil). Gerbang naga merah-emas: Steel Mountain dekat pos chocobo (Ruby Tiara), Collapsed Expressway cabang kiri di terowongan (Diamond Tiara), dan sewer Ch14 (Emerald Tiara). Serahkan tiara ke Marle. Hadiah: Art of Swordplay Vol. III.",
+          "where": "Sanctuary Way: quest dari reporter Damon (pindah ke depan Church kalau Tomboy Bandit sudah diambil). Gerbang naga merah-emas: Steel Mountain dekat pos chocobo (Ruby Tiara), Collapsed Expressway cabang kiri di terowongan (Diamond Tiara), dan sewer Ch14 (Emerald Tiara). Serahkan tiara ke Marle. Hadiah: Art of Swordplay Vol. III. Isi tambahan: di balik gerbang naga Steel Mountain juga ada Moogle Medal, Prayer Materia dan Circlet; stash Collapsed Expressway berisi Moogle Medal; stash sewer berisi Enfeeblement Ring.",
           "missable": true
         },
         {
@@ -2017,7 +2042,7 @@
           "type": "music disc",
           "name": "Music Disc: Turks' Theme",
           "where": "S6-5 Road: bicara dengan nenek yang berdiri di tepi air dekat reruntuhan, di jalan melingkar tengah antara Sector 5 dan 6.",
-          "missable": false
+          "missable": true
         },
         {
           "id": "c14-16-subterranean-menace",
@@ -2061,35 +2086,36 @@
           "type": "senjata",
           "name": "Mythril Saber (Cloud)",
           "where": "Wall Market: beli di toko senjata (3.000 gil). Juga dijual di toko Combat Simulator Lounge Ch16.",
-          "missable": true
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c14-22-stand-up",
           "type": "music disc",
           "name": "Music Disc: Stand Up",
           "where": "Wall Market: bicara dengan gadis di gang belakang, sebelah kiri pintu masuk Honeybee Inn.",
-          "missable": false
+          "missable": true
         },
         {
           "id": "c14-23-good-night",
           "type": "music disc",
           "name": "Music Disc: Good Night, Until Tomorrow",
           "where": "Wall Market: masuk hotel/inn, belok kanan, bicara dengan kakek beruban di seberang resepsionis.",
-          "missable": false
+          "missable": true
         },
         {
           "id": "c14-24-wutai",
           "type": "music disc",
           "name": "Music Disc: Wutai",
           "where": "Urban Advancement District: di jalan samping arah barat di selatan Colosseum, kira-kira di tengah distrik; bicara dengan pria yang mendengarkan gramofon.",
-          "missable": false
+          "missable": true
         },
         {
           "id": "c14-25-fight-on",
           "type": "music disc",
           "name": "Music Disc: Fight On!",
           "where": "Wall Market: beli di Souvenir Shop di aula masuk Colosseum, 50 gil.",
-          "missable": false
+          "missable": true
         },
         {
           "id": "c14-26-power-of-music",
@@ -2106,10 +2132,17 @@
           "missable": true
         },
         {
+          "id": "c14-27b-pullup-challenge",
+          "type": "kejadian",
+          "name": "Pull-Up Challenge: Magic Up & Champion Belt",
+          "where": "Wall Market: di gym setelah Wavering Heart, menang Pull-Up Challenge Amateur (Jay) = Magic Up Materia, Pro (Jules) = Champion Belt + trofi Peeress of Pull-Ups.",
+          "missable": true
+        },
+        {
           "id": "c14-28-peeress-pullups",
           "type": "trofi",
           "name": "Peeress of Pull-Ups",
-          "where": "Menangkan lomba pull-up Tifa di Wavering Heart.",
+          "where": "Menangkan Pull-Up Challenge tingkat Pro (Jules) di gym Wall Market, setelah Wavering Heart.",
           "missable": true
         },
         {
@@ -2139,7 +2172,7 @@
           "name": "Corneo's Mansion",
           "where": "Naik ke lantai atas lewat pintu ganda, cutscene Leslie.",
           "missable": false,
-          "warning": "SEBELUM LANJUT: beresin semua side quest, Colosseum, Moogle Emporium, Chadley, Mythril Saber & Mythril Armlet. Setelah ikut Leslie ke saluran bawah tanah, slum & Wall Market tertutup."
+          "warning": "SEBELUM LANJUT: beresin semua side quest, Colosseum, Moogle Emporium, Chadley. Setelah ikut Leslie ke saluran bawah tanah, slum & Wall Market tertutup."
         },
         {
           "id": "c14-33-otherworldly-crystal",
@@ -2202,7 +2235,7 @@
           "id": "c14-41-emerald-tiara",
           "type": "side quest",
           "name": "Corneo's Secret Stash: stash sewer",
-          "where": "Former Disposal Area: setelah Mischievous Shoat kalah, jangan langsung naik tangga; pakai konsol di kanan untuk menguras air, lalu buka gerbang naga dengan Vault Key. Isi: Emerald Tiara dan Enfeeblement Ring; dijaga Sahagin.",
+          "where": "Former Disposal Area: setelah Mischievous Shoat kalah, jangan langsung naik tangga; pakai konsol di kanan untuk menguras air, lalu buka gerbang naga dengan Vault Key. Isi: Emerald Tiara dan Enfeeblement Ring; dijaga Sahagin. Hard: kalahkan Sahagin Prince penjaga stash = Way of the Fist Vol. XII.",
           "missable": true
         },
         {
@@ -2210,13 +2243,13 @@
           "type": "music disc",
           "name": "Music Disc: The Chase",
           "where": "Aqueduct 4: vending machine di ruang kecil di jalur cerita sewer, dekat bangku sebelum terowongan tempat Leslie menunggu, 50 gil.",
-          "missable": false
+          "missable": true
         },
         {
           "id": "c14-43-abzu",
           "type": "cerita",
           "name": "For the Reunion",
-          "where": "Lemah Fire (Ifrit oke). Bunuh Shoat cepat, dodge Backwater Blast; Star Pendant bantu di Hard.",
+          "where": "Lemah Fire (Ifrit oke). Bunuh Shoat cepat, dodge Backwater Blast; Star Pendant bantu di Hard. Hard: + Way of the Fist Vol. IX.",
           "missable": false
         },
         {
@@ -2246,7 +2279,7 @@
           "name": "Over the Wall",
           "where": "Leslie konfirmasi sebelum manjat pakai Grappling Gun.",
           "missable": false,
-          "warning": "SEBELUM LANJUT: beresin 9 Odd Jobs + Johnny's Stolen Wallet, semua Colosseum challenge, Mythril Saber, disc, Moogle Emporium, Chadley/Bahamut, dan ambil Letter from the Guardian Angel. Setelah manjat, hub Sector 5/6 & Wall Market terkunci."
+          "warning": "SEBELUM LANJUT: beresin 9 Odd Jobs + Johnny's Stolen Wallet, semua Colosseum challenge, disc, Moogle Emporium, Chadley/Bahamut, dan ambil Letter from the Guardian Angel. Setelah manjat, hub Sector 5/6 & Wall Market terkunci."
         }
       ]
     },
@@ -2457,7 +2490,7 @@
           "id": "c16-14-bahamut",
           "type": "summon",
           "name": "Bahamut",
-          "where": "Combat Simulator Lounge: VR Combat Simulation: Bahamut dari Chadley, setelah Battle Intel #1-19 beres. Kalau belum siap, bisa via Chapter Select.",
+          "where": "Bisa sejak Ch14 di terminal Chadley (Center District) atau di Combat Simulator Lounge: VR Combat Simulation: Bahamut dari Chadley, setelah Battle Intel #1-19 beres. Kalau belum siap, bisa via Chapter Select.",
           "missable": true
         },
         {
@@ -2465,21 +2498,24 @@
           "type": "armor",
           "name": "Cog Bangle",
           "where": "Combat Simulator Lounge: challenge Cloud vs. SOLDIER Trainees (bintang 4).",
-          "missable": true
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c16-16-barret-trainees",
           "type": "armor",
           "name": "Supreme Bracer",
           "where": "Combat Simulator Lounge: challenge Barret vs. SOLDIER Trainees (bintang 4).",
-          "missable": true
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c16-17-tifa-trainees",
           "type": "armor",
           "name": "Rune Armlet",
           "where": "Combat Simulator Lounge: challenge Tifa vs. SOLDIER Trainees (bintang 4). Versi Aerith (Geometric Bracelet) baru bisa saat replay Chapter 17.",
-          "missable": true
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c16-18-gil-up",
@@ -2508,7 +2544,8 @@
           "type": "materia",
           "name": "HP Up",
           "where": "Ventilation Duct: lantai 64 (objective Reconnaissance), saat merangkak di saluran udara ambil kiri di cabang kedua.",
-          "missable": true
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c16-22-save-aerith",
@@ -2649,7 +2686,8 @@
           "type": "materia",
           "name": "Time",
           "where": "Central Control Terminal: tergeletak di sisi kiri platform tengah, dekat konsol/tuas.",
-          "missable": true
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c17-16-force-bracelet",
@@ -2792,7 +2830,7 @@
           "id": "c18-05-sephiroth",
           "type": "cerita",
           "name": "Final Boss",
-          "where": "Cloud solo dulu, lalu dua anggota party bergabung. Waspadai Octaslash, Shadow Flare dan Heartless Angel.",
+          "where": "Cloud solo dulu, lalu dua anggota party bergabung. Waspadai Octaslash, Shadow Flare dan Heartless Angel. Hard: + Telluric Scriptures Vol. XIV.",
           "missable": false
         },
         {
@@ -2865,7 +2903,8 @@
           "type": "materia",
           "name": "MP Up",
           "where": "Scrap Boulevard: masuk terowongan/gua kecil di kiri poster Moogle dekat gerbang terkunci, susuri dinding kiri; materia di lantai gua.",
-          "missable": true
+          "missable": false,
+          "optional": true
         },
         {
           "id": "c21-08-avalanche-base",
@@ -2892,8 +2931,8 @@
           "id": "c21-11-fort-condor",
           "type": "side quest",
           "name": "Mastering Fort Condor",
-          "where": "Base Interior: bicara dengan Polk di markas Avalanche; tutorial Fort Condor wajib sebelum boleh keluar. Menang lawan Polk memberi Sorcerer Board I dan Helitrooper (Vanguard), lalu lawan lain muncul di slums.",
-          "missable": true
+          "where": "Base Interior: bicara dengan Polk di markas Avalanche; tutorial Fort Condor wajib sebelum boleh keluar. Menang lawan Polk memberi Sorcerer Board I dan Helitrooper (Vanguard), lalu lawan lain muncul di slums. Hadiah mengalahkan Polk: Sorcerer Board I dan Helitrooper (Vanguard).",
+          "missable": false
         },
         {
           "id": "c21-12-scout-sector7",
@@ -3012,6 +3051,13 @@
           "type": "kejadian",
           "name": "Fort Condor: Monodrive",
           "where": "Abandoned Talagger Factory: ruang paling utara (barat laut); hancurkan peti kayu, chest kuning di baliknya.",
+          "missable": true
+        },
+        {
+          "id": "c21-28b-chakra-2",
+          "type": "materia",
+          "name": "Chakra (2)",
+          "where": "Abandoned Talagger Factory: pojok barat daya pabrik, di dalam kotak yang bisa dihancurkan.",
           "missable": true
         },
         {
@@ -3317,13 +3363,13 @@
           "type": "kejadian",
           "name": "Box Buster: SOLDIER Training",
           "where": "Training Room B14 (Shinra Box Buster): terbuka setelah 20.000 poin di Basic Training; 10.000 poin Magnify, 30.000 Gil Up, 50.000 EXP Up.",
-          "missable": false
+          "missable": true
         },
         {
           "id": "c22-18-materia-maven",
           "type": "trofi",
           "name": "Materia Maven",
-          "where": "Dapat semua materia Box Buster (butuh SOLDIER Training di Hard).",
+          "where": "Dapat semua materia Box Buster (Basic + SOLDIER Training, difficulty apa pun).",
           "missable": false
         },
         {
