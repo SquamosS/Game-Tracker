@@ -40,6 +40,7 @@ public partial class DashboardWindow : Window
         StartButton.Click += (_, _) => { if (_selected is { } g) OpenRequested?.Invoke(g, !g.IsRunning); };
         OverlayButton.Click += (_, _) => { if (_selected is { } g) OpenRequested?.Invoke(g, false); };
         Activated += (_, _) => Refresh();
+        Loaded += (_, _) => BringToFront();
         // Running state and play time follow the games while the dashboard is open.
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         timer.Tick += (_, _) => { if (IsVisible) Refresh(); };
@@ -47,7 +48,23 @@ public partial class DashboardWindow : Window
         Refresh();
     }
 
-    void ToggleMaximize() => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    void ToggleMaximize()
+    {
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        BringToFront();
+    }
+
+    /// <summary>
+    /// Brings the dashboard in front of other programs. Windows refuses a plain Activate() to a window it did not
+    /// just start in the foreground, so it is briefly made topmost.
+    /// </summary>
+    public void BringToFront()
+    {
+        Activate();
+        Topmost = true;
+        Topmost = false;
+        Focus();
+    }
 
     /// <summary>A borderless window maximises over the taskbar: keep it to the work area, square the corners.</summary>
     void OnStateChanged()

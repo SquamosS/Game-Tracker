@@ -53,7 +53,7 @@ public partial class App : Application
         if (_dashboard is null) return;
         _dashboard.Show();
         _dashboard.WindowState = WindowState.Normal;
-        _dashboard.Activate();
+        _dashboard.BringToFront();
         _dashboard.Refresh();
     }
 
