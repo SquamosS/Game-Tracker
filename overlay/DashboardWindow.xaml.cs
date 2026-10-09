@@ -52,6 +52,8 @@ public partial class DashboardWindow : Window
     /// <summary>A borderless window maximises over the taskbar: keep it to the work area, square the corners.</summary>
     void OnStateChanged()
     {
+        // Minimised = out of the way: to the tray icon (no taskbar button to steal focus from the game).
+        if (WindowState == WindowState.Minimized) { Hide(); return; }
         bool max = WindowState == WindowState.Maximized;
         MaxWidth = max ? SystemParameters.WorkArea.Width + 14 : double.PositiveInfinity;
         MaxHeight = max ? SystemParameters.WorkArea.Height + 14 : double.PositiveInfinity;

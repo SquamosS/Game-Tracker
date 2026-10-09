@@ -4,8 +4,8 @@ using Forms = System.Windows.Forms;
 namespace GameTracker;
 
 /// <summary>
-/// Starts on the dashboard (or straight into a game's overlay with --game &lt;id&gt;). While an overlay is open the
-/// dashboard hides and a tray icon brings it back. One instance only: two would fight over hotkeys and progress.
+/// Starts on the dashboard (or straight into a game's overlay with --game &lt;id&gt;). Minimising the dashboard hides it
+/// to the tray icon, which brings it back. One instance only: two would fight over hotkeys and progress.
 /// </summary>
 public partial class App : Application
 {
@@ -34,7 +34,7 @@ public partial class App : Application
         else _dashboard.Show();
     }
 
-    /// <summary>Opens the game's overlay (starting the game first when asked) and hides the dashboard.</summary>
+    /// <summary>Opens the game's overlay, starting the game first when asked.</summary>
     void Open(GameModule game, bool launch)
     {
         if (launch) game.Launch();
@@ -45,7 +45,7 @@ public partial class App : Application
             _overlay.Closed += (_, _) => { _overlay = null; ShowDashboard(); };
             _overlay.Show();
         }
-        _dashboard?.Hide();
+        // The dashboard stays open; minimising it is what sends it to the tray (DashboardWindow.OnStateChanged).
     }
 
     void ShowDashboard()
