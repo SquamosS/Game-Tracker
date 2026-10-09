@@ -18,6 +18,7 @@ var sw = Stopwatch.StartNew();
 switch (args[0])
 {
     case "snap": Snap(Path.Combine(Dir, args[1] + ".snap")); break;
+    case "fdiff": Inc(Path.Combine(Dir, args[1] + ".snap"), Path.Combine(Dir, args[2] + ".cand"), false, true); break;
     case "chg": Inc(Path.Combine(Dir, args[1] + ".snap"), Path.Combine(Dir, args[2] + ".cand"), true); break;
     case "inc": Inc(Path.Combine(Dir, args[1] + ".snap"), Path.Combine(Dir, args[2] + ".cand")); break;
     case "filter": Filter(Path.Combine(Dir, args[1] + ".cand"), Path.Combine(Dir, args[2] + ".cand"), args[3]); break;
@@ -123,7 +124,7 @@ void Snap(string path)
     Console.WriteLine($"snapshot {total / (1 << 20)} MB");
 }
 
-void Inc(string snapPath, string outPath, bool anyChange = false)
+void Inc(string snapPath, string outPath, bool anyChange = false, bool floats = false)
 {
     // Index of the old snapshot: base, size, file offset of data.
     var index = new List<(long Base, long Size, long Off)>();
@@ -148,6 +149,17 @@ void Inc(string snapPath, string outPath, bool anyChange = false)
                 var before = new byte[len];
                 snap.Seek(old.Off + (a - old.Base), SeekOrigin.Begin);
                 snap.ReadExactly(before);
+                if (floats)
+                {
+                    // Positions: finite floats under 10 km that moved 30 cm .. 50 m.
+                    for (int i = 0; i + 4 <= len; i += 4)
+                    {
+                        float fo = BitConverter.ToSingle(before, i), fn = BitConverter.ToSingle(now, i);
+                        if (float.IsFinite(fo) && float.IsFinite(fn) && Math.Abs(fo) < 1e6f && Math.Abs(fn) < 1e6f && Math.Abs(fn - fo) is >= 30f and < 5000f)
+                        { Rec(w, a + i, 4, BitConverter.ToInt32(before, i), BitConverter.ToInt32(now, i)); count++; }
+                    }
+                    continue;
+                }
                 for (int i = 0; i < len; i++)
                 {
                     if (now[i] == before[i]) continue;
@@ -384,6 +396,8 @@ void Find(int value, string outPath, int width)
     Console.WriteLine($"kandidat: {count:N0}");
 }
 
+float F(int bits) => BitConverter.Int32BitsToSingle(bits);
+
 void Rec(BinaryWriter w, long addr, byte width, int first, int last) { w.Write(addr); w.Write(width); w.Write(first); w.Write(last); }
 
 IEnumerable<(long Addr, byte Width, int First, int Last)> Load(string path)
@@ -418,6 +432,12 @@ void Filter(string inPath, string outPath, string op)
                 "chg" => now != c.Last,
                 "back" => now == c.First,
                 _ when op.StartsWith("eq:") => now == int.Parse(op[3..]),
+                // Floats (positions in cm): still, moved, kept moving the same way, or back near the first value.
+                "fsame" => c.Width == 4 && Math.Abs(F(now) - F(c.Last)) < 1f,
+                "fmoved" => c.Width == 4 && Math.Abs(F(c.Last) - F(c.First)) is >= 30f and < 5000f && Math.Abs(F(now) - F(c.Last)) < 1f,
+                "fchg" => c.Width == 4 && Math.Abs(F(now) - F(c.Last)) is >= 30f and < 5000f,
+                "fdir" => c.Width == 4 && Math.Abs(F(now) - F(c.Last)) is >= 30f and < 5000f && Math.Sign(F(now) - F(c.Last)) == Math.Sign(F(c.Last) - F(c.First)),
+                "fnear" => c.Width == 4 && Math.Abs(F(now) - F(c.First)) < 150f && Math.Abs(F(now) - F(c.Last)) >= 30f,
                 _ => throw new Exception("op tidak dikenal"),
             };
             if (keep) { Rec(w, c.Addr, c.Width, c.First, now); count++; }
@@ -508,3 +528,4 @@ static class Native
     [DllImport("kernel32.dll")] public static extern bool ReadProcessMemory(IntPtr h, IntPtr addr, byte[] buf, int size, out IntPtr read);
     [DllImport("kernel32.dll")] public static extern int VirtualQueryEx(IntPtr h, IntPtr addr, out MBI mbi, uint len);
 }
+
