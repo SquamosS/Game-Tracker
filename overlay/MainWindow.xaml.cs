@@ -14,7 +14,10 @@ public partial class MainWindow : Window
     static readonly Brush Accent = Brush("#38BDF8"), Muted = Brush("#94A3B8"), Done = Brush("#64748B"), Mako = Brush("#5EEAD4"),
         Danger = Brush("#F87171"), Current = Brush("#1A38BDF8"), Now = Brush("#4ADE80"), Late = Brush("#FBBF24");
 
-    Guide? _guide;
+    /// <summary>The whole guide, and the one shown: Hard-only steps left out outside Hard mode.</summary>
+    Guide? _guideAll, _guide;
+    /// <summary>Playing on Hard; Normal until the game says otherwise.</summary>
+    bool _hardMode = false;
     Progress _progress = new();
     Native? _native;
     FileSystemWatcher? _watcher;
@@ -79,7 +82,8 @@ public partial class MainWindow : Window
             }
             else
             {
-                _guide = Guide.Load(file);
+                _guideAll = Guide.Load(file);
+                _guide = _guideAll.ForMode(_hardMode);
                 _progress = ProgressStore.Load(_guide.Game);
                 _error = ProgressStore.Recovered;
             }
@@ -507,6 +511,9 @@ public partial class MainWindow : Window
                 { AutoReverse = false, RepeatBehavior = new System.Windows.Media.Animation.RepeatBehavior(4) });
         _hereShown = shown;
     }
+
+    /// <summary>A step's "where" as shown: its closing "Hard: ..." note (Hard-only rewards) only in Hard mode.</summary>
+    string ShownWhere(Objective o) => _hardMode ? o.Where : System.Text.RegularExpressions.Regex.Replace(o.Where, @"\s*\(?Hard:.*$", "");
 
     /// <summary>"Discovery: Collapsed Passageway" is the game's "Collapsed Passageway".</summary>
     static bool SameQuest(string guideName, string title) =>
@@ -971,8 +978,8 @@ public partial class MainWindow : Window
         var text = new StackPanel();
         text.Children.Add(title);
         if (!done) text.Children.Add(compact
-            ? new TextBlock { Text = o.Where, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Muted, FontSize = 12 }
-            : new TextBlock { Text = o.Where, TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12 });
+            ? new TextBlock { Text = ShownWhere(o), TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Muted, FontSize = 12 }
+            : new TextBlock { Text = ShownWhere(o), TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12 });
         if (!done && WarningOpen(o))
             text.Children.Add(new TextBlock { Text = "⚠ " + o.Warning, TextWrapping = TextWrapping.Wrap, Foreground = Danger, FontSize = 12, Margin = new Thickness(0, 2, 0, 0) });
 
@@ -988,7 +995,7 @@ public partial class MainWindow : Window
             CornerRadius = new CornerRadius(6),
             Background = isNext ? Current : Brushes.Transparent,
             Opacity = compact && o.Optional ? 0.55 : 1,
-            ToolTip = compact ? o.Where : "Double-click: aku sudah di langkah ini",
+            ToolTip = compact ? ShownWhere(o) : "Double-click: aku sudah di langkah ini",
         };
         border.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) JumpTo(o); };
         return border;

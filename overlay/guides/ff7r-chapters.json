@@ -2379,7 +2379,8 @@
           "type": "manuskrip",
           "name": "Sharpshooter's Companion Vol. XII",
           "where": "Collapsed Highway: hanya Hard Mode, kalahkan The Valkyrie lewat Chapter Select.",
-          "missable": false
+          "missable": false,
+          "hard": true
         },
         {
           "id": "c15-14-trophy",
@@ -2566,7 +2567,8 @@
           "type": "manuskrip",
           "name": "The Art of Swordplay Vol. XII",
           "where": "Hojo's Laboratory (lantai 66): hanya Hard Mode, kalahkan Specimen H0512.",
-          "missable": false
+          "missable": false,
+          "hard": true
         },
         {
           "id": "c16-25-trophy",
@@ -2731,7 +2733,8 @@
           "type": "manuskrip",
           "name": "Telluric Scriptures Vol. XII",
           "where": "4th Ward - Synthesis Chamber: hanya Hard Mode, kalahkan Swordipede.",
-          "missable": false
+          "missable": false,
+          "hard": true
         },
         {
           "id": "c17-22-source-sound",
@@ -2753,7 +2756,8 @@
           "type": "manuskrip",
           "name": "Way of the Fist Vol. XIV",
           "where": "Lantai eksekutif Shinra Building: hanya Hard Mode, kalahkan Jenova Dreamweaver.",
-          "missable": false
+          "missable": false,
+          "hard": true
         },
         {
           "id": "c17-25-showdown",
@@ -2767,7 +2771,8 @@
           "type": "manuskrip",
           "name": "The Art of Swordplay Vol. XIV",
           "where": "Heliport: hanya Hard Mode, kalahkan Rufus.",
-          "missable": false
+          "missable": false,
+          "hard": true
         },
         {
           "id": "c17-27-great-escape",
@@ -2781,7 +2786,8 @@
           "type": "manuskrip",
           "name": "Telluric Scriptures Vol. XIII",
           "where": "Shinra Building (The Great Escape): hanya Hard Mode, kalahkan The Arsenal.",
-          "missable": false
+          "missable": false,
+          "hard": true
         },
         {
           "id": "c17-29-trophy",
@@ -2824,7 +2830,8 @@
           "type": "manuskrip",
           "name": "Sharpshooter's Companion Vol. XIV",
           "where": "End of the Road: hanya Hard Mode, kalahkan Whisper Harbinger.",
-          "missable": false
+          "missable": false,
+          "hard": true
         },
         {
           "id": "c18-05-sephiroth",
@@ -3222,7 +3229,8 @@
           "type": "manuskrip",
           "name": "Yuffie/Sonon Manuscripts Vol. I-X",
           "where": "Hanya Hard Mode (setelah tamat sekali): Vol. I-VII dari lawan Fort Condor versi Hard (Rank 5) di Sector 7 Slums, VIII dari Horned Cripshay, IX dari Levrikon, X dari Gigantipede.",
-          "missable": false
+          "missable": false,
+          "hard": true
         },
         {
           "id": "c21-52-shinra-or-bust",
@@ -3450,7 +3458,8 @@
           "type": "manuskrip",
           "name": "Yuffie/Sonon Manuscripts Vol. XI-XIV",
           "where": "Hanya Hard Mode: XI dari Deathwheel, XII dari Scarlet & Crimson Mare, XIII dari Projector, XIV dari Nero the Sable.",
-          "missable": false
+          "missable": false,
+          "hard": true
         },
         {
           "id": "c22-29-trophy",

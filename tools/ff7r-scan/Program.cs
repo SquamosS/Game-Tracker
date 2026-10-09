@@ -137,6 +137,42 @@ switch (args[0])
         Console.WriteLine($"modul 0x{modBase:X}, {(modEnd - modBase) / (1 << 20)} MB -> {args[1]}");
         break;
     }
+    case "inventory": // inventory <file>: owned ids from the newest save-data copy (same layout as the overlay's reader)
+    {
+        var copies = new List<(long Materia, long Gil, uint Time)>();
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 0x20 * 6 <= len; i += 0x20)
+                {
+                    bool run = true;
+                    for (int k = 0; k < 6 && run; k++)
+                    {
+                        int p = i + k * 0x20;
+                        run = BitConverter.ToInt32(buf, p + 4) == 0 && BitConverter.ToInt32(buf, p + 8) == k && BitConverter.ToInt32(buf, p + 12) == 0
+                            && BitConverter.ToInt32(buf, p + 20) is >= 10000 and < 20000 && buf[p + 16] is >= 1 and <= 5;
+                    }
+                    long gil = a + i + 0x33630;
+                    if (run && BitConverter.ToInt32(Read(gil + 8, 4)) == 20) copies.Add((a + i, gil, BitConverter.ToUInt32(Read(gil, 4))));
+                }
+            }
+        if (copies.Count == 0) { Console.WriteLine("data save tidak ditemukan"); break; }
+        var (mat, gilRec, _) = copies.MaxBy(c => c.Time);
+        var lines = new List<string>();
+        long items = gilRec;
+        while (BitConverter.ToInt32(Read(items - 0x18 + 8, 4)) is > 0 and < 100_000 && BitConverter.ToInt32(Read(items - 0x18 + 4, 4)) == 0) items -= 0x18;
+        var ib = Read(items, 0x18 * 600);
+        for (int k = 0; k < 600; k++) { int id = BitConverter.ToInt32(ib, k * 0x18 + 8), n = BitConverter.ToInt32(ib, k * 0x18 + 12); if (id > 0 && id < 100_000 && n > 0) lines.Add($"item\t{id}\t{n}"); }
+        var mb = Read(mat, 0x20 * 600);
+        for (int k = 0; k < 600; k++) { int id = BitConverter.ToInt32(mb, k * 0x20 + 20); if (id is >= 10000 and < 20000) lines.Add($"materia\t{id}\t1"); }
+        var eb = Read(mat - 0x2000, 0x2000);
+        for (int k = 0; k < 0x200; k++) { int kind = BitConverter.ToInt32(eb, k * 0x10), id = BitConverter.ToInt32(eb, k * 0x10 + 4); if ((kind & 0xFF) is 1 or 2 && kind >> 16 == 0 && id is >= 1000 and < 10000) lines.Add($"equip\t{id}\t1"); }
+        File.WriteAllLines(args[1], lines);
+        Console.WriteLine($"{copies.Count} salinan data save; terbaru di 0x{mat:X}: {lines.Count} baris -> {args[1]}");
+        break;
+    }
     case "navi": // navi <file>: every "$navi..." localization key with its English text (FString key then FString text)
     {
         var pairs = new SortedDictionary<string, string>();
