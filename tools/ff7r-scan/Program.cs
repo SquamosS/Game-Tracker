@@ -7,7 +7,9 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-const string Dir = @"D:\GameTrackerScan";
+// Scan files (snapshots of several GB, candidate lists) go to research\scan in the project, which git ignores,
+// instead of a folder of their own at the root of a drive.
+string Dir = ScanDir();
 var proc = Process.GetProcessesByName("ff7remake_").FirstOrDefault() ?? throw new Exception("FF7R tidak jalan");
 var module = proc.MainModule!;
 long modBase = module.BaseAddress, modEnd = modBase + module.ModuleMemorySize;
@@ -394,6 +396,14 @@ void Find(int value, string outPath, int width)
                 { Rec(w, a + i, (byte)width, value, value); count++; }
         }
     Console.WriteLine($"kandidat: {count:N0}");
+}
+
+string ScanDir()
+{
+    for (var d = new DirectoryInfo(AppContext.BaseDirectory); d is not null; d = d.Parent)
+        if (File.Exists(Path.Combine(d.FullName, "overlay", "GameTracker.csproj")))
+            return Directory.CreateDirectory(Path.Combine(d.FullName, "research", "scan")).FullName;
+    return Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "scan")).FullName;
 }
 
 float F(int bits) => BitConverter.Int32BitsToSingle(bits);
