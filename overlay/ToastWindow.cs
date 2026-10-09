@@ -8,8 +8,8 @@ namespace GameTracker;
 
 /// <summary>
 /// A banner at the top centre of the screen naming what is still to get in the area you just walked into, so it is
-/// noticed without reading the overlay. It fades in, stays a few seconds and fades out; clicks go through to the game
-/// and it never takes focus.
+/// noticed without reading the overlay. It stays while there is something to get here, and fades out once it was
+/// picked up or you left the area; clicks go through to the game and it never takes focus.
 /// </summary>
 public sealed class ToastWindow : Window
 {
@@ -40,8 +40,11 @@ public sealed class ToastWindow : Window
         SizeChanged += (_, _) => Place();
     }
 
-    /// <summary>Shows the steps of the area: the area name small, the steps large, missables in red with a tag.</summary>
-    public void Show(string area, IReadOnlyList<(string Name, bool Missable)> steps)
+    /// <summary>
+    /// Shows the steps of the area: the area name small, the steps large, missables in red with a tag. Fades in when
+    /// <paramref name="fadeIn"/> (something new to see); otherwise only the text changes (a step was ticked).
+    /// </summary>
+    public void Show(string area, IReadOnlyList<(string Name, bool Missable)> steps, bool fadeIn)
     {
         _text.Inlines.Clear();
         _text.Inlines.Add(new System.Windows.Documents.Run("◆ DI AREA INI · " + area.ToUpperInvariant() + "\n") { Foreground = Mako, FontSize = 14, FontWeight = FontWeights.SemiBold });
@@ -53,12 +56,21 @@ public sealed class ToastWindow : Window
         }
         if (!IsVisible) Show();
         Place();
-        // Fade in, stay 6 s, fade out; a newer banner restarts it.
-        var fade = new DoubleAnimationUsingKeyFrames();
-        fade.KeyFrames.Add(new LinearDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(300))));
-        fade.KeyFrames.Add(new LinearDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(6.3))));
-        fade.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromSeconds(7.3))));
-        BeginAnimation(OpacityProperty, fade);
+        if (fadeIn || _fadingOut)
+        {
+            _fadingOut = false;
+            BeginAnimation(OpacityProperty, new DoubleAnimation(Opacity, 1, TimeSpan.FromMilliseconds(300)));
+        }
+    }
+
+    bool _fadingOut;
+
+    /// <summary>Fades the banner out: nothing left to get in this area, or you left it.</summary>
+    public void FadeOut()
+    {
+        if (!IsVisible || _fadingOut) return;
+        _fadingOut = true;
+        BeginAnimation(OpacityProperty, new DoubleAnimation(Opacity, 0, TimeSpan.FromMilliseconds(600)));
     }
 
     void Place()

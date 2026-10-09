@@ -497,10 +497,11 @@ public partial class MainWindow : Window
             }
         }
         string shown = string.Join("|", steps.Select(s => s.Id));
-        // The banner only for something new to see (another area), not for a step just ticked here.
+        // The banner stays while something is left here: it fades in for something new to see (another area), only
+        // updates when a step was just ticked, and fades out once nothing is left or you walk out.
         var before = _hereShown.Split('|').ToHashSet();
-        if (steps.Any(o => !before.Contains(o.Id)))
-            _toast.Show(_here!.Area, steps.Select(o => (o.Name, o.Missable)).ToList());
+        if (steps.Count == 0) _toast.FadeOut();
+        else _toast.Show(_here!.Area, steps.Select(o => (o.Name, o.Missable)).ToList(), steps.Any(o => !before.Contains(o.Id)));
         if (shown != _hereShown && steps.Count > 0)
             HereBox.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0.25, 1, TimeSpan.FromMilliseconds(350))
                 { AutoReverse = false, RepeatBehavior = new System.Windows.Media.Animation.RepeatBehavior(4) });
