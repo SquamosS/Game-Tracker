@@ -72,6 +72,59 @@ switch (args[0])
         Console.WriteLine($"{n} dari {all} objek");
         break;
     }
+    case "pair": // pair <a> <b> <window>: aligned int a with int b within window bytes, printed with 0x60 bytes around
+    {
+        int va = int.Parse(args[1]), vb = int.Parse(args[2]), win = Convert.ToInt32(args[3], 16), shown = 0, total = 0;
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 4 <= len; i += 4)
+                {
+                    if (BitConverter.ToInt32(buf, i) != va) continue;
+                    bool near = false;
+                    for (int j = Math.Max(0, i - win); j + 4 <= Math.Min(len, i + win + 4) && !near; j += 4)
+                        near = j != i && BitConverter.ToInt32(buf, j) == vb;
+                    if (!near) continue;
+                    total++;
+                    if (shown++ >= 60) continue;
+                    var ctx = Read(a + i - 0x30, 0x60);
+                    var fl = Enumerable.Range(0, 0x18).Select(k => BitConverter.ToSingle(ctx, k * 4)).Select(f => Math.Abs(f) is > 0.01f and < 1e6f ? f.ToString("0.#") : BitConverter.ToInt32(BitConverter.GetBytes(f)).ToString());
+                    Console.WriteLine($"0x{a + i:X}: {string.Join(" ", fl)}");
+                }
+            }
+        Console.WriteLine($"{total} temuan");
+        break;
+    }
+    case "vecnear": // vecnear <x> <y> <z> <radius> <int> <window>: float3 within radius of the point with the int within window bytes
+    {
+        float px = float.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), py = float.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture),
+            pz = float.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture), r = float.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture);
+        int want = int.Parse(args[5]), win = Convert.ToInt32(args[6], 16), shown = 0, total = 0;
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 12 <= len; i += 4)
+                {
+                    float x = BitConverter.ToSingle(buf, i), y = BitConverter.ToSingle(buf, i + 4), z = BitConverter.ToSingle(buf, i + 8);
+                    if (!float.IsFinite(x) || !float.IsFinite(y) || !float.IsFinite(z) || Math.Abs(x - px) > r || Math.Abs(y - py) > r || Math.Abs(z - pz) > r) continue;
+                    bool near = false;
+                    for (int j = Math.Max(0, i - win); j + 4 <= Math.Min(len, i + win + 12) && !near; j += 4)
+                        near = BitConverter.ToInt32(buf, j) == want;
+                    if (!near) continue;
+                    total++;
+                    if (shown++ >= 40) continue;
+                    var ctx = Read(a + i - 0x20, 0x60);
+                    var fl = Enumerable.Range(0, 0x18).Select(k => BitConverter.ToSingle(ctx, k * 4)).Select(f => Math.Abs(f) is > 0.01f and < 1e6f ? f.ToString("0.#") : BitConverter.ToInt32(BitConverter.GetBytes(f)).ToString());
+                    Console.WriteLine($"0x{a + i:X}: {string.Join(" ", fl)}");
+                }
+            }
+        Console.WriteLine($"{total} temuan");
+        break;
+    }
     case "base": // base <addr...>: the nearest pointer into the game module at or before each address (an object's vtable)
         foreach (var arg in args[1..])
         {
