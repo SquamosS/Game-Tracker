@@ -72,6 +72,20 @@ switch (args[0])
         Console.WriteLine($"{n} dari {all} objek");
         break;
     }
+    case "base": // base <addr...>: the nearest pointer into the game module at or before each address (an object's vtable)
+        foreach (var arg in args[1..])
+        {
+            long at = Convert.ToInt64(arg, 16);
+            var back = Read(at - 0x1000, 0x1008);
+            for (int i = 0x1000; i >= 0; i -= 8)
+            {
+                long q = BitConverter.ToInt64(back, i);
+                if (q < modBase || q >= modEnd) continue;
+                Console.WriteLine($"0x{at:X}: objek 0x{at - 0x1000 + i:X} (+0x{0x1000 - i:X}) vtable modul+0x{q - modBase:X}");
+                break;
+            }
+        }
+        break;
     case "strs": // strs <addr> <count>: the FStrings (pointer, length, capacity) of an array, 16 bytes apart
         for (int k = -Convert.ToInt32(args[2]); k < Convert.ToInt32(args[2]); k++)
         {

@@ -181,6 +181,7 @@ public sealed partial class Ff7rChapterReader
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var rows = new System.Collections.Concurrent.ConcurrentBag<(long Row, string Title, string Desc)>();
         var texts = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
+        var naviTexts = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
         long stringReads = 0;
 
         ForEachChunk(cancel, (a, buf, length) =>
@@ -195,9 +196,16 @@ public sealed partial class Ff7rChapterReader
                 long p2 = BitConverter.ToInt64(buf, i + 16);
                 int l2 = BitConverter.ToInt32(buf, i + 24), m2 = BitConverter.ToInt32(buf, i + 28);
                 if (p2 < 0x10000000000 || p2 > 0x7FF000000000 || l2 < 2 || m2 < l2 || m2 > 1024) continue;
-                if (!cache.StartsWith(p1, "$str")) continue;
+                // "$str..." objective texts, "$navi..." map floor and area names (Ff7rMapArea.cs).
+                bool navi = false;
+                if (!cache.StartsWith(p1, "$str") && !(navi = cache.StartsWith(p1, "$navi"))) continue;
                 string first = cache.Read(p1, l1);
                 string second = cache.Read(p2, l2);
+                if (navi)
+                {
+                    if (second.Length > 0 && !second.StartsWith("$")) naviTexts.TryAdd(first, second);
+                    continue;
+                }
 
                 // Objective row: title key, description key, then a billboard sprite.
                 long p3 = BitConverter.ToInt64(buf, i + 32);
@@ -244,7 +252,8 @@ public sealed partial class Ff7rChapterReader
         // Objective entries share a parent pointer just before the row pointer; keep only those groups.
         var parents = slots.GroupBy(s => ReadInt64(s - 8)).Where(g => g.Key > 0x10000000000 && g.Key < 0x7FF000000000 && g.Count() >= 2).ToList();
         var entries = parents.SelectMany(g => g).ToList();
-        _positionObjects = positions.ToList(); // swapped whole: the UI thread reads it
+        _positionObjects = positions.ToList(); // swapped whole: the UI thread reads these
+        if (!naviTexts.IsEmpty) _naviTexts = new Dictionary<string, string>(naviTexts);
         ObjectiveDebug = $"rows {byAddress.Count} ({rowsMs} ms, {stringReads} reads), slots {slots.Count} ({sw.ElapsedMilliseconds - rowsMs} ms), entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}, positions {positions.Count}";
         return (byAddress, entries.Count > 0 ? entries : slots);
     }

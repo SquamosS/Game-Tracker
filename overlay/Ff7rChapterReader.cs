@@ -345,6 +345,9 @@ public sealed partial class Ff7rChapterReader : IDisposable
         _objectiveSearch = null;
         _positionObjects = new();
         _playerPosition = 0;
+        _naviTexts = new();
+        _mapLabel = 0;
+        _labelSearch = null;
     }
 
     public void Dispose() => Detach();
