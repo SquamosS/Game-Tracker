@@ -54,16 +54,28 @@ public static class ProgressStore
     public static void Backup(string game)
     {
         if (!File.Exists(PathFor(game))) return;
-        var dir = Directory.CreateDirectory(BackupDir).FullName;
-        File.Copy(PathFor(game), Path.Combine(dir, $"{DateTime.Now:yyyyMMdd-HHmm}.json"), overwrite: true);
+        try
+        {
+            var dir = Directory.CreateDirectory(BackupDir).FullName;
+            File.Copy(PathFor(game), Path.Combine(dir, $"{DateTime.Now:yyyyMMdd-HHmm}.json"), overwrite: true);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { } // best effort: the progress file itself is untouched
     }
 
-    /// <summary>Writes a temporary file and then swaps it in, so a power loss mid-write never leaves a half file.</summary>
-    public static void Save(string game, Progress progress)
+    /// <summary>
+    /// Writes a temporary file and then swaps it in, so a power loss mid-write never leaves a half file. False when
+    /// the file could not be written (locked by antivirus or a sync tool, disk full); the progress stays in memory.
+    /// </summary>
+    public static bool Save(string game, Progress progress)
     {
-        Directory.CreateDirectory(Dir);
-        string path = PathFor(game), temp = path + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(progress, new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(temp, path, overwrite: true);
+        try
+        {
+            Directory.CreateDirectory(Dir);
+            string path = PathFor(game), temp = path + ".tmp";
+            File.WriteAllText(temp, JsonSerializer.Serialize(progress, new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(temp, path, overwrite: true);
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return false; }
     }
 }

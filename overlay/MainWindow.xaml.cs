@@ -54,7 +54,9 @@ public partial class MainWindow : Window
         Header.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) DragMove(); };
         Loaded += (_, _) => DockRight();
         SourceInitialized += (_, _) => SetupHotkeys();
-        Closed += (_, _) => { _native?.Dispose(); _reader.Dispose(); };
+        // The poll timer and the guide watcher must stop too: left running, a closed overlay keeps reading the game
+        // and saving its own, older progress over the one a reopened overlay saves.
+        Closed += (_, _) => { _poll.Stop(); _watcher?.Dispose(); _native?.Dispose(); _reader.Dispose(); };
         LoadGuide();
         WatchGuides();
         WatchGame();
@@ -101,11 +103,12 @@ public partial class MainWindow : Window
     /// <summary>Follows the chapter the game is in. Manual PgUp/PgDn still works until the game changes chapter.</summary>
     void WatchGame()
     {
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        timer.Tick += (_, _) => PollGame();
-        timer.Start();
+        _poll.Tick += (_, _) => PollGame();
+        _poll.Start();
         PollGame();
     }
+
+    readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(1) };
 
     void PollGame()
     {
@@ -137,7 +140,7 @@ public partial class MainWindow : Window
                         || (o.Type == "trofi" && ChapterEndTrophy(o))))
                         if (_progress.Done.Add(o.Id)) _progress.History.Add(o.Id);
                 _progress.Chapter = chapter!.Value;
-                ProgressStore.Save(_guide.Game, _progress);
+                Persist();
             }
             else _error = $"Chapter {chapter} terdeteksi, tapi belum ada di panduan";
         }
@@ -455,7 +458,8 @@ public partial class MainWindow : Window
         _reconcile = false;
         ProgressStore.Backup(_guide.Game);
         _progress.Ever.UnionWith(_progress.Done);
-        var ownedNames = live.Select(id => _itemMap.Name(id)).OfType<string>().ToList();
+        // Gil (id 20) is always owned and its name is part of "Gil Up": leave it out, as FollowItems does.
+        var ownedNames = live.Where(id => id != 20).Select(id => _itemMap.Name(id)).OfType<string>().ToList();
         var itemSteps = _guide.Chapters.SelectMany(c => c.Objectives).Where(o => ItemTypes.Contains(o.Type)).ToList();
         bool sameStory(Chapter c) => (c.Number >= 21) == (loaded >= 21); // INTERmission is its own story
         foreach (var chapter in _guide.Chapters.Where(sameStory))
@@ -635,8 +639,18 @@ public partial class MainWindow : Window
 
     void Save()
     {
-        if (_guide is not null) ProgressStore.Save(_guide.Game, _progress);
+        Persist();
         Render();
+    }
+
+    const string SaveFailed = "Gagal menyimpan progress (file dikunci/disk penuh?). Dicoba lagi saat centang berikutnya.";
+
+    /// <summary>Writes the progress; a failed write shows in the footer until a later one succeeds.</summary>
+    void Persist()
+    {
+        if (_guide is null) return;
+        if (!ProgressStore.Save(_guide.Game, _progress)) _error = SaveFailed;
+        else if (_error == SaveFailed) _error = null;
     }
 
     static readonly Brush QuestTitle = Brush("#38BDF8"), QuestText = Brush("#BAE6FD"), SubTitle = Brush("#FBBF24"), SubText = Brush("#E2E8F0");

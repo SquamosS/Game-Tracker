@@ -24,6 +24,8 @@ public partial class App : Application
             Shutdown();
             return;
         }
+        // An unexpected error must not close the tracker mid-game: log it and keep going.
+        DispatcherUnhandledException += (_, args) => { LogCrash(args.Exception); args.Handled = true; };
         PlayTime.Instance.Start();
         _dashboard = new DashboardWindow();
         _dashboard.OpenRequested += Open;
@@ -84,6 +86,13 @@ public partial class App : Application
             return new System.Drawing.Icon(stream, Forms.SystemInformation.SmallIconSize);
         }
         catch (Exception e) when (e is ArgumentException or System.IO.IOException or NullReferenceException) { return System.Drawing.SystemIcons.Application; }
+    }
+
+    /// <summary>Appends the error to data\logs\crash.log.</summary>
+    static void LogCrash(Exception e)
+    {
+        try { System.IO.File.AppendAllText(System.IO.Path.Combine(DataPaths.Logs, "crash.log"), $"{DateTime.Now:s} {e}{Environment.NewLine}"); }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException) { }
     }
 
     protected override void OnExit(ExitEventArgs e)

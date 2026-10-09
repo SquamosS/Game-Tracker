@@ -126,9 +126,14 @@ public class ItemMap
         Save();
     }
 
+    /// <summary>A failed write (file locked) keeps what was learned in memory; the next lesson writes it all again.</summary>
     void Save()
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(File_)!);
-        File.WriteAllText(File_, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(File_)!);
+            File.WriteAllText(File_, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 }

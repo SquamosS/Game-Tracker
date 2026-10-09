@@ -25,7 +25,7 @@ public static class SteamStats
     {
         string text;
         try { text = File.ReadAllText(file); }
-        catch (IOException) { return null; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
         // The app's block: "1462040" { ... } with nested blocks inside; take it up to its matching brace.
         foreach (Match m in Regex.Matches(text, $"\"{appId}\"\\s*\\{{"))
         {

@@ -88,13 +88,14 @@ public sealed class SteamInfo
         // Achievements: unlocked = recorded unlock times; total = achievement bits in the schema.
         int? unlocked = null, total = null;
         string stats = Path.Combine(steam, "appcache", "stats");
-        if (File.Exists(Path.Combine(stats, $"UserGameStatsSchema_{appId}.bin")))
+        if (Bytes(Path.Combine(stats, $"UserGameStatsSchema_{appId}.bin")) is { } schemaBytes)
         {
-            var schema = BinaryKeyValues.Flatten(File.ReadAllBytes(Path.Combine(stats, $"UserGameStatsSchema_{appId}.bin")));
+            var schema = BinaryKeyValues.Flatten(schemaBytes);
             total = schema.Count(kv => Regex.IsMatch(kv.Key, @"/stats/\d+/bits/\d+/name$"));
             string user = Path.Combine(stats, $"UserGameStats_{account}_{appId}.bin");
             if (account is not null)
-                unlocked = File.Exists(user) ? BinaryKeyValues.Flatten(File.ReadAllBytes(user)).Count(kv => kv.Key.Contains("/AchievementTimes/")) : 0;
+                unlocked = !File.Exists(user) ? 0
+                    : Bytes(user) is { } userBytes ? BinaryKeyValues.Flatten(userBytes).Count(kv => kv.Key.Contains("/AchievementTimes/")) : null;
         }
 
         // Steam's own artwork for the game (newer clients keep it in a folder per app).
@@ -103,16 +104,15 @@ public sealed class SteamInfo
 
         // Screenshots: Steam's (F12) and the game's own folder.
         var shots = new List<FileInfo>();
+        void AddShots(string dir, string pattern)
+        {
+            try { if (Directory.Exists(dir)) shots.AddRange(new DirectoryInfo(dir).GetFiles(pattern)); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
         if (account is not null)
-        {
-            var steamShots = Path.Combine(steam, "userdata", account, "760", "remote", appId.ToString(), "screenshots");
-            if (Directory.Exists(steamShots)) shots.AddRange(new DirectoryInfo(steamShots).GetFiles("*.jpg"));
-        }
+            AddShots(Path.Combine(steam, "userdata", account, "760", "remote", appId.ToString(), "screenshots"), "*.jpg");
         if (install is not null && screenshotGlob is not null)
-        {
-            var dir = Path.Combine(install, Path.GetDirectoryName(screenshotGlob) ?? "");
-            if (Directory.Exists(dir)) shots.AddRange(new DirectoryInfo(dir).GetFiles(Path.GetFileName(screenshotGlob)));
-        }
+            AddShots(Path.Combine(install, Path.GetDirectoryName(screenshotGlob) ?? ""), Path.GetFileName(screenshotGlob));
         var latest = shots.MaxBy(f => f.LastWriteTimeUtc);
 
         return new SteamInfo
@@ -149,10 +149,17 @@ public sealed class SteamInfo
             }
     }
 
+    /// <summary>A file's text, or null when it is missing or Steam holds it locked while writing.</summary>
     static string? Read(string file)
     {
         try { return File.Exists(file) ? File.ReadAllText(file) : null; }
-        catch (IOException) { return null; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    static byte[]? Bytes(string file)
+    {
+        try { return File.Exists(file) ? File.ReadAllBytes(file) : null; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return null; }
     }
 
     /// <summary>The text of a "key" { ... } block, nested blocks included.</summary>

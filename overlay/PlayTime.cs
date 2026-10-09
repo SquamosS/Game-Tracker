@@ -52,6 +52,6 @@ public sealed class PlayTime
             File.WriteAllText(File_ + ".tmp", JsonSerializer.Serialize(_entries, new JsonSerializerOptions { WriteIndented = true }));
             File.Move(File_ + ".tmp", File_, overwrite: true);
         }
-        catch (IOException) { }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 }

@@ -123,7 +123,8 @@ public sealed partial class Ff7rChapterReader : IDisposable
     public List<Owned>? ReadOwned()
     {
         if (!Attach()) return null;
-        if (_search is { IsCompleted: true }) { _lists = _search.Result; _search = null; _listsFound = DateTime.Now; }
+        // A failed search counts as finding nothing (looked for again below); its Result would throw on every poll.
+        if (_search is { IsCompleted: true }) { _lists = _search.IsCompletedSuccessfully ? _search.Result : new(); _search = null; _listsFound = DateTime.Now; }
         // The game makes new copies of the save data (autosave, chapter change): look for new lists now and then.
         if (_lists.Count > 0 && DateTime.Now - _listsFound > ListRefresh) _search ??= Task.Run(FindLists);
         _lists.RemoveAll(l => ReadInt32(l.Gil + 8) != 20);
