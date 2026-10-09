@@ -67,12 +67,12 @@ public sealed partial class Ff7rChapterReader
             if (counter != _questCounter)
             {
                 _questCounter = counter;
-                _objectiveSearch ??= Task.Run(SafeFindObjectives);
+                _objectiveSearch ??= Scan(SafeFindObjectives);
             }
         }
         if (_objectiveRows is null)
         {
-            _objectiveSearch ??= Task.Run(SafeFindObjectives);
+            _objectiveSearch ??= Scan(SafeFindObjectives);
             return null;
         }
 
@@ -107,11 +107,13 @@ public sealed partial class Ff7rChapterReader
             && DateTime.Now - _lastSearch > TimeSpan.FromSeconds(20))
         {
             _lastSearch = DateTime.Now;
-            _objectiveSearch ??= Task.Run(SafeFindObjectives);
+            _objectiveSearch ??= Scan(SafeFindObjectives);
         }
         return best;
     }
     DateTime _lastNearbyScan, _lastSearch;
+    // Reused by every window of every nearby scan (every 3 s on the UI thread) instead of a new 2 MB array each.
+    byte[]? _nearWindow;
 
     void ScanNearEntries()
     {
@@ -120,7 +122,7 @@ public sealed partial class Ff7rChapterReader
         var known = _objectiveSlots.ToHashSet();
         foreach (long window in _objectiveSlots.Select(s => s & ~0xFFFFFL).Distinct().Take(32).ToList())
         {
-            var buf = new byte[0x200000];
+            var buf = _nearWindow ??= new byte[0x200000];
             if (!ReadProcessMemory(_handle, (IntPtr)(window - 0x80000), buf, buf.Length, out _)) continue;
             for (int i = 8; i + 8 <= buf.Length; i += 8)
             {
@@ -157,33 +159,35 @@ public sealed partial class Ff7rChapterReader
         return thirteen ? 13 : 14;
     }
 
-    (Dictionary<long, Objective>, List<long>) SafeFindObjectives()
+    (Dictionary<long, Objective>, List<long>) SafeFindObjectives(CancellationToken cancel)
     {
         try
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            var result = FindObjectives();
+            var result = FindObjectives(cancel);
             File.WriteAllLines(Path.Combine(DataPaths.Logs, "objective-titles.txt"),
                 result.Item1.Values.OrderBy(o => o.Row).Select(o => $"{o.TitleKey}\t{o.Title}").Distinct());
             File.AppendAllText(Path.Combine(DataPaths.Logs, "objective-search.log"),
                 $"{DateTime.Now:HH:mm:ss} search {sw.Elapsed.TotalSeconds:F1}s {ObjectiveDebug}{Environment.NewLine}");
             return result;
         }
+        // Cancelled by Detach: the game closed, nobody reads this result; leave the new session's debug text alone.
+        catch (OperationCanceledException) { return (new(), new()); }
         catch (Exception e) { ObjectiveDebug = "error: " + e.Message; return (new(), new()); }
     }
 
-    (Dictionary<long, Objective>, List<long>) FindObjectives()
+    (Dictionary<long, Objective>, List<long>) FindObjectives(CancellationToken cancel)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var rows = new System.Collections.Concurrent.ConcurrentBag<(long Row, string Title, string Desc)>();
         var texts = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
         long stringReads = 0;
 
-        ForEachChunk((a, buf) =>
+        ForEachChunk(cancel, (a, buf, length) =>
         {
             // Strings sit close together on the heap: read them through a small per-chunk block cache.
             var cache = new StringReader(this);
-            for (int i = 0; i + 48 <= buf.Length; i += 8)
+            for (int i = 0; i + 48 <= length; i += 8)
             {
                 long p1 = BitConverter.ToInt64(buf, i);
                 int l1 = BitConverter.ToInt32(buf, i + 8), m1 = BitConverter.ToInt32(buf, i + 12);
@@ -222,9 +226,9 @@ public sealed partial class Ff7rChapterReader
         }
         // Entries pointing at a row; skip the table's own lists (several row pointers side by side).
         var found = new System.Collections.Concurrent.ConcurrentBag<long>();
-        ForEachChunk((a, buf) =>
+        ForEachChunk(cancel, (a, buf, length) =>
         {
-            for (int i = 8; i + 16 <= buf.Length; i += 8)
+            for (int i = 8; i + 16 <= length; i += 8)
             {
                 long p = BitConverter.ToInt64(buf, i);
                 if (!byAddress.ContainsKey(p)) continue;
@@ -288,9 +292,10 @@ public sealed partial class Ff7rChapterReader
 
     /// <summary>
     /// Calls back with every 4 MB chunk of the game's writable memory, a few chunks at a time on worker threads
-    /// (callbacks must be thread-safe). Half the cores at most, so the game keeps its frame rate.
+    /// (callbacks must be thread-safe). Half the cores at most, at below-normal priority, so the game keeps its
+    /// frame rate. The callback gets the chunk's length: only that much of the buffer is the chunk.
     /// </summary>
-    void ForEachChunk(Action<long, byte[]> visit)
+    void ForEachChunk(CancellationToken cancel, Action<long, byte[], int> visit)
     {
         var chunks = new List<(long Start, int Length)>();
         long address = 0;
@@ -303,10 +308,27 @@ public sealed partial class Ff7rChapterReader
                     chunks.Add((a, (int)Math.Min(1 << 22, start + size - a)));
             if (address <= 0 || address >= 0x7FFFFFFFFFFF) break;
         }
-        Parallel.ForEach(chunks, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 2) }, chunk =>
-        {
-            var buf = new byte[chunk.Length];
-            if (ReadProcessMemory(_handle, (IntPtr)chunk.Start, buf, buf.Length, out _)) visit(chunk.Start, buf);
-        });
+        // One 4 MB buffer per worker, reused for all its chunks (a new one per chunk churned the large object heap).
+        // A rented array may be longer than asked and the last chunk of a region shorter: pass the chunk's length.
+        var options = new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount / 2), CancellationToken = cancel };
+        Parallel.ForEach(chunks, options,
+            () =>
+            {
+                var thread = Thread.CurrentThread;
+                var before = thread.Priority;
+                thread.Priority = ThreadPriority.BelowNormal;
+                return (Buffer: System.Buffers.ArrayPool<byte>.Shared.Rent(1 << 22), Thread: thread, Before: before);
+            },
+            (chunk, state, worker) =>
+            {
+                if (ReadProcessMemory(_handle, (IntPtr)chunk.Start, worker.Buffer, chunk.Length, out _)) visit(chunk.Start, worker.Buffer, chunk.Length);
+                return worker;
+            },
+            worker =>
+            {
+                // Pool threads are shared: put the priority back (localInit and localFinally run on the same thread).
+                worker.Thread.Priority = worker.Before;
+                System.Buffers.ArrayPool<byte>.Shared.Return(worker.Buffer);
+            });
     }
 }
