@@ -653,6 +653,10 @@ public partial class MainWindow : Window
             // (entries 0x188 apart), so the last entry of the longest run is the newest objective. The guide
             // order is the fallback when there is no such run.
             var newest = NewestEntry();
+            // A discovery or side quest just finished is still the newest entry, but the story goes on: follow the
+            // story step again (the Story menu shows it ticked, not as the current objective).
+            if (newest is { Finished: true } && Index(newest) < 0)
+                newest = _reader.Candidates.Where(o => !IsSub(o.TitleKey) && Index(o) >= 0).OrderByDescending(o => (Index(o), o.Order)).FirstOrDefault() ?? newest;
             objective = newest ?? furthest ?? objective;
             LogChoice(objective, Index, newest is not null && furthest is not null && furthest.Row != newest.Row ? furthest : null);
         }
