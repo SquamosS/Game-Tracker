@@ -80,7 +80,7 @@ Game harus mode **Borderless/Windowed** agar overlay terlihat.
 
 ## 3. ATURAN WAJIB dari user
 
-1. **Push hanya kalau user minta**, dan **hanya ke `backup/local-2026-10-08`**. **Jangan sentuh `main`, jangan buat PR.** Commit lokal boleh.
+1. **Setiap commit langsung di-push otomatis** ke `backup/local-2026-10-08` tanpa bertanya. **Jangan sentuh `main`, jangan buat PR.** Tanya dulu hanya untuk force-push, file besar/sensitif, atau build gagal.
 2. **Memori game hanya dibaca (read-only).** Jangan pernah menulis ke memori game (user pernah minta speed hack; ditolak, disarankan Cheat Engine).
 3. **Jangan ubah setting sistem** (power plan, registry, dll.). Kalau perlu, beri user perintahnya.
 4. **Drive C: hampir penuh** — semua data/file kerja di D:.
@@ -183,12 +183,11 @@ File: `App.xaml.cs` (tray, single instance `Local\GameTracker.Single`, argumen `
 4. Tile dashboard mana yang dihapus.
 5. Tes kondisi "Steam belum login" di dashboard (belum dites; jangan logout akun user sendiri).
 6. Hapus `D:\GameTrackerScan` dan sisa file di C: — hanya kalau user setuju.
-7. Push ke `backup/local-2026-10-08` — hanya kalau user minta.
 
 **Tertunda / opsional:**
-8. Riset penanda cutscene (lihat `research\notes.md`, bagian "Cutscene marker", dijeda).
-9. `README.md` sudah usang (masih menyebut guide Ch 1–3, path lama, `%APPDATA%`) — perbarui kalau user mau.
-10. Log suhu GPU (`data\logs\gpu-temp.csv`): PC user pernah mati mendadak 2× (Kernel-Power 41, tanpa BSOD; puncak GPU 79 °C ±165 W). Belum ada kesimpulan; bisa dinyalakan lagi saat user main.
+7. Riset penanda cutscene (lihat `research\notes.md`, bagian "Cutscene marker", dijeda).
+8. `README.md` sudah usang (masih menyebut guide Ch 1–3, path lama, `%APPDATA%`) — perbarui kalau user mau.
+9. Log suhu GPU (`data\logs\gpu-temp.csv`): PC user pernah mati mendadak 2× (Kernel-Power 41, tanpa BSOD; puncak GPU 79 °C ±165 W). Belum ada kesimpulan; bisa dinyalakan lagi saat user main.
 
 ## 9. Jebakan yang sudah pernah terjadi
 
