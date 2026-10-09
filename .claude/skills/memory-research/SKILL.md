@@ -24,7 +24,7 @@ Read `research/notes.md` first: it lists every address found (and every dead end
 - Finding a class: its name string lives in the module (UTF-16); its FName index is block<<16 | offset/2 in the FNamePool; the UClass has that index at +0x18; instances have the UClass at +0x10 and share its vtable.
 
 ## Into the overlay
-- New partial file `overlay/Ff7r<Thing>.cs` on `Ff7rChapterReader`, gated on `Version == "Steam 1.0.0.7"` (return null otherwise), doc comment stating offsets and how they were found.
+- New partial file `overlay/games/ff7r/reader/Ff7r<Thing>.cs` on `Ff7rChapterReader`, gated on `Version == "Steam 1.0.0.7"` (return null otherwise), doc comment stating offsets and how they were found.
 - Heap objects: collect them by vtable in the objective search's second `ForEachChunk` pass (`Ff7rObjective.cs`), swap lists whole (the UI thread reads them), reset in `Detach()`. No extra full scans on a timer; if one is needed, rate-limit it (>= 30 s).
 - Static values: read `_moduleBase + rva` each poll.
 - Log new signals to `data/logs/<name>.log` first when their meaning is not certain, then act on them.

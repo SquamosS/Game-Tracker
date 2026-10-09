@@ -15,11 +15,11 @@ public sealed partial class Ff7rChapterReader : IDisposable
 
     [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
     [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
-    [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr process, IntPtr address, byte[] buffer, int size, out int read);
+    [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr process, IntPtr address, byte[] buffer, int size, out nint read);
     // Single values straight into a local: no array per read (several hundred reads a second while playing).
-    [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr process, IntPtr address, out long value, int size, out int read);
-    [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr process, IntPtr address, out int value, int size, out int read);
-    [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr process, IntPtr address, out byte value, int size, out int read);
+    [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr process, IntPtr address, out long value, int size, out nint read);
+    [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr process, IntPtr address, out int value, int size, out nint read);
+    [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr process, IntPtr address, out byte value, int size, out nint read);
 
     Process? _process;
     IntPtr _handle;
@@ -293,7 +293,13 @@ public sealed partial class Ff7rChapterReader : IDisposable
         try
         {
             long from = gil - 0x18 * Max;
-            if (!ReadProcessMemory(_handle, (IntPtr)from, buffer, 0x18 * Max, out _)) return gil;
+            if (!ReadProcessMemory(_handle, (IntPtr)from, buffer, 0x18 * Max, out _))
+            {
+                // Part of that area is unreadable (the list starts near its allocation's edge): walk back record by record.
+                long start = gil;
+                while (ReadInt32(start - 0x18 + 8) is > 0 and < 100_000 && ReadInt32(start - 0x18 + 4) == 0) start -= 0x18;
+                return start;
+            }
             long items = gil;
             for (int i = Max - 1; i >= 0; i--)
             {

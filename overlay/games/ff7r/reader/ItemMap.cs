@@ -108,12 +108,12 @@ public class ItemMap
     public string? Name(int id) =>
         Learned.TryGetValue(id, out var n) ? n : Seed.TryGetValue(id, out n) ? n : Community.Value.GetValueOrDefault(id);
 
-    /// <summary>Full id -> name list shipped in data/ff7r-items.json (from Kingdom Save Editor, see the file).</summary>
+    /// <summary>Full id -> name list shipped in games/ff7r/items.json (from Kingdom Save Editor, see the file).</summary>
     static readonly Lazy<Dictionary<int, string>> Community = new(() =>
     {
         try
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "data", "ff7r-items.json")));
+            using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "games", "ff7r", "items.json")));
             return doc.RootElement.GetProperty("items").EnumerateObject()
                 .ToDictionary(p => int.Parse(p.Name), p => p.Value.GetString() ?? "");
         }

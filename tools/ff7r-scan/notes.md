@@ -64,7 +64,7 @@ Sesi 2026-10-08 04:50 (game ditutup):
 - Rencana: (1) cari struct yang menunjuk ke buffer HUD / objek quest manager dengan nilai ID objektif; (2) alternatif: overlay mencocokkan teks objektif live dengan teks objektif yang disimpan di guide.
 
 Riset offline 2026-10-08 (setelah game ditutup):
-- Kingdom Save Editor (Xeeynamo, GPL-3.0) punya struktur save FF7R + daftar 433 ID item lengkap (resources/ff7r-meta-items.yml di KH3SaveEditor). Cocok 100% dengan ID yang kita amati (111 Shinra ID Card, 258/260 disc, 9002/9033/9040, 10011, 13012, 14003). Disalin ke overlay/data/ff7r-items.json sebagai fallback nama.
+- Kingdom Save Editor (Xeeynamo, GPL-3.0) punya struktur save FF7R + daftar 433 ID item lengkap (resources/ff7r-meta-items.yml di KH3SaveEditor). Cocok 100% dengan ID yang kita amati (111 Shinra ID Card, 258/260 disc, 9002/9033/9040, 10011, 13012, 14003). Disalin ke overlay/games/ff7r/items.json sebagai fallback nama.
 - Save terdiri dari chunk: ChunkCommon + 21 ChunkChapter (0x660E8 byte, per chapter: posisi karakter, NPC/objek/musuh). Belum ada field 'objektif aktif' yang terdokumentasi di sana.
 - RENCANA quest live (sesi berikut, game harus jalan):
   1. Cari lagi buffer teks objektif HUD (teks objektif aktif saja), lalu pointer-scan + tes restart -> overlay bisa membaca teks objektif live.

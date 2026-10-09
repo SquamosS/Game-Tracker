@@ -1,0 +1,15 @@
+{
+  "game": "NAMA GAME",
+  "status": "draft",
+  "notes": [],
+  "chapters": [
+    {
+      "number": 1,
+      "title": "Chapter 1",
+      "pointOfNoReturn": null,
+      "objectives": [
+        { "id": "c1-01-start", "type": "cerita", "name": "Quest Pertama", "where": "Nama Area: keterangan", "missable": false }
+      ]
+    }
+  ]
+}

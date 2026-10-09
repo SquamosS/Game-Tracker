@@ -20,7 +20,7 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 - Tampilan: label chapter kecil + hitungan, nama quest terbesar, peringatan garis kuning (merah saat langkah gate aktif), ikon tipe pengganti checkbox di mode ringkas, Bahnschrift.
 - Perbaikan audit: overlay yang ditutup berhenti total, gil tidak dicocokkan ke "Gil Up", error file tidak membuat crash (`data/logs/crash.log`), belajar flag/item hanya kalau buktinya tunggal, scan memori prioritas rendah, backup progres per game (50 terbaru), dashboard hemat refresh.
 
-**Panduan** (`overlay/guides/ff7r-chapters.json`, 461 langkah)
+**Panduan** (`overlay/games/ff7r/guide.json`, 461 langkah)
 - Semua kolom "where" item/quest/discovery ditulis ulang dengan **nama area resmi game** di depan (riset 5 agen dari PowerPyx/Fextralife/Game8 dll; bahan & hasil di `research/locations/`, termasuk `REVIEW.md` yang sudah disetujui user).
 - Koreksi disetujui: item yang bisa dibeli jadi opsional, disc Ch14 missable, duplikat dihapus (Otherworldly Crystal Ch9, Moogle Medal Ch13, Bahamut Ch14), item baru (Crescent Moon Charm Ch3, Barrier Materia Ch4, Champion Belt, Enemy Skill, Whack-a-Box Hard, Pull-Up Challenge, Chakra (2) Ch21).
 - Ch7+ tetap belum diverifikasi di game; koreksi saat user main.
@@ -28,6 +28,12 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 **Progres user**: Ch7, sebelum Airbuster, 5/12. Masih terbuka: Discovery: Waste Recovery (Security Ops), Magic Up (Waste Storage), Bombing Mission (Gate Office), Titanium Bangle (otomatis). Crescent Moon Charm, Barrier Materia, Power Wristguards sudah dicentang (dicek dari inventory).
 
 **Tools**: scanner `tools/ff7r-scan` (menulis ke `research/scan/`, di-ignore git) punya perintah baru: who, strs, vt, base, obj, module, navi, inventory, pair, vecnear, fdiff, bdiff, find dengan lebar 1/2/4, filter float (fsame, fchg, fdir, fnear, fmoved).
+
+**Malam 10 Okt (user tidur, belum dites di game)**
+- Struktur per game: semua file FF7R di `overlay/games/ff7r/` (game.json, guide.json, items.json, assets/, reader/). `GameRegistry` membaca `games/<id>/game.json`; game tanpa `reader` = overlay manual (hotkey), dites dengan game uji. Template di `games/_template`, cara pakai di `games/README.md`.
+- Overlay: baris notifikasi (centang otomatis/hotkey/undo/dipelajari, hitung mundur hanya saat terlihat), rekap missable terlewat 90 dtk setelah chapter berganti normal (`data/logs/missed.log`), jumlah di peringatan point of no return, petunjuk "➜ langkah: ruang › ruang" dari ruang yang pernah dilalui (`data/area-links.json`, hanya kalau rute lengkap diketahui), banner area digambar ulang setelah menu.
+- Performa: baca angka tanpa array, record inventory dari span, awal daftar item satu kali baca (fallback per record), set flag di-cache, scan entri objektif di thread pekerja, posisi dibaca sekali per poll. P/Invoke `lpNumberOfBytesRead` = `nint`.
+- Perlu dicek saat main: notifikasi, rute (muncul setelah berjalan antar ruang), rekap di akhir Ch7.
 
 **Masih terbuka**
 - Deteksi difficulty otomatis (coba saat user main Hard).
@@ -56,8 +62,9 @@ Aplikasi Windows (C# WPF, .NET 8) yang terdiri dari:
 |---|---|
 | Proyek | `D:\Claude Project\GameTracker` |
 | Kode | `overlay\` (proyek `GameTracker.csproj`) |
-| Guide FF7R | `overlay\guides\ff7r-chapters.json` |
-| Peta item | `overlay\data\ff7r-items.json` |
+| Folder per game | `overlay\games\<id>\` (game.json, guide.json, assets\, data); cara menambah game di `overlay\games\README.md` |
+| Guide FF7R | `overlay\games\ff7r\guide.json` |
+| Peta item | `overlay\games\ff7r\items.json`; pembaca memori `overlay\games\ff7r\reader\` |
 | Gambar | `overlay\assets\games\ff7r\` (background 1920×1080, cover 600×900, icon 256), `overlay\assets\app\` (logo GP: `logo.png`, `app.ico`) |
 | Data runtime (gitignored) | `data\` — progres `FINAL FANTASY VII REMAKE INTERGRADE.json`, `backups\`, `playtime.json`, `logs\` |
 | Riset memori (gitignored) | `research\notes.md` + dump scan (besar, jangan di-commit) |
@@ -102,7 +109,7 @@ Game harus mode **Borderless/Windowed** agar overlay terlihat.
 - Play time Steam: ±17 jam 17 menit. Achievement 17/63 (tidak dipedulikan).
 - User sempat load save Ch3 ↔ Ch7 untuk tes; reconcile mengembalikan centang dengan benar.
 
-## 5. Status guide (`ff7r-chapters.json`, status: draft)
+## 5. Status guide (`games/ff7r/guide.json`, status: draft)
 
 Semua chapter sudah terisi: **Ch 1–18 + INTERmission (nomor 21 & 22)**.
 
@@ -161,7 +168,7 @@ File utama: `MainWindow.xaml.cs`, `Ff7rChapterReader.cs`, `Ff7rObjective.cs`, `I
 
 ## 7. Dashboard (dibuat 9 Okt 2026)
 
-File: `App.xaml.cs` (tray, single instance `Local\GameTracker.Single`, argumen `--game`), `DashboardWindow.xaml(.cs)`, `GameModule.cs` (`GameRegistry` — tambah game = satu baris + guide), `PlayTime.cs`, `SteamStats.cs`, `SteamInfo.cs`.
+File: `App.xaml.cs` (tray, single instance `Local\GameTracker.Single`, argumen `--game`), `DashboardWindow.xaml(.cs)`, `GameModule.cs` (`GameRegistry` membaca semua `games/<id>/game.json`; tambah game = satu folder, tanpa kode), `PlayTime.cs`, `SteamStats.cs`, `SteamInfo.cs`.
 
 - Gaya HUD futuristik: font Bahnschrift, warna Mako `#5EEAD4` + cyan `#38BDF8`, tile bersudut, jendela tanpa border + maximize; bring-to-front saat maximize/restore.
 - Dashboard **tidak disembunyikan** setelah START; hanya sembunyi saat user minimize.

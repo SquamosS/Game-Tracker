@@ -13,7 +13,8 @@ Overlay 100%-completion untuk FINAL FANTASY VII REMAKE INTERGRADE (C# .NET 8 WPF
 - Panduan: nama quest/item resmi bahasa Inggris, deskripsi Indonesia, "where" diawali nama area resmi game; item yang bisa dibeli = opsional, tidak dicentang dari kepemilikan; music disc tetap missable.
 
 ## Peta proyek
-- `overlay/` aplikasi (dashboard + overlay). Pembaca game: `Ff7rChapterReader.cs` dan partial `Ff7r*.cs`. Panduan: `overlay/guides/ff7r-chapters.json`.
+- `overlay/` aplikasi bersama (dashboard + overlay), dipakai semua game.
+- `overlay/games/<id>/` semua file satu game: `game.json` (nama, proses, Steam id, reader), `guide.json` (panduan), `assets/` (gambar), data lain. FF7R: `overlay/games/ff7r/` dengan pembaca memori di `reader/` (`Ff7rChapterReader.cs` + partial `Ff7r*.cs`, `ItemMap.cs`). Cara menambah game: `overlay/games/README.md`.
 - `tools/ff7r-scan/` scanner riset memori (output ke `research/scan/`).
 - `data/` progres & log runtime (di-ignore git): `data/logs/*.log` (crash, state, position, quest-choice, objective-search).
 - `research/` riset & hasil walkthrough (di-ignore git).

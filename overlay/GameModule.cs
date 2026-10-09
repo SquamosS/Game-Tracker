@@ -1,18 +1,25 @@
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
 
 namespace GameTracker;
 
 /// <summary>
-/// A game the tracker knows: its guide, its process, how to start it, and its pictures. Pictures live in
-/// overlay\assets\games\&lt;id&gt;\ (background.jpg/png 1920x1080, cover.jpg/png 600x900, icon.png 256x256) and are
-/// optional; Steam's own artwork is used when they are missing. ScreenshotGlob: the game's own screenshot folder
-/// and file pattern, relative to its install folder.
+/// A game the tracker knows, from its folder overlay\games\&lt;id&gt;\ (see games\README.md): game.json (name, process,
+/// Steam id, screenshot folder, live reader), guide.json (the checklist) and assets\ (background, cover, icon; all
+/// optional, Steam's own artwork is used when they are missing). Reader: "ff7r" reads the game's memory and ticks
+/// steps on its own; none (null) gives the same overlay with manual ticking and chapter changes (hotkeys).
 /// </summary>
-public sealed record GameModule(string Id, string DisplayName, string GuideFile, string ProcessName, int? SteamAppId,
-    string? ScreenshotGlob = null)
+public sealed record GameModule(string Id, string DisplayName, string ProcessName, int? SteamAppId,
+    string? ScreenshotGlob = null, string? Reader = null)
 {
-    public string AssetDir => Path.Combine(DataPaths.Root, "overlay", "assets", "games", Id);
+    /// <summary>The game's folder as built (guide.json and other data files are copied next to the exe).</summary>
+    public string Folder => Path.Combine(AppContext.BaseDirectory, "games", Id);
+
+    public string GuideFile => Path.Combine(Folder, "guide.json");
+
+    /// <summary>Pictures are read from the project folder, so one can be swapped without rebuilding.</summary>
+    public string AssetDir => Path.Combine(DataPaths.Root, "overlay", "games", Id, "assets");
 
     public string? Background => Picture("background");
     public string? Cover => Picture("cover");
@@ -40,14 +47,36 @@ public sealed record GameModule(string Id, string DisplayName, string GuideFile,
     }
 }
 
-/// <summary>All trackable games. A new game is one more line here plus its guide (and, for live tracking, a reader).</summary>
+/// <summary>
+/// All trackable games: one folder each under games\ with a game.json (folders starting with "_" are skipped, for
+/// templates). A new game needs no code unless it gets a live reader.
+/// </summary>
 public static class GameRegistry
 {
-    public static IReadOnlyList<GameModule> All { get; } =
-    [
-        new("ff7r", "FINAL FANTASY VII REMAKE INTERGRADE", "ff7r-chapters.json", "ff7remake_", 1462040,
-            ScreenshotGlob: @"End\Binaries\Win64\ff7remake_*.png"),
-    ];
+    record Info(string DisplayName, string ProcessName, int? SteamAppId, string? ScreenshotGlob, string? Reader);
+
+    static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true, ReadCommentHandling = JsonCommentHandling.Skip };
+
+    public static IReadOnlyList<GameModule> All { get; } = Load();
+
+    static List<GameModule> Load()
+    {
+        var games = new List<GameModule>();
+        string root = Path.Combine(AppContext.BaseDirectory, "games");
+        if (!Directory.Exists(root)) return games;
+        foreach (string dir in Directory.GetDirectories(root).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
+        {
+            string id = Path.GetFileName(dir), file = Path.Combine(dir, "game.json");
+            if (id.StartsWith('_') || !File.Exists(file)) continue;
+            try
+            {
+                if (JsonSerializer.Deserialize<Info>(File.ReadAllText(file), Options) is { DisplayName.Length: > 0, ProcessName.Length: > 0 } info)
+                    games.Add(new GameModule(id, info.DisplayName, info.ProcessName, info.SteamAppId, info.ScreenshotGlob, info.Reader));
+            }
+            catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { } // a broken game.json leaves that game out
+        }
+        return games;
+    }
 
     public static GameModule? Find(string id) => All.FirstOrDefault(g => g.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
 }

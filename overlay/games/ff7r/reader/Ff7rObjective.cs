@@ -129,8 +129,6 @@ public sealed partial class Ff7rChapterReader
     DateTime _lastNearbyScan, _lastSearch;
     Task<List<(long Slot, long Row, long Parent)>>? _nearScan;
     Dictionary<long, Objective>? _nearScanRows;
-    // Reused by every window of every nearby scan (one runs at a time) instead of a new 2 MB array each.
-    byte[]? _nearWindow;
 
     /// <summary>New entries next to the known ones (same parent pointer, pointing at a row). Runs on a worker thread.</summary>
     List<(long Slot, long Row, long Parent)> ScanNearEntries(Dictionary<long, Objective> rows, List<long> slots, CancellationToken cancel)
@@ -139,12 +137,15 @@ public sealed partial class Ff7rChapterReader
         if (slots.Count == 0) return found;
         var parents = slots.Select(s => ReadInt64(s - 8)).ToHashSet();
         var known = slots.ToHashSet();
-        var buf = _nearWindow ??= new byte[0x200000];
+        // Rented per scan: a scan cancelled by Detach may still be reading while the next session's one starts.
+        var buf = System.Buffers.ArrayPool<byte>.Shared.Rent(0x200000);
+        try
+        {
         foreach (long window in slots.Select(s => s & ~0xFFFFFL).Distinct().Take(32))
         {
             cancel.ThrowIfCancellationRequested();
-            if (!ReadProcessMemory(_handle, (IntPtr)(window - 0x80000), buf, buf.Length, out _)) continue;
-            for (int i = 8; i + 8 <= buf.Length; i += 8)
+            if (!ReadProcessMemory(_handle, (IntPtr)(window - 0x80000), buf, 0x200000, out _)) continue;
+            for (int i = 8; i + 8 <= 0x200000; i += 8)
             {
                 long slot = window - 0x80000 + i, row = BitConverter.ToInt64(buf, i);
                 if (!rows.ContainsKey(row) || known.Contains(slot)) continue;
@@ -154,6 +155,8 @@ public sealed partial class Ff7rChapterReader
                 found.Add((slot, row, parent));
             }
         }
+        }
+        finally { System.Buffers.ArrayPool<byte>.Shared.Return(buf); }
         return found;
     }
 

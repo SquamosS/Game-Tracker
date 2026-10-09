@@ -26,8 +26,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="guides\**\*.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="data\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- One folder per game (games\README.md): its game.json, guide.json and data files go next to the exe. -->
+    <None Include="games\**\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

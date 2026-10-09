@@ -17,6 +17,8 @@ public partial class MainWindow
     void Notify(string text, bool alert = false, int seconds = 5)
     {
         _itemStatus = text;
+        // An alert (missed missables) stays up for its time: a routine notice must not push it away.
+        if (!alert && _noticeAlert && _notice is not null) return;
         _notice = text;
         _noticeAlert = alert;
         _noticeSeconds = seconds;
@@ -29,6 +31,22 @@ public partial class MainWindow
         NoticeText.Text = _notice ?? "";
         NoticeBox.BorderBrush = _noticeAlert ? Danger : Now;
         NoticeBox.Background = _noticeAlert ? NoticeBad : NoticeOk;
+    }
+
+    /// <summary>Chapter whose recap waits, and since when.</summary>
+    (int Chapter, DateTime Since)? _pendingRecap;
+
+    /// <summary>
+    /// Runs the recap 90 s after the chapter changed, when the inventory (read every 15-60 s) has caught up with
+    /// the last pickups; dropped when a save was loaded meanwhile, since the ticks then belong to another save.
+    /// </summary>
+    void FollowRecap()
+    {
+        if (_pendingRecap is not var (number, since)) return;
+        if (_reconcile || _storyMayGoBack || _guide is null) { _pendingRecap = null; return; }
+        if (DateTime.Now - since < TimeSpan.FromSeconds(90)) return;
+        _pendingRecap = null;
+        if (_guide.Chapters.FirstOrDefault(c => c.Number == number) is { } ended) RecapMissed(ended);
     }
 
     /// <summary>
@@ -68,6 +86,22 @@ public partial class MainWindow
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return []; }
     }
 
+    /// <summary>The rooms next to each room, built from _links when first needed after a change.</summary>
+    Dictionary<string, List<string>>? _neighbours;
+
+    Dictionary<string, List<string>> Neighbours()
+    {
+        var neighbours = new Dictionary<string, List<string>>();
+        foreach (var link in _links)
+        {
+            var ends = link.Split('\n');
+            if (ends.Length != 2) continue;
+            (neighbours.TryGetValue(ends[0], out var a) ? a : neighbours[ends[0]] = []).Add(ends[1]);
+            (neighbours.TryGetValue(ends[1], out var b) ? b : neighbours[ends[1]] = []).Add(ends[0]);
+        }
+        return neighbours;
+    }
+
     static string Room(Ff7rChapterReader.Location l) => $"{l.Floor}|{l.Area}";
 
     static string LinkKey(string a, string b) => string.CompareOrdinal(a, b) < 0 ? $"{a}\n{b}" : $"{b}\n{a}";
@@ -82,6 +116,7 @@ public partial class MainWindow
         float dx = toAt.X - fromAt.X, dy = toAt.Y - fromAt.Y, dz = toAt.Z - fromAt.Z;
         if (dx * dx + dy * dy + dz * dz > 1500f * 1500f) return;
         if (!_links.Add(LinkKey(Room(from), Room(to)))) return;
+        _neighbours = null;
         try
         {
             string temp = LinksFile + ".tmp";
@@ -97,14 +132,7 @@ public partial class MainWindow
     /// </summary>
     List<string>? RouteTo(Ff7rChapterReader.Location here, string area, string? floor)
     {
-        var neighbours = new Dictionary<string, List<string>>();
-        foreach (var link in _links)
-        {
-            var ends = link.Split('\n');
-            if (ends.Length != 2) continue;
-            (neighbours.TryGetValue(ends[0], out var a) ? a : neighbours[ends[0]] = []).Add(ends[1]);
-            (neighbours.TryGetValue(ends[1], out var b) ? b : neighbours[ends[1]] = []).Add(ends[0]);
-        }
+        var neighbours = _neighbours ??= Neighbours();
         bool IsTarget(string room)
         {
             int bar = room.IndexOf('|');

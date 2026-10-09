@@ -10,7 +10,6 @@ namespace GameTracker;
 
 public partial class MainWindow : Window
 {
-    static readonly string GuidesDir = Path.Combine(AppContext.BaseDirectory, "guides");
     static readonly Brush Accent = Brush("#38BDF8"), Muted = Brush("#94A3B8"), Done = Brush("#64748B"), Mako = Brush("#5EEAD4"),
         Danger = Brush("#F87171"), Current = Brush("#1A38BDF8"), Now = Brush("#4ADE80"), Late = Brush("#FBBF24");
 
@@ -49,14 +48,21 @@ public partial class MainWindow : Window
     string _detectStatus = "";
     string? _error;
 
-    /// <summary>The game this overlay tracks; null keeps the old behaviour (the first guide in guides\).</summary>
+    /// <summary>The game this overlay tracks (the first known game when none is given).</summary>
     readonly GameModule? _game;
+
+    /// <summary>
+    /// The game has a live reader (FF7R): steps tick themselves and the overlay follows the game. Without one the
+    /// same checklist is ticked and paged by hotkey, always shown.
+    /// </summary>
+    readonly bool _live;
 
     public MainWindow() : this(null) { }
 
     public MainWindow(GameModule? game)
     {
-        _game = game;
+        _game = game ?? GameRegistry.All.FirstOrDefault();
+        _live = _game?.Reader == "ff7r";
         InitializeComponent();
         Header.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) DragMove(); };
         Loaded += (_, _) => DockRight();
@@ -76,12 +82,10 @@ public partial class MainWindow : Window
     {
         try
         {
-            string? file = _game is not null
-                ? (File.Exists(Path.Combine(GuidesDir, _game.GuideFile)) ? Path.Combine(GuidesDir, _game.GuideFile) : null)
-                : Directory.Exists(GuidesDir) ? Directory.GetFiles(GuidesDir, "*.json").OrderBy(f => f).FirstOrDefault() : null;
+            string? file = _game is not null && File.Exists(_game.GuideFile) ? _game.GuideFile : null;
             if (file is null)
             {
-                _error = $"Tidak ada file panduan di {GuidesDir}";
+                _error = _game is null ? "Belum ada game di folder games" : $"Tidak ada panduan: {_game.GuideFile}";
                 _guide = null;
             }
             else
@@ -104,8 +108,8 @@ public partial class MainWindow : Window
     /// <summary>Reloads the guide when its JSON changes, so edits show up without restarting.</summary>
     void WatchGuides()
     {
-        if (!Directory.Exists(GuidesDir)) return;
-        _watcher = new FileSystemWatcher(GuidesDir, _game?.GuideFile ?? "*.json") { EnableRaisingEvents = true };
+        if (_game is null || !Directory.Exists(_game.Folder)) return;
+        _watcher = new FileSystemWatcher(_game.Folder, "guide.json") { EnableRaisingEvents = true };
         _watcher.Changed += (_, _) => Dispatcher.BeginInvoke(LoadGuide);
     }
 
@@ -121,6 +125,12 @@ public partial class MainWindow : Window
 
     void PollGame()
     {
+        // No reader for this game: the checklist is all there is, from the chapter you page to.
+        if (!_live)
+        {
+            if (!_inGame) { _inGame = true; Render(); }
+            return;
+        }
         int? chapter = _reader.ReadChapter();
 
         // The chapter byte is only valid in game (0/255 in menus and between chapters). Wait a few seconds before
@@ -148,8 +158,9 @@ public partial class MainWindow : Window
                     foreach (var o in finished.Objectives.Where(o => o.Type == "cerita" || RewardTag(o) == "REWARD CHAPTER"
                         || (o.Type == "trofi" && ChapterEndTrophy(o))))
                         if (_progress.Done.Add(o.Id)) _progress.History.Add(o.Id);
-                if (chapter == _progress.Chapter + 1 && _guide.Chapters.FirstOrDefault(c => c.Number == _progress.Chapter) is { } ended)
-                    RecapMissed(ended);
+                // Played into the next chapter (not a save loaded or the overlay just started): recap the one that ended
+                // once the last pickups had time to be read (FollowRecap).
+                if (wasInGame && !_reconcile && chapter == _progress.Chapter + 1) _pendingRecap = (_progress.Chapter, DateTime.Now);
                 _progress.Chapter = chapter!.Value;
                 Persist();
             }
@@ -162,6 +173,7 @@ public partial class MainWindow : Window
         changed |= FollowFlags();
         changed |= FollowObjective();
         changed |= FollowCompleted();
+        FollowRecap();
         var position = _inGame ? _reader.ReadPosition() : null;
         LogPosition(position);
         FollowGameState();
@@ -890,6 +902,15 @@ public partial class MainWindow : Window
     {
         ObjectiveText.Inlines.Clear();
         ObjectiveText.ToolTip = _subObjective?.Text ?? _objective?.Text;
+        // Without a reader the guide's own story step is the quest: its name, then where.
+        if (!_live)
+        {
+            if (CurrentStory is not { } step) return;
+            ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(step.Name) { Foreground = QuestTitle, FontSize = 16, FontWeight = FontWeights.SemiBold });
+            if (!string.IsNullOrWhiteSpace(step.Where))
+                ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n" + ShownWhere(step)) { Foreground = QuestText, FontSize = 12 });
+            return;
+        }
         if (_objective is not { } live)
         {
             if (_inGame) ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("Mencari objektif aktif...") { Foreground = Muted, FontSize = 12 });
