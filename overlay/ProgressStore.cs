@@ -11,6 +11,8 @@ public class Progress
     public List<string> History { get; set; } = new();
     /// <summary>Every step ever ticked in this playthrough, so loading an older save and back loses nothing.</summary>
     public HashSet<string> Ever { get; set; } = new();
+    /// <summary>Playing on Hard (set with Ctrl+Shift+H): shows the Hard-only steps and notes.</summary>
+    public bool Hard { get; set; }
 }
 
 public static class ProgressStore

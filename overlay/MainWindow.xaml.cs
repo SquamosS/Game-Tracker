@@ -16,7 +16,7 @@ public partial class MainWindow : Window
 
     /// <summary>The whole guide, and the one shown: Hard-only steps left out outside Hard mode.</summary>
     Guide? _guideAll, _guide;
-    /// <summary>Playing on Hard; Normal until the game says otherwise.</summary>
+    /// <summary>Playing on Hard, as set with Ctrl+Shift+H (the game's difficulty is not read yet).</summary>
     bool _hardMode = false;
     Progress _progress = new();
     Native? _native;
@@ -83,8 +83,9 @@ public partial class MainWindow : Window
             else
             {
                 _guideAll = Guide.Load(file);
+                _progress = ProgressStore.Load(_guideAll.Game);
+                _hardMode = _progress.Hard;
                 _guide = _guideAll.ForMode(_hardMode);
-                _progress = ProgressStore.Load(_guide.Game);
                 _error = ProgressStore.Recovered;
             }
         }
@@ -695,6 +696,7 @@ public partial class MainWindow : Window
         Bind(Key.PageUp, "Ctrl+Shift+PageUp", () => ChangeChapter(-1));
         Bind(Key.T, "Ctrl+Shift+T", ToggleClickThrough);
         Bind(Key.A, "Ctrl+Shift+A", ToggleArchive);
+        Bind(Key.H, "Ctrl+Shift+H", ToggleHard);
         if (failed.Count > 0) _error = $"Hotkey dipakai aplikasi lain: {string.Join(", ", failed)}";
         Render();
     }
@@ -719,6 +721,15 @@ public partial class MainWindow : Window
         else if (!_showDone) _showDone = true;
         else _full = _showDone = false;
         Render();
+    }
+
+    /// <summary>Ctrl+Shift+H: Normal or Hard mode; Hard shows the Hard-only steps and reward notes.</summary>
+    void ToggleHard()
+    {
+        if (_guideAll is null) return;
+        _hardMode = _progress.Hard = !_hardMode;
+        _guide = _guideAll.ForMode(_hardMode);
+        Save();
     }
 
     void ToggleClickThrough()
@@ -853,7 +864,7 @@ public partial class MainWindow : Window
         }
         // A small label; INTERmission titles already say which part they are.
         ChapterText.Text = chapter is null ? "BELUM ADA PANDUAN"
-            : chapter.Number >= 21 ? chapter.Title.ToUpperInvariant() : $"CH {chapter.Number} · {chapter.Title.ToUpperInvariant()}";
+            : (_hardMode ? "HARD · " : "") + (chapter.Number >= 21 ? chapter.Title.ToUpperInvariant() : $"CH {chapter.Number} · {chapter.Title.ToUpperInvariant()}");
 
         var objectives = chapter?.Objectives ?? [];
         // Trophies are left out everywhere: the goal is collecting everything in one run, not the trophy list.

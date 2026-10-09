@@ -21,6 +21,7 @@ switch (args[0])
 {
     case "snap": Snap(Path.Combine(Dir, args[1] + ".snap")); break;
     case "fdiff": Inc(Path.Combine(Dir, args[1] + ".snap"), Path.Combine(Dir, args[2] + ".cand"), false, true); break;
+    case "bdiff": Inc(Path.Combine(Dir, args[1] + ".snap"), Path.Combine(Dir, args[2] + ".cand"), false, false, true); break;
     case "chg": Inc(Path.Combine(Dir, args[1] + ".snap"), Path.Combine(Dir, args[2] + ".cand"), true); break;
     case "inc": Inc(Path.Combine(Dir, args[1] + ".snap"), Path.Combine(Dir, args[2] + ".cand")); break;
     case "filter": Filter(Path.Combine(Dir, args[1] + ".cand"), Path.Combine(Dir, args[2] + ".cand"), args[3]); break;
@@ -272,7 +273,7 @@ void Snap(string path)
     Console.WriteLine($"snapshot {total / (1 << 20)} MB");
 }
 
-void Inc(string snapPath, string outPath, bool anyChange = false, bool floats = false)
+void Inc(string snapPath, string outPath, bool anyChange = false, bool floats = false, bool anyByte = false)
 {
     // Index of the old snapshot: base, size, file offset of data.
     var index = new List<(long Base, long Size, long Off)>();
@@ -297,6 +298,13 @@ void Inc(string snapPath, string outPath, bool anyChange = false, bool floats = 
                 var before = new byte[len];
                 snap.Seek(old.Off + (a - old.Base), SeekOrigin.Begin);
                 snap.ReadExactly(before);
+                if (anyByte)
+                {
+                    // Every byte that changed, either way (settings menus pause the game, so few do).
+                    for (int i = 0; i < len; i++)
+                        if (now[i] != before[i]) { Rec(w, a + i, 1, before[i], now[i]); count++; }
+                    continue;
+                }
                 if (floats)
                 {
                     // Positions: finite floats under 10 km that moved 30 cm .. 50 m.
