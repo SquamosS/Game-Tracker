@@ -214,12 +214,20 @@
           </Border>
 
           <!-- The selected game. -->
-          <Grid Grid.Column="1" Margin="48,0,0,0">
+          <Grid Grid.Column="1" Margin="40,0,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <!-- Steam side panel: news and the latest screenshot. -->
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Hidden" Margin="24,4,0,8">
+              <StackPanel x:Name="Side" Width="260" />
+            </ScrollViewer>
             <StackPanel x:Name="Hero" VerticalAlignment="Bottom" Margin="0,0,0,8">
               <Border x:Name="StatusChip" HorizontalAlignment="Left" Padding="10,3" Margin="0,0,0,12" Background="#262DD4BF" BorderBrush="#805EEAD4" BorderThickness="1">
                 <TextBlock x:Name="StatusText" FontFamily="{StaticResource Display}" FontSize="12" Foreground="#5EEAD4" />
               </Border>
-              <TextBlock x:Name="HeroTitle" FontFamily="{StaticResource Display}" FontSize="40" FontWeight="Bold" Foreground="White" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left">
+              <TextBlock x:Name="HeroTitle" FontFamily="{StaticResource Display}" FontSize="34" FontWeight="Bold" Foreground="White" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left">
                 <TextBlock.Effect>
                   <DropShadowEffect Color="#000000" BlurRadius="14" ShadowDepth="0" Opacity="0.8" />
                 </TextBlock.Effect>

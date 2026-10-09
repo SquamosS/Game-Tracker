@@ -6,9 +6,11 @@ namespace GameTracker;
 /// <summary>
 /// A game the tracker knows: its guide, its process, how to start it, and its pictures. Pictures live in
 /// overlay\assets\games\&lt;id&gt;\ (background.jpg/png 1920x1080, cover.jpg/png 600x900, icon.png 256x256) and are
-/// optional.
+/// optional; Steam's own artwork is used when they are missing. ScreenshotGlob: the game's own screenshot folder
+/// and file pattern, relative to its install folder.
 /// </summary>
-public sealed record GameModule(string Id, string DisplayName, string GuideFile, string ProcessName, int? SteamAppId)
+public sealed record GameModule(string Id, string DisplayName, string GuideFile, string ProcessName, int? SteamAppId,
+    string? ScreenshotGlob = null)
 {
     public string AssetDir => Path.Combine(DataPaths.Root, "overlay", "assets", "games", Id);
 
@@ -43,7 +45,8 @@ public static class GameRegistry
 {
     public static IReadOnlyList<GameModule> All { get; } =
     [
-        new("ff7r", "FINAL FANTASY VII REMAKE INTERGRADE", "ff7r-chapters.json", "ff7remake_", 1462040),
+        new("ff7r", "FINAL FANTASY VII REMAKE INTERGRADE", "ff7r-chapters.json", "ff7remake_", 1462040,
+            ScreenshotGlob: @"End\Binaries\Win64\ff7remake_*.png"),
     ];
 
     public static GameModule? Find(string id) => All.FirstOrDefault(g => g.Id.Equals(id, StringComparison.OrdinalIgnoreCase));

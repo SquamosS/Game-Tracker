@@ -95,7 +95,7 @@ public partial class DashboardWindow : Window
     {
         bool running = game.IsRunning, selected = game == _selected;
         var cover = new Border { Width = 46, Height = 68, Background = Brush("#1E293B"), Margin = new Thickness(0, 0, 12, 0), ClipToBounds = true };
-        if (Image(game.Cover) is { } image) cover.Background = new ImageBrush(image) { Stretch = Stretch.UniformToFill };
+        if (Image(game.Cover ?? SteamOf(game)?.CoverArt, 120) is { } image) cover.Background = new ImageBrush(image) { Stretch = Stretch.UniformToFill };
         else cover.Child = new TextBlock { Text = Initials(game.DisplayName), Foreground = Muted, FontFamily = Display, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
 
         var info = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
@@ -136,9 +136,10 @@ public partial class DashboardWindow : Window
     void ShowHero(GameModule? game)
     {
         Hero.Visibility = game is null ? Visibility.Collapsed : Visibility.Visible;
-        if (game?.Background != _shownPicture)
+        string? picture = game is null ? null : game.Background ?? SteamOf(game)?.HeroArt;
+        if (picture != _shownPicture)
         {
-            _shownPicture = game?.Background;
+            _shownPicture = picture;
             Picture.Background = Image(_shownPicture) is { } image
                 ? new ImageBrush(image) { Stretch = Stretch.UniformToFill, AlignmentX = AlignmentX.Right, AlignmentY = AlignmentY.Center }
                 : null;
@@ -153,10 +154,104 @@ public partial class DashboardWindow : Window
         StartButton.Content = running ? "▶  LANJUT" : "▶  START";
         StartButton.ToolTip = running ? "Game sudah berjalan: buka overlay" : "Jalankan game lewat Steam dan buka overlay";
 
+        var steam = SteamOf(game);
+        var online = game.SteamAppId is int appId ? OnlineOf(appId) : null;
         Stats.Children.Clear();
         Stats.Children.Add(Stat("WAKTU MAIN", Duration(time.Seconds)));
         Stats.Children.Add(Stat("TERAKHIR MAIN", time.LastPlayed is { } last ? Ago(last) : "—"));
+        if (steam?.Playtime2WeeksMinutes is long recent) Stats.Children.Add(Stat("2 MINGGU TERAKHIR", Duration(recent * 60)));
+        if (steam?.AchievementsUnlocked is int got && steam.AchievementsTotal is int all and > 0)
+            Stats.Children.Add(Stat("ACHIEVEMENT", $"{got}/{all} · {got * 100 / all}%"));
+        if (steam?.CloudState is { } cloud)
+            Stats.Children.Add(Stat("CLOUD SAVE", cloud switch { "synchronized" => "Tersinkron", "changeslocally" => "Perubahan lokal", _ => cloud },
+                cloud == "synchronized" ? Live : Brush("#FBBF24")));
+        if (steam?.UpToDate is bool upToDate)
+            Stats.Children.Add(Stat("UPDATE", upToDate ? "Up to date" : "Butuh update", upToDate ? Live : Brush("#FBBF24"),
+                steam.BuildId is { } build ? $"Build {build}" + (steam.LastUpdated is { } at ? $" · {at:dd MMM yyyy}" : "") : null));
+        if (steam?.SizeOnDisk is long size)
+            Stats.Children.Add(Stat("UKURAN", $"{size / 1e9:0.#} GB", tip: steam.LibraryPath));
+        if (online?.Players is int players) Stats.Children.Add(Stat("ONLINE SEKARANG", $"{players:N0} pemain"));
+        if (online?.Price is { } price)
+            Stats.Children.Add(Stat("HARGA STEAM", online.DiscountPercent is int off and > 0 ? $"{price} (-{off}%)" : price,
+                online.DiscountPercent is > 0 ? Live : null));
         Stats.Children.Add(Stat("PLATFORM", game.SteamAppId is null ? "—" : "Steam"));
+        ShowSide(steam, online);
+    }
+
+    readonly Dictionary<string, (DateTime At, SteamInfo? Info)> _steam = new();
+    readonly Dictionary<int, SteamInfo.Online?> _online = new();
+    readonly HashSet<int> _fetching = new();
+    readonly Dictionary<int, DateTime> _fetchedAt = new();
+
+    /// <summary>Steam's local facts about a game, re-read every 30 seconds (the dashboard refreshes every 3).</summary>
+    SteamInfo? SteamOf(GameModule game)
+    {
+        if (game.SteamAppId is not int id) return null;
+        if (_steam.TryGetValue(game.Id, out var c) && DateTime.Now - c.At < TimeSpan.FromSeconds(30)) return c.Info;
+        var info = SteamInfo.Local(id, game.ScreenshotGlob);
+        _steam[game.Id] = (DateTime.Now, info);
+        return info;
+    }
+
+    /// <summary>News, players and price: fetched in the background, shown once they arrive.</summary>
+    SteamInfo.Online? OnlineOf(int appId)
+    {
+        // Fetch again every 15 minutes, or after a minute when the last try got nothing (offline).
+        var known = _online.GetValueOrDefault(appId);
+        bool stale = !_fetchedAt.TryGetValue(appId, out var at) || DateTime.Now - at > (known is null ? TimeSpan.FromMinutes(1) : TimeSpan.FromMinutes(15));
+        if (stale && _fetching.Add(appId))
+            _ = Task.Run(() => SteamInfo.FetchOnline(appId)).ContinueWith(t => Dispatcher.BeginInvoke(() =>
+            {
+                if (t.IsCompletedSuccessfully && t.Result is { } result) _online[appId] = result;
+                _fetchedAt[appId] = DateTime.Now;
+                _fetching.Remove(appId);
+                ShowHero(_selected);
+            }));
+        return known;
+    }
+
+    /// <summary>The right-hand Steam panel: latest screenshot and the latest news.</summary>
+    void ShowSide(SteamInfo? steam, SteamInfo.Online? online)
+    {
+        Side.Children.Clear();
+        if (steam?.LatestScreenshot is { } shot && Image(shot, 600) is { } image)
+        {
+            Side.Children.Add(Heading($"SCREENSHOT · {steam.ScreenshotCount}"));
+            var thumb = new Border
+            {
+                Height = 146, Background = new ImageBrush(image) { Stretch = Stretch.UniformToFill }, BorderBrush = Brush("#5538BDF8"),
+                BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 0, 16), Cursor = Cursors.Hand, ToolTip = "Buka folder screenshot",
+            };
+            thumb.MouseLeftButtonDown += (_, _) => OpenPath("/select,\"" + shot + "\"", "explorer.exe");
+            Side.Children.Add(thumb);
+        }
+        if (online?.News is { Count: > 0 } news)
+        {
+            Side.Children.Add(Heading("BERITA STEAM"));
+            foreach (var item in news)
+            {
+                var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
+                panel.Children.Add(new TextBlock { Text = item.Title, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.White, FontSize = 12.5 });
+                panel.Children.Add(new TextBlock { Text = item.Date.ToString("dd MMM yyyy"), Foreground = Faint, FontSize = 11 });
+                var link = new Border { Child = panel, Padding = new Thickness(10, 7, 10, 7), Background = Brush("#990A1220"), BorderBrush = Brush("#2238BDF8"), BorderThickness = new Thickness(1), Cursor = Cursors.Hand, Margin = new Thickness(0, 0, 0, 6) };
+                link.MouseLeftButtonDown += (_, _) => OpenPath(item.Url);
+                Side.Children.Add(link);
+            }
+        }
+    }
+
+    static TextBlock Heading(string text) =>
+        new() { Text = text, FontFamily = Display, FontSize = 12, Foreground = Mako, Margin = new Thickness(2, 0, 0, 8) };
+
+    static void OpenPath(string target, string? program = null)
+    {
+        try
+        {
+            var start = program is null ? new System.Diagnostics.ProcessStartInfo(target) { UseShellExecute = true }
+                : new System.Diagnostics.ProcessStartInfo(program, target) { UseShellExecute = true };
+            System.Diagnostics.Process.Start(start)?.Dispose();
+        }
+        catch (System.ComponentModel.Win32Exception) { }
     }
 
     /// <summary>Play time and last played: Steam's own record when the game is on Steam, else the tracker's.</summary>
@@ -168,12 +263,14 @@ public partial class DashboardWindow : Window
     }
 
     /// <summary>A small HUD tile: label over value, with a cut corner.</summary>
-    static FrameworkElement Stat(string label, string value)
+    static FrameworkElement Stat(string label, string value, Brush? color = null, string? note = null, string? tip = null)
     {
-        var text = new StackPanel { Margin = new Thickness(14, 9, 18, 10) };
+        var text = new StackPanel { Margin = new Thickness(12, 7, 12, 6), VerticalAlignment = VerticalAlignment.Center };
         text.Children.Add(new TextBlock { Text = label, FontFamily = Display, FontSize = 10.5, Foreground = Cyan });
-        text.Children.Add(new TextBlock { Text = value, FontFamily = Display, FontSize = 18, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White, Margin = new Thickness(0, 2, 0, 0) });
-        var grid = new Grid { Margin = new Thickness(0, 0, 10, 10), Width = 170, Height = 62 };
+        text.Children.Add(new TextBlock { Text = value, FontFamily = Display, FontSize = value.Length > 12 ? 13.5 : 16, FontWeight = FontWeights.SemiBold,
+            Foreground = color ?? Brushes.White, Margin = new Thickness(0, 2, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis });
+        if (note is not null) text.Children.Add(new TextBlock { Text = note, FontSize = 10, Foreground = Faint, TextTrimming = TextTrimming.CharacterEllipsis });
+        var grid = new Grid { Margin = new Thickness(0, 0, 10, 10), Width = 138, Height = note is null ? 58 : 68, ToolTip = tip ?? note };
         grid.Children.Add(new Path
         {
             Data = Geometry.Parse("M0,0 L140,0 L150,10 L150,60 L0,60 Z"), Stretch = Stretch.Fill,
@@ -184,13 +281,14 @@ public partial class DashboardWindow : Window
     }
 
     /// <summary>Loads a picture without locking the file, so it can be replaced while the app runs.</summary>
-    static BitmapImage? Image(string? path)
+    static BitmapImage? Image(string? path, int decodeWidth = 0)
     {
         if (path is null) return null;
         try
         {
             var image = new BitmapImage();
             image.BeginInit();
+            image.DecodePixelWidth = decodeWidth;
             image.CacheOption = BitmapCacheOption.OnLoad;
             image.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
             image.UriSource = new Uri(path);
