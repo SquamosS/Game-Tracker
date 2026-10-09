@@ -122,7 +122,7 @@ public partial class MainWindow : Window
         if (!_inGame) { chapter = null; _detectedChapter = null; }
         // Back in game after the title screen or a load (or the overlay just started): the save may be another
         // one, even the same chapter, so check the ticks against it.
-        if (_inGame && !wasInGame) { _reconcile = true; _loadedSlots = []; }
+        if (_inGame && !wasInGame) { _reconcile = true; _loadedSlots = []; ForgetRecent(); }
 
         bool changed = chapter is not null && chapter != _detectedChapter;
         if (chapter is not null) _detectedChapter = chapter;
@@ -134,7 +134,7 @@ public partial class MainWindow : Window
                 // end-of-chapter reward are done (that reward arrives during the chapter change, with a save copy).
                 // Any other jump (an earlier chapter, or several ahead) is another save being loaded: rebuild the
                 // ticks from what that save holds.
-                if (chapter != _progress.Chapter && chapter != _progress.Chapter + 1) _reconcile = true;
+                if (chapter != _progress.Chapter && chapter != _progress.Chapter + 1) { _reconcile = true; ForgetRecent(); }
                 else if (chapter > _progress.Chapter && _guide.Chapters.FirstOrDefault(c => c.Number == _progress.Chapter) is { } finished)
                     foreach (var o in finished.Objectives.Where(o => o.Type == "cerita" || RewardTag(o) == "REWARD CHAPTER"
                         || (o.Type == "trofi" && ChapterEndTrophy(o))))
@@ -192,13 +192,14 @@ public partial class MainWindow : Window
             .Select(o => o.Slot).ToHashSet();
         foreach (var o in owned) _slotIds[o.Slot] = (o.Id, o.Count);
         bool handedOver = changedSlots.Count is > 0 and <= 3;
-        if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; } // a save was loaded (or copied)
+        if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; ForgetRecent(); } // a save was loaded (or copied)
         bool IsNew(Ff7rChapterReader.Owned o) =>
             (_seenOwned.Add((o.Id, o.Obtained)) && o.Obtained >= _startedAt - 120) | (handedOver && changedSlots.Contains(o.Slot));
         foreach (var o in owned.Where(o => o.Id > 0 && o.Id != 20).Where(IsNew).ToList())
         {
-            // Consumables (ids below 100: potions, gil...) are never guide steps, so they are not learned.
-            if (_itemMap.Name(o.Id) is not { } name) { if (o.Id >= 100) _unknownNew.Add((o.Id, DateTime.Now)); continue; }
+            // Consumables (ids below 100: potions, gil...) are never guide steps, so they are not learned. Neither is
+            // anything that came with a loaded save.
+            if (_itemMap.Name(o.Id) is not { } name) { if (o.Id >= 100 && changedSlots.Count <= 3) _unknownNew.Add((o.Id, DateTime.Now)); continue; }
             var step = StepFor(name);
             if (step is null || !_progress.Done.Add(step.Id)) continue;
             _progress.History.Add(step.Id);
@@ -219,16 +220,28 @@ public partial class MainWindow : Window
         var flags = _reader.ReadFlags();
         if (flags is null) return false;
         bool first = _seenFlags is null;
+        // Nothing learns from flags older than the pending story window, so they need not be kept.
+        _newFlags.RemoveAll(f => DateTime.Now - f.When > TimeSpan.FromMinutes(15));
         if (!first) foreach (var f in flags.Except(_seenFlags!)) _newFlags.Add((f, DateTime.Now));
         // Story flags are written at the next autosave, often minutes after you ticked the step: learn them then.
-        if (_pendingStory is var (pending, since) && DateTime.Now - since < TimeSpan.FromMinutes(15)
-            && _newFlags.LastOrDefault(f => f.When > since && _itemMap.FlagName(f.Flag) is null) is { Flag: not null } late)
+        // Only when that autosave set exactly one unknown flag; with several, any of them could be the step's.
+        if (_pendingStory is var (pending, since) && DateTime.Now - since < TimeSpan.FromMinutes(15))
         {
-            _itemMap.LearnFlag(late.Flag, pending.Id);
-            _itemStatus = $"Dipelajari: flag {late.Flag} = {pending.Name}";
-            _pendingStory = null;
-            _newFlags.Clear();
-        }        _seenFlags = flags;
+            var late = _newFlags.Where(f => f.When > since && _itemMap.FlagName(f.Flag) is null).Select(f => f.Flag).Distinct().ToList();
+            if (late.Count == 1)
+            {
+                _itemMap.LearnFlag(late[0], pending.Id);
+                _itemStatus = $"Dipelajari: flag {late[0]} = {pending.Name}";
+                _pendingStory = null;
+                _newFlags.Clear();
+            }
+            else if (late.Count > 1)
+            {
+                _itemStatus = "Tidak dipelajari: lebih dari satu flag baru";
+                _pendingStory = null;
+            }
+        }
+        _seenFlags = flags;
         bool changed = false;
         foreach (var flag in flags)
             if (_itemMap.FlagName(flag) is { } name
@@ -243,7 +256,10 @@ public partial class MainWindow : Window
         return changed;
     }
 
-    /// <summary>You ticked a quest or story step: the newest unknown flag set in the last 3 minutes belongs to it.</summary>
+    /// <summary>
+    /// You ticked a quest or story step: the unknown flag set in the last 3 minutes belongs to it, but only if it
+    /// was the only one. A learned pair ticks the step from then on, so a wrong guess is worse than none.
+    /// </summary>
     void LearnFlag(Objective step)
     {
         _newFlags.RemoveAll(f => DateTime.Now - f.When > TimeSpan.FromMinutes(3) || _itemMap.FlagName(f.Flag) is not null);
@@ -252,10 +268,23 @@ public partial class MainWindow : Window
             if (step.Type == "cerita") _pendingStory = (step, DateTime.Now);
             return;
         }
-        var (flag, _) = _newFlags[^1];
+        var flags = _newFlags.Select(f => f.Flag).Distinct().ToList();
+        if (flags.Count > 1) { _itemStatus = "Tidak dipelajari: lebih dari satu flag baru"; return; }
         _newFlags.Clear();
-        _itemMap.LearnFlag(flag, step.Id);
-        _itemStatus = $"Dipelajari: flag {flag} = {step.Name}";
+        _itemMap.LearnFlag(flags[0], step.Id);
+        _itemStatus = $"Dipelajari: flag {flags[0]} = {step.Name}";
+    }
+
+    /// <summary>
+    /// A save was loaded: the flags and items that look new now came with it, not with the step you tick next.
+    /// Drop them and take the next flags read as the new baseline, so nothing is learned from the load.
+    /// </summary>
+    void ForgetRecent()
+    {
+        _newFlags.Clear();
+        _unknownNew.Clear();
+        _pendingStory = null;
+        _seenFlags = null;
     }
 
     /// <summary>"Shiva Materia" also matches a step called just "Shiva".</summary>
@@ -283,11 +312,12 @@ public partial class MainWindow : Window
     {
         _unknownNew.RemoveAll(u => DateTime.Now - u.When > TimeSpan.FromMinutes(2));
         if (_unknownNew.Count == 0) return;
-        // Materia ids are 10000 and up; pick the newest unknown of the right kind for this step.
-        int pick = _unknownNew.FindLastIndex(u => (u.Id >= 10000) == (step.Type == "materia"));
-        if (pick < 0) return;
-        var (id, _) = _unknownNew[pick];
-        _unknownNew.RemoveAt(pick);
+        // Materia ids are 10000 and up; learn only when a single unknown of the right kind for this step came in.
+        var ids = _unknownNew.Where(u => (u.Id >= 10000) == (step.Type == "materia")).Select(u => u.Id).Distinct().ToList();
+        if (ids.Count == 0) return;
+        if (ids.Count > 1) { _itemStatus = "Tidak dipelajari: lebih dari satu item baru"; return; }
+        int id = ids[0];
+        _unknownNew.RemoveAll(u => u.Id == id);
         _itemMap.Learn(id, step.Name);
         _itemStatus = $"Dipelajari: item {id} = {step.Name}";
     }
@@ -332,10 +362,6 @@ public partial class MainWindow : Window
 
     string _lastChoiceLog = "";
 
-    /// <summary>
-    /// Writes the candidates and the pick to data\logs\quest-choice.log whenever either changes, marking ties
-    /// (two candidates on the same guide step), so wrong picks can be traced without a screenshot.
-    /// </summary>
     /// <summary>Sub-objective keys: "..._Step060_s030_030", "..._Step20_S10", "..._toPark_sub01".</summary>
     static bool IsSub(string key) => System.Text.RegularExpressions.Regex.IsMatch(key, @"_(s|S|sub)\d+(_\d+)?$");
 
@@ -355,6 +381,10 @@ public partial class MainWindow : Window
         return best.Count >= 2 ? best[^1].Objective : null;
     }
 
+    /// <summary>
+    /// Writes the candidates and the pick to data\logs\quest-choice.log whenever either changes, marking ties
+    /// (two candidates on the same guide step), so wrong picks can be traced without a screenshot.
+    /// </summary>
     void LogChoice(Ff7rChapterReader.Objective chosen, Func<Ff7rChapterReader.Objective, int> index, Ff7rChapterReader.Objective? guidePick = null)
     {
         var lines = _reader.CandidateSlots
@@ -373,10 +403,6 @@ public partial class MainWindow : Window
         catch (System.IO.IOException) { }
     }
 
-    /// <summary>
-    /// Follows the game's live story objective: shows its text, and moves the guide to the story step it was
-    /// learned for (objectives are grouped by their title key, so sub-objectives map to the same step).
-    /// </summary>
     /// <summary>
     /// Ticks discoveries and side quests the game shows as done: a finished objective's entry points at its
     /// finishing row (see Ff7rChapterReader.Objective.Finished).
@@ -489,6 +515,10 @@ public partial class MainWindow : Window
         void Untick(Objective o) { if (_progress.Done.Remove(o.Id)) _progress.History.Remove(o.Id); }
     }
 
+    /// <summary>
+    /// Follows the game's live story objective: shows its text, and moves the guide to the story step it was
+    /// learned for (objectives are grouped by their title key, so sub-objectives map to the same step).
+    /// </summary>
     bool FollowObjective()
     {
         var objective = _inGame && _detectedChapter is int chapterNow ? _reader.ReadObjective(chapterNow) : null;
