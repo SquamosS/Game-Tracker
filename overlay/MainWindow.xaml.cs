@@ -1019,6 +1019,9 @@ public partial class MainWindow : Window
         if (o.Missable && !done) title.Inlines.Add(new System.Windows.Documents.Run("MISSABLE ") { Foreground = Danger, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (o.Optional && !done && !compact) title.Inlines.Add(new System.Windows.Documents.Run("OPSIONAL ") { Foreground = Muted, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (RewardTag(o) is { } reward && !done) title.Inlines.Add(new System.Windows.Documents.Run(reward + " ") { Foreground = TrophyColor, FontWeight = FontWeights.Bold, FontSize = 10.5 });
+        // The icon alone is too small to tell a music disc from an item: name the kind unless the name already says it.
+        if (compact && o.Type != "cerita" && !o.Name.Contains(TypeLabel(o), StringComparison.OrdinalIgnoreCase))
+            title.Inlines.Add(new System.Windows.Documents.Run(TypeLabel(o).ToUpperInvariant() + " ") { Foreground = TypeBrush(TypeLabel(o)), FontWeight = FontWeights.Bold, FontSize = 10.5 });
         title.Inlines.Add(new System.Windows.Documents.Run(o.Name) { Foreground = done ? Done : o.Type == "cerita" || compact ? Brushes.White : TypeBrush(TypeLabel(o)), TextDecorations = done ? TextDecorations.Strikethrough : null });
         if (!compact) title.Inlines.Add(new System.Windows.Documents.Run($"  {TypeLabel(o)}") { Foreground = TypeBrush(TypeLabel(o)), FontSize = 10.5, FontWeight = FontWeights.SemiBold });
 

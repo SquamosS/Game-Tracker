@@ -228,6 +228,9 @@ switch (args[0])
             Console.WriteLine($"{k,4}: {str}");
         }
         break;
+    case "rec": // rec <name> <minutes>: record the module's writable data 4x a second (create research\scan\stop to end early)
+        Record(args[1], double.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture));
+        break;
     case "paths": // paths <file> <expected>: keep chains that still resolve to the expected value
         var keep = File.ReadAllLines(Path.Combine(Dir, args[1])).Where(l => Chain(l.Split(' ')).EndsWith("= " + args[2])).ToList();
         File.WriteAllLines(Path.Combine(Dir, args[3]), keep);
@@ -250,6 +253,47 @@ List<(long Base, long Size)> Regions()
         if (addr <= 0 || addr >= 0x7FFFFFFFFFFF) break;
     }
     return list;
+}
+
+// Writes <name>.base (first copy of every writable module region), <name>.diff (int sample, int module offset, byte value
+// per changed byte; an offset that changed more than 300 times is noise and stops being logged) and <name>.tsv
+// (sample, time, paused 0x59039B8, state 0x5A06764, state2 0x57E9ABB) for labelling samples by what the user did.
+void Record(string name, double minutes)
+{
+    var regs = Regions().Where(r => r.Base >= modBase && r.Base < modEnd).ToList();
+    var prev = regs.Select(r => Read(r.Base, (int)r.Size)).ToList();
+    using (var bw = new BinaryWriter(File.Create(Path.Combine(Dir, name + ".base"))))
+        for (int i = 0; i < regs.Count; i++) { bw.Write(regs[i].Base - modBase); bw.Write(prev[i].Length); bw.Write(prev[i]); }
+    Console.WriteLine($"{regs.Count} region, {regs.Sum(r => r.Size) >> 20} MB");
+    var hot = new Dictionary<int, int>();
+    using var diff = new BinaryWriter(new BufferedStream(File.Create(Path.Combine(Dir, name + ".diff")), 1 << 20));
+    using var tsv = new StreamWriter(Path.Combine(Dir, name + ".tsv"));
+    string stop = Path.Combine(Dir, "stop");
+    File.Delete(stop);
+    var end = DateTime.Now.AddMinutes(minutes);
+    for (int n = 1; DateTime.Now < end && !File.Exists(stop); n++)
+    {
+        Thread.Sleep(250);
+        for (int i = 0; i < regs.Count; i++)
+        {
+            var cur = Read(regs[i].Base, (int)regs[i].Size);
+            var old = prev[i];
+            int rel = (int)(regs[i].Base - modBase);
+            for (int j = 0; j < cur.Length; j++)
+            {
+                if (cur[j] == old[j]) continue;
+                int off = rel + j;
+                int c = hot.GetValueOrDefault(off) + 1;
+                hot[off] = c;
+                if (c <= 300) { diff.Write(n); diff.Write(off); diff.Write(cur[j]); }
+            }
+            prev[i] = cur;
+        }
+        var s = Read(modBase + 0x59039B8, 1)[0]; var st = Read(modBase + 0x5A06764, 1)[0]; var s2 = Read(modBase + 0x57E9ABB, 1)[0];
+        tsv.WriteLine($"{n}\t{DateTime.Now:HH:mm:ss.f}\t{s}\t{st}\t{s2}");
+        if (n % 40 == 0) { tsv.Flush(); diff.Flush(); }
+    }
+    Console.WriteLine($"{hot.Count} offset berubah");
 }
 
 byte[] Read(long addr, int size)
