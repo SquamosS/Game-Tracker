@@ -18,7 +18,7 @@
           <Border x:Name="Bar" Background="#5EEAD4" HorizontalAlignment="Left" Width="0" />
         </Grid>
         <!-- Where you are, as the game's map names it: saves opening the map to match the guide's "where". -->
-        <TextBlock x:Name="LocationText" Foreground="#CBD5E1" FontSize="12" Margin="0,0,0,6" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
+        <TextBlock x:Name="LocationText" Margin="0,0,0,8" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
         <TextBlock x:Name="ObjectiveText" TextWrapping="Wrap" />
         <!-- A thin accent, not a red block: amber while the point of no return is ahead, red when it is the step you are on. -->
         <Border x:Name="WarnBox" BorderBrush="#FBBF24" BorderThickness="2,0,0,0" Padding="8,1,0,1" Margin="0,8,0,0">

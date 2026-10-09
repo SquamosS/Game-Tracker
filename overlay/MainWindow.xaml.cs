@@ -11,7 +11,7 @@ namespace GameTracker;
 public partial class MainWindow : Window
 {
     static readonly string GuidesDir = Path.Combine(AppContext.BaseDirectory, "guides");
-    static readonly Brush Accent = Brush("#38BDF8"), Muted = Brush("#94A3B8"), Done = Brush("#64748B"),
+    static readonly Brush Accent = Brush("#38BDF8"), Muted = Brush("#94A3B8"), Done = Brush("#64748B"), Mako = Brush("#5EEAD4"),
         Danger = Brush("#F87171"), Current = Brush("#1A38BDF8"), Now = Brush("#4ADE80"), Late = Brush("#FBBF24");
 
     Guide? _guide;
@@ -764,7 +764,14 @@ public partial class MainWindow : Window
         List.Children.Clear();
         var chapter = CurrentChapter;
         RenderObjective();
-        LocationText.Text = _here is { } at ? "⌖ " + (at.Floor is { } floor ? $"{floor} · {at.Area}" : at.Area) : "";
+        // The area first and large (the guide names areas), the floor after it, small: readable at a glance.
+        LocationText.Inlines.Clear();
+        if (_here is { } at)
+        {
+            LocationText.Inlines.Add(new System.Windows.Documents.Run("⌖ ") { Foreground = Mako, FontSize = 14 });
+            LocationText.Inlines.Add(new System.Windows.Documents.Run(at.Area) { Foreground = Brushes.White, FontSize = 14, FontWeight = FontWeights.SemiBold });
+            if (at.Floor is { } floor) LocationText.Inlines.Add(new System.Windows.Documents.Run("   " + floor) { Foreground = Muted, FontSize = 11.5 });
+        }
         LocationText.Visibility = _here is null ? Visibility.Collapsed : Visibility.Visible;
         // No status or hotkey help (the user knows them): the footer only appears when something is wrong.
         FooterText.Text = _error ?? _reader.Problem ?? "";
