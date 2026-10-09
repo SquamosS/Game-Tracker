@@ -137,6 +137,29 @@ switch (args[0])
         Console.WriteLine($"modul 0x{modBase:X}, {(modEnd - modBase) / (1 << 20)} MB -> {args[1]}");
         break;
     }
+    case "navi": // navi <file>: every "$navi..." localization key with its English text (FString key then FString text)
+    {
+        var pairs = new SortedDictionary<string, string>();
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 32 <= len; i += 8)
+                {
+                    long p1 = BitConverter.ToInt64(buf, i), p2 = BitConverter.ToInt64(buf, i + 16);
+                    int l1 = BitConverter.ToInt32(buf, i + 8), l2 = BitConverter.ToInt32(buf, i + 24);
+                    if (p1 < 0x10000000000 || p1 > 0x7FF000000000 || l1 is < 8 or > 60 || p2 < 0x10000000000 || p2 > 0x7FF000000000 || l2 is < 2 or > 200) continue;
+                    var k = System.Text.Encoding.Unicode.GetString(Read(p1, (l1 - 1) * 2));
+                    if (!k.StartsWith("$navi")) continue;
+                    var t = System.Text.Encoding.Unicode.GetString(Read(p2, (l2 - 1) * 2));
+                    if (!t.StartsWith("$") && t.Length > 0) pairs.TryAdd(k, t);
+                }
+            }
+        File.WriteAllLines(args[1], pairs.Select(kv => $"{kv.Key}\t{kv.Value}"));
+        Console.WriteLine($"{pairs.Count} nama -> {args[1]}");
+        break;
+    }
     case "obj": // obj <addr...>: a UObject's name and its class's name (FNamePool blocks at module+0x5981310, Steam 1.0.0.7)
         foreach (var arg in args[1..])
         {
