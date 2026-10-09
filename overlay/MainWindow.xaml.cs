@@ -730,7 +730,7 @@ public partial class MainWindow : Window
     Ff7rChapterReader.GameState? _gameState;
 
     /// <summary>
-    /// Hides the overlay and the area banner while a menu, the map or a cutscene is on, and logs every change of the game's
+    /// Shows the overlay and the area banner only while exploring (not in menus, the map, cutscenes or battles), and logs every change of the game's
     /// state values to data\logs\state.log with the objective, to learn what cutscenes and battles look like.
     /// </summary>
     void FollowGameState()
@@ -744,8 +744,9 @@ public partial class MainWindow : Window
                 $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}	{(state is null ? "-" : $"paused {(state.Paused ? 1 : 0)}	state {state.State}	state2 {state.State2}")}	{_here?.Area}	{_objective?.Title}{Environment.NewLine}");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
-        // Menus (including a cutscene's pause menu) and cutscenes hide it; anything else (play, battles) shows it.
-        bool menu = state is { Menu: true } or { Cutscene: true };
+        // Shown only while exploring (1): menus (3, also a battle's command menu), cutscenes (5) and battles (0) hide
+        // it. Unknown (another game version) shows it.
+        bool menu = state is { } && !state.Exploring;
         if (menu != _menuOpen) { _menuOpen = menu; ApplyVisibility(); }
     }
 
