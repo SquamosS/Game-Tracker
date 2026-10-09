@@ -59,11 +59,10 @@ public partial class App : Application
 
     void CreateTray()
     {
-        var icon = GameRegistry.All.Select(g => g.Icon).FirstOrDefault(p => p is not null);
         _tray = new Forms.NotifyIcon
         {
             Text = "Game Tracker",
-            Icon = icon is not null ? IconFrom(icon) : System.Drawing.SystemIcons.Application,
+            Icon = AppIcon(),
             Visible = true,
         };
         var menu = new Forms.ContextMenuStrip();
@@ -76,14 +75,15 @@ public partial class App : Application
         _tray.DoubleClick += (_, _) => ShowDashboard();
     }
 
-    static System.Drawing.Icon IconFrom(string png)
+    /// <summary>The GP logo (assets\app\app.ico, built into the exe) at the tray's size.</summary>
+    static System.Drawing.Icon AppIcon()
     {
         try
         {
-            using var bitmap = new System.Drawing.Bitmap(png);
-            return System.Drawing.Icon.FromHandle(bitmap.GetHicon());
+            using var stream = GetResourceStream(new Uri("pack://application:,,,/assets/app/app.ico")).Stream;
+            return new System.Drawing.Icon(stream, Forms.SystemInformation.SmallIconSize);
         }
-        catch (Exception e) when (e is ArgumentException or System.IO.IOException) { return System.Drawing.SystemIcons.Application; }
+        catch (Exception e) when (e is ArgumentException or System.IO.IOException or NullReferenceException) { return System.Drawing.SystemIcons.Application; }
     }
 
     protected override void OnExit(ExitEventArgs e)

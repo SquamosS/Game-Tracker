@@ -12,7 +12,13 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <AssemblyName>GameTracker</AssemblyName>
     <RootNamespace>GameTracker</RootNamespace>
+    <!-- The GP logo: exe, taskbar and tray (assets\app\logo.png is the 512px source picture). -->
+    <ApplicationIcon>assets\app\app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="assets\app\app.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <Using Remove="System.Windows.Forms" />
