@@ -102,7 +102,7 @@ public partial class DashboardWindow : Window
         info.Children.Add(new TextBlock { Text = game.DisplayName, FontFamily = Display, FontSize = 14, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap, Foreground = selected ? Brushes.White : Brush("#CBD5E1") });
         info.Children.Add(new TextBlock
         {
-            Text = running ? "● SEDANG BERJALAN" : $"{Duration(PlayTime.Instance.For(game.Id).Seconds)} dimainkan",
+            Text = running ? "● SEDANG BERJALAN" : $"{Duration(TimeOf(game).Seconds)} dimainkan",
             Foreground = running ? Live : Faint, FontSize = 11.5, Margin = new Thickness(0, 4, 0, 0),
         });
 
@@ -146,7 +146,7 @@ public partial class DashboardWindow : Window
         if (game is null) return;
 
         bool running = game.IsRunning;
-        var time = PlayTime.Instance.For(game.Id);
+        var time = TimeOf(game);
         HeroTitle.Text = game.DisplayName;
         StatusText.Text = running ? "● SEDANG BERJALAN" : "SIAP DIMAINKAN";
         StatusText.Foreground = running ? Live : Mako;
@@ -157,6 +157,14 @@ public partial class DashboardWindow : Window
         Stats.Children.Add(Stat("WAKTU MAIN", Duration(time.Seconds)));
         Stats.Children.Add(Stat("TERAKHIR MAIN", time.LastPlayed is { } last ? Ago(last) : "—"));
         Stats.Children.Add(Stat("PLATFORM", game.SteamAppId is null ? "—" : "Steam"));
+    }
+
+    /// <summary>Play time and last played: Steam's own record when the game is on Steam, else the tracker's.</summary>
+    static (long Seconds, DateTime? LastPlayed) TimeOf(GameModule game)
+    {
+        if (game.SteamAppId is int id && SteamStats.For(id) is { } steam) return (steam.Seconds, steam.LastPlayed);
+        var tracked = PlayTime.Instance.For(game.Id);
+        return (tracked.Seconds, tracked.LastPlayed);
     }
 
     /// <summary>A small HUD tile: label over value, with a cut corner.</summary>
