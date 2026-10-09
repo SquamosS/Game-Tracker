@@ -225,7 +225,7 @@
               <WrapPanel x:Name="Stats" Margin="0,0,0,24" />
               <StackPanel Orientation="Horizontal">
                 <Button x:Name="StartButton" Style="{StaticResource StartButton}" Margin="0,0,14,0" />
-                <Button x:Name="OverlayButton" Style="{StaticResource GhostButton}" Content="OVERLAY SAJA" ToolTip="Buka overlay tanpa menjalankan game" />
+                <Button x:Name="OverlayButton" Style="{StaticResource GhostButton}" Content="OVERLAY" ToolTip="Buka overlay tanpa menjalankan game" />
               </StackPanel>
             </StackPanel>
           </Grid>
