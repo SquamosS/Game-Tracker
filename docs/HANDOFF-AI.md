@@ -31,6 +31,7 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 
 **Masih terbuka**
 - Deteksi difficulty otomatis (coba saat user main Hard).
+- Overlay ikut tersembunyi saat dialog ringan (masih bisa jalan) dan TIDAK tersembunyi di layar shop: nilai state sama dengan adegan dialog / main. Riset 10 Okt gagal (lihat notes.md "Dialog ringan vs adegan dialog"); user memilih tidak melanjutkan dulu. Ide: tanda HUD tampil, siklus snapshot penuh dengan shop.
 - Batas area masih kotak (bisa meleset di ruangan miring); bentuk persis ada di Model/BodySetup volume.
 - Penanda di atas peti dalam game (butuh posisi peti + kamera): belum.
 - Data panduan Ch11 & Ch15-18: sebagian area null (peta tak termuat saat ekspor nama).
