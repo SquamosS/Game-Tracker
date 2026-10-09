@@ -425,33 +425,12 @@ public partial class MainWindow : Window
         return changed;
     }
 
-    readonly AreaMap _areas = AreaMap.Load();
-    Ff7rChapterReader.Position? _lastPosition;
-    DateTime _stillSince = DateTime.Now, _labelLook;
-    AreaMap.Sample? _here;
+    Ff7rChapterReader.Location? _here;
 
-    /// <summary>
-    /// Learns where the map's areas are each time the map is open, and names the area you are in from the nearest
-    /// learned position. The map pauses the game, so a few seconds of standing still may be the map: the label is
-    /// looked for then (one low-priority scan, at most every 30 s); a cutscene or idle standing costs a scan too.
-    /// </summary>
+    /// <summary>Names the area you are in from the game's own area volumes (Ff7rMapArea.cs).</summary>
     bool FollowLocation()
     {
-        if (!_inGame || _detectedChapter is not int chapter || _reader.ReadPosition() is not { } p)
-        {
-            bool had = _here is not null;
-            _here = null;
-            return had;
-        }
-        if (_lastPosition is not { } last || Math.Abs(p.X - last.X) + Math.Abs(p.Y - last.Y) + Math.Abs(p.Z - last.Z) > 1) _stillSince = DateTime.Now;
-        _lastPosition = p;
-        if (DateTime.Now - _stillSince > TimeSpan.FromSeconds(3) && DateTime.Now - _labelLook > TimeSpan.FromSeconds(30))
-        {
-            _labelLook = DateTime.Now;
-            _reader.LookForMapLabel();
-        }
-        if (_reader.ReadMapArea() is { } open && _areas.Learn(chapter, open, p)) _itemStatus = $"Dipelajari: lokasi {open.Area}";
-        var here = _areas.Nearest(chapter, p);
+        var here = _inGame && _reader.ReadPosition() is { } p ? _reader.ReadLocation(p) : null;
         if (here == _here) return false;
         _here = here;
         return true;

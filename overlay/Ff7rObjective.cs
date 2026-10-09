@@ -235,14 +235,16 @@ public sealed partial class Ff7rChapterReader
         // Entries pointing at a row; skip the table's own lists (several row pointers side by side).
         var found = new System.Collections.Concurrent.ConcurrentBag<long>();
         // The same pass picks up the characters' position objects by their vtable (Ff7rPosition.cs).
-        long positionVtable = PositionVtable;
+        long positionVtable = PositionVtable, volumeVtable = NaviVolumeVtable;
         var positions = new System.Collections.Concurrent.ConcurrentBag<long>();
+        var volumes = new System.Collections.Concurrent.ConcurrentBag<long>();
         ForEachChunk(cancel, (a, buf, length) =>
         {
             for (int i = 8; i + 16 <= length; i += 8)
             {
                 long p = BitConverter.ToInt64(buf, i);
                 if (positionVtable != 0 && p == positionVtable) positions.Add(a + i);
+                if (volumeVtable != 0 && p == volumeVtable) volumes.Add(a + i);
                 if (!byAddress.ContainsKey(p)) continue;
                 if (byAddress.ContainsKey(BitConverter.ToInt64(buf, i - 8)) || byAddress.ContainsKey(BitConverter.ToInt64(buf, i + 8))) continue;
                 if (found.Count < 100_000) found.Add(a + i);
@@ -254,7 +256,8 @@ public sealed partial class Ff7rChapterReader
         var entries = parents.SelectMany(g => g).ToList();
         _positionObjects = positions.ToList(); // swapped whole: the UI thread reads these
         if (!naviTexts.IsEmpty) _naviTexts = new Dictionary<string, string>(naviTexts);
-        ObjectiveDebug = $"rows {byAddress.Count} ({rowsMs} ms, {stringReads} reads), slots {slots.Count} ({sw.ElapsedMilliseconds - rowsMs} ms), entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}, positions {positions.Count}";
+        _naviVolumes = volumes.ToList(); // a new list: ReadLocation resolves names and bounds again
+        ObjectiveDebug = $"rows {byAddress.Count} ({rowsMs} ms, {stringReads} reads), slots {slots.Count} ({sw.ElapsedMilliseconds - rowsMs} ms), entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}, positions {positions.Count}, volumes {volumes.Count}";
         return (byAddress, entries.Count > 0 ? entries : slots);
     }
 

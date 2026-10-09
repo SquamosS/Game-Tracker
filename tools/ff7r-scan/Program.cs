@@ -125,6 +125,26 @@ switch (args[0])
         Console.WriteLine($"{total} temuan");
         break;
     }
+    case "module": // module <file>: the game module's image as loaded (unreadable pages as zeros), for static analysis
+    {
+        using var f = File.Create(args[1]);
+        for (long o = 0; o < modEnd - modBase; o += 0x1000)
+        {
+            var page = new byte[0x1000];
+            Native.ReadProcessMemory(h, (IntPtr)(modBase + o), page, page.Length, out _);
+            f.Write(page);
+        }
+        Console.WriteLine($"modul 0x{modBase:X}, {(modEnd - modBase) / (1 << 20)} MB -> {args[1]}");
+        break;
+    }
+    case "obj": // obj <addr...>: a UObject's name and its class's name (FNamePool blocks at module+0x5981310, Steam 1.0.0.7)
+        foreach (var arg in args[1..])
+        {
+            long o = Convert.ToInt64(arg, 16);
+            long cls = BitConverter.ToInt64(Read(o + 0x10, 8)), outer = BitConverter.ToInt64(Read(o + 0x20, 8));
+            Console.WriteLine($"0x{o:X}: {FName(BitConverter.ToInt32(Read(o + 0x18, 4)))} : {FName(BitConverter.ToInt32(Read(cls + 0x18, 4)))}  (outer {FName(BitConverter.ToInt32(Read(outer + 0x18, 4)))})");
+        }
+        break;
     case "base": // base <addr...>: the nearest pointer into the game module at or before each address (an object's vtable)
         foreach (var arg in args[1..])
         {
@@ -471,6 +491,18 @@ string ScanDir()
         if (File.Exists(Path.Combine(d.FullName, "overlay", "GameTracker.csproj")))
             return Directory.CreateDirectory(Path.Combine(d.FullName, "research", "scan")).FullName;
     return Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "scan")).FullName;
+}
+
+// An FName's text from the FNamePool: block index << 16 | offset / 2; entries start with a 2-byte header (length << 6 | wide).
+string FName(int index)
+{
+    long blocks = modBase + 0x5981310;
+    long block = BitConverter.ToInt64(Read(blocks + 8L * (index >> 16), 8));
+    if (block == 0) return "?";
+    long entry = block + 2L * (index & 0xFFFF);
+    int header = BitConverter.ToUInt16(Read(entry, 2)), length = header >> 6;
+    if (length is <= 0 or > 1024) return "?";
+    return (header & 1) != 0 ? System.Text.Encoding.Unicode.GetString(Read(entry + 2, length * 2)) : System.Text.Encoding.ASCII.GetString(Read(entry + 2, length));
 }
 
 float F(int bits) => BitConverter.Int32BitsToSingle(bits);
