@@ -4,20 +4,23 @@
         Title="Game Tracker" Width="400" Height="640"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ResizeMode="CanResizeWithGrip"
-        FontFamily="Segoe UI" FontSize="13" Foreground="#E2E8F0">
+        FontFamily="Bahnschrift" FontSize="13" Foreground="#E2E8F0">
   <Border Background="#800F172A" BorderBrush="#03FFFFFF" BorderThickness="1" CornerRadius="12">
     <DockPanel Margin="14">
+      <!-- Three levels only: a small chapter label with the count, the live quest, then what is left to get. -->
       <StackPanel DockPanel.Dock="Top" x:Name="Header" Cursor="SizeAll">
-        <TextBlock x:Name="GameText" Foreground="#94A3B8" FontSize="11" />
-        <TextBlock x:Name="ChapterText" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
-        <TextBlock x:Name="ObjectiveText" Foreground="#38BDF8" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0" />
-        <Grid Margin="0,8,0,4" Height="8">
-          <Border Background="#1E293B" CornerRadius="4" />
-          <Border x:Name="Bar" Background="#38BDF8" CornerRadius="4" HorizontalAlignment="Left" Width="0" />
+        <DockPanel>
+          <TextBlock x:Name="CountText" DockPanel.Dock="Right" Foreground="#94A3B8" FontSize="11.5" Margin="8,0,0,0" />
+          <TextBlock x:Name="ChapterText" Foreground="#5EEAD4" FontSize="11.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+        <Grid Margin="0,4,0,8" Height="2">
+          <Border Background="#33FFFFFF" />
+          <Border x:Name="Bar" Background="#5EEAD4" HorizontalAlignment="Left" Width="0" />
         </Grid>
-        <TextBlock x:Name="CountText" Foreground="#94A3B8" FontSize="11" />
-        <Border x:Name="WarnBox" Background="#33F87171" CornerRadius="6" Padding="8,6" Margin="0,8,0,0">
-          <TextBlock x:Name="WarnText" TextWrapping="Wrap" Foreground="#FCA5A5" FontSize="12" />
+        <TextBlock x:Name="ObjectiveText" TextWrapping="Wrap" />
+        <!-- A thin accent, not a red block: amber while the point of no return is ahead, red when it is the step you are on. -->
+        <Border x:Name="WarnBox" BorderBrush="#FBBF24" BorderThickness="2,0,0,0" Padding="8,1,0,1" Margin="0,8,0,0">
+          <TextBlock x:Name="WarnText" TextWrapping="Wrap" Foreground="#FBBF24" FontSize="12" />
         </Border>
       </StackPanel>
       <TextBlock DockPanel.Dock="Bottom" x:Name="FooterText" Foreground="#64748B" FontSize="10.5"

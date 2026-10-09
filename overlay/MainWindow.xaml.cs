@@ -447,6 +447,22 @@ public partial class MainWindow : Window
     /// <summary>What a step is, as shown next to its name.</summary>
     static string TypeLabel(Objective o) => o.Type == "kejadian" && o.Name.StartsWith("Discovery") ? "discovery" : o.Type;
 
+    /// <summary>The compact tracker's marker for a kind of step, drawn in its TypeBrush colour.</summary>
+    static string TypeIcon(Objective o) => TypeLabel(o) switch
+    {
+        "materia" => "◆",
+        "senjata" => "⚔",
+        "armor" => "■",
+        "aksesori" => "●",
+        "music disc" => "♪",
+        "summon" => "✦",
+        "manuskrip" => "✎",
+        "side quest" => "◎",
+        "discovery" => "✧",
+        "trofi" => "★",
+        _ => "•",
+    };
+
     /// <summary>One colour per kind of step, so discoveries, gear and collectibles are told apart at a glance.</summary>
     static Brush TypeBrush(string label) => label switch
     {
@@ -695,16 +711,17 @@ public partial class MainWindow : Window
         ObjectiveText.ToolTip = _subObjective?.Text ?? _objective?.Text;
         if (_objective is not { } live)
         {
-            if (_inGame) ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("▶ (mencari objektif aktif...)") { Foreground = QuestTitle });
+            if (_inGame) ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("Mencari objektif aktif...") { Foreground = Muted, FontSize = 12 });
             return;
         }
-        ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("▶ " + (live.Title ?? live.TitleKey)) { Foreground = QuestTitle, FontSize = 14, FontWeight = FontWeights.SemiBold });
+        // The quest is the largest text on the overlay: it is what you are doing right now.
+        ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(live.Title ?? live.TitleKey) { Foreground = QuestTitle, FontSize = 16, FontWeight = FontWeights.SemiBold });
         if (live.Text is { Length: > 0 } text)
-            ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n   " + text) { Foreground = QuestText, FontSize = 12 });
+            ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n" + text) { Foreground = QuestText, FontSize = 12 });
         if (_subObjective is not { } sub) return;
-        ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n   › " + (sub.Title ?? sub.TitleKey)) { Foreground = SubTitle, FontSize = 12.5, FontWeight = FontWeights.SemiBold });
+        ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n› " + (sub.Title ?? sub.TitleKey)) { Foreground = SubTitle, FontSize = 12.5, FontWeight = FontWeights.SemiBold });
         if (sub.Text is { Length: > 0 } subText)
-            ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n      " + subText) { Foreground = SubText, FontSize = 11.5, FontStyle = FontStyles.Italic });
+            ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n   " + subText) { Foreground = SubText, FontSize = 11.5, FontStyle = FontStyles.Italic });
     }
 
     bool WarningOpen(Objective o) => o.Warning is not null && (o.Needs is not { Length: > 0 } needs || !needs.All(_progress.Done.Contains));
@@ -713,7 +730,6 @@ public partial class MainWindow : Window
     {
         List.Children.Clear();
         var chapter = CurrentChapter;
-        GameText.Text = _guide?.Game ?? "Game Tracker";
         RenderObjective();
         // No status or hotkey help (the user knows them): the footer only appears when something is wrong.
         FooterText.Text = _error ?? _reader.Problem ?? "";
@@ -724,21 +740,24 @@ public partial class MainWindow : Window
         // No checklist until a save is loaded: the chapter would only be a guess.
         if (!_inGame && _reader.Problem is null)
         {
-            ChapterText.Text = _reader.Version is null ? "Menunggu game..." : "Menunggu save di-load...";
-            CountText.Text = _reader.Version is null
+            ChapterText.Text = _reader.Version is null ? "MENUNGGU GAME" : "MENUNGGU SAVE DI-LOAD";
+            CountText.Text = "";
+            ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(_reader.Version is null
                 ? "Buka FF7R, overlay akan mengikuti chapter kamu otomatis."
-                : "Load save atau mulai chapter, checklist-nya muncul otomatis.";
+                : "Load save atau mulai chapter, checklist-nya muncul otomatis.") { Foreground = Muted, FontSize = 12 });
             Bar.Width = 0;
             WarnBox.Visibility = Visibility.Collapsed;
             return;
         }
-        ChapterText.Text = chapter is null ? "Belum ada panduan" : $"Chapter {chapter.Number}: {chapter.Title}";
+        // A small label; INTERmission titles already say which part they are.
+        ChapterText.Text = chapter is null ? "BELUM ADA PANDUAN"
+            : chapter.Number >= 21 ? chapter.Title.ToUpperInvariant() : $"CH {chapter.Number} · {chapter.Title.ToUpperInvariant()}";
 
         var objectives = chapter?.Objectives ?? [];
         // Trophies are left out everywhere: the goal is collecting everything in one run, not the trophy list.
         var counted = objectives.Where(o => o.Type != "trofi").ToList();
         int done = counted.Count(o => _progress.Done.Contains(o.Id));
-        CountText.Text = $"{done}/{counted.Count} selesai di chapter ini";
+        CountText.Text = $"{done}/{counted.Count}";
         Bar.Width = counted.Count == 0 ? 0 : (ActualWidth > 0 ? ActualWidth - 30 : 370) * done / counted.Count;
 
         // Warn about the nearest point of no return and the missables still open before it.
@@ -755,11 +774,15 @@ public partial class MainWindow : Window
         string? reason = gate?.Warning is { } warning
             ? System.Text.RegularExpressions.Regex.Split(warning, @"(?<=\.)\s+").FirstOrDefault(s => s.StartsWith("Setelah"))
             : null;
+        // Amber while the point of no return is still ahead; red once it is the story step you are on. The reason
+        // ("Setelah ...") only shows then, or in the full checklist: a notice that is always loud gets ignored.
+        bool urgent = gate is not null && gate == CurrentStory;
         WarnBox.Visibility = toGet.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        WarnBox.BorderBrush = WarnText.Foreground = urgent ? Danger : Late;
         WarnText.Text = toGet.Count == 0 ? "" : string.Join(Environment.NewLine, new[]
         {
-            gate is null ? $"⚠ Belum diambil: {string.Join(", ", toGet)}." : $"⚠ Ambil sebelum \"{gate.Name}\": {string.Join(", ", toGet)}.",
-            reason,
+            gate is null ? $"⚠ Belum diambil: {string.Join(" · ", toGet)}" : $"⚠ Sebelum {gate.Name}: {string.Join(" · ", toGet)}",
+            urgent || _full ? reason : null,
         }.Where(s => s is not null));
 
         string? nextId = NextStep(objectives)?.Id;
@@ -806,7 +829,7 @@ public partial class MainWindow : Window
         if (_objective is not null && CurrentStory is { } story && !string.IsNullOrWhiteSpace(story.Where))
             List.Children.Add(new TextBlock { Text = story.Where, TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12, Margin = new Thickness(2, 0, 0, 6) });
         int phase = -1;
-        var open = new List<(Objective Step, string Tag)>();
+        var open = new List<(Objective Step, string? Tag)>();
         for (int i = 0; i < objectives.Length; i++)
         {
             var o = objectives[i];
@@ -816,43 +839,60 @@ public partial class MainWindow : Window
             if (o.Type == "trofi") continue;
             // Optional pick-ups (also sold in shops) only matter while you pass them.
             if (o.Optional && phase < current) continue;
-            open.Add((o, phase == current ? "SEKARANG" : "TERTINGGAL"));
+            // Everything listed here is "now" unless left behind, so only that is tagged.
+            open.Add((o, phase == current ? null : "TERTINGGAL"));
         }
         foreach (var (step, tag) in open.OrderByDescending(x => x.Step.Missable))
             List.Children.Add(Row(step, false, false, tag));
     }
 
+    /// <summary>
+    /// One step. The compact tracker is read mid-game and is usually click-through: a coloured type icon instead
+    /// of a checkbox (ticking is by hotkey), the name in white, one line of where, optional steps dimmed rather
+    /// than labelled. The full checklist keeps checkboxes and every label, for sorting things out by mouse.
+    /// </summary>
     FrameworkElement Row(Objective o, bool done, bool isNext, string? tag)
     {
-        var box = new CheckBox { IsChecked = done, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 8, 0) };
-        box.Click += (_, _) => SetDone(o.Id, box.IsChecked == true);
+        bool compact = !_full;
+        FrameworkElement marker;
+        if (compact)
+            marker = new TextBlock { Text = TypeIcon(o), Foreground = TypeBrush(TypeLabel(o)), FontSize = 12, Width = 16, Margin = new Thickness(0, 1, 6, 0), VerticalAlignment = VerticalAlignment.Top };
+        else
+        {
+            var box = new CheckBox { IsChecked = done, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 8, 0) };
+            box.Click += (_, _) => SetDone(o.Id, box.IsChecked == true);
+            marker = box;
+        }
 
         var title = new TextBlock { TextWrapping = TextWrapping.Wrap, FontWeight = isNext ? FontWeights.SemiBold : FontWeights.Normal };
         if (tag is not null) title.Inlines.Add(new System.Windows.Documents.Run(tag + " ") { Foreground = tag == "SEKARANG" ? Now : Late, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (o.Missable && !done) title.Inlines.Add(new System.Windows.Documents.Run("MISSABLE ") { Foreground = Danger, FontWeight = FontWeights.Bold, FontSize = 10.5 });
-        if (o.Optional && !done) title.Inlines.Add(new System.Windows.Documents.Run("OPSIONAL ") { Foreground = Muted, FontWeight = FontWeights.Bold, FontSize = 10.5 });
+        if (o.Optional && !done && !compact) title.Inlines.Add(new System.Windows.Documents.Run("OPSIONAL ") { Foreground = Muted, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (RewardTag(o) is { } reward && !done) title.Inlines.Add(new System.Windows.Documents.Run(reward + " ") { Foreground = TrophyColor, FontWeight = FontWeights.Bold, FontSize = 10.5 });
-        title.Inlines.Add(new System.Windows.Documents.Run(o.Name) { Foreground = done ? Done : o.Type == "cerita" ? Brushes.White : TypeBrush(TypeLabel(o)), TextDecorations = done ? TextDecorations.Strikethrough : null });
-        title.Inlines.Add(new System.Windows.Documents.Run($"  {TypeLabel(o)}") { Foreground = TypeBrush(TypeLabel(o)), FontSize = 10.5, FontWeight = FontWeights.SemiBold });
+        title.Inlines.Add(new System.Windows.Documents.Run(o.Name) { Foreground = done ? Done : o.Type == "cerita" || compact ? Brushes.White : TypeBrush(TypeLabel(o)), TextDecorations = done ? TextDecorations.Strikethrough : null });
+        if (!compact) title.Inlines.Add(new System.Windows.Documents.Run($"  {TypeLabel(o)}") { Foreground = TypeBrush(TypeLabel(o)), FontSize = 10.5, FontWeight = FontWeights.SemiBold });
 
         var text = new StackPanel();
         text.Children.Add(title);
-        if (!done) text.Children.Add(new TextBlock { Text = o.Where, TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12 });
+        if (!done) text.Children.Add(compact
+            ? new TextBlock { Text = o.Where, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Muted, FontSize = 12 }
+            : new TextBlock { Text = o.Where, TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12 });
         if (!done && WarningOpen(o))
             text.Children.Add(new TextBlock { Text = "⚠ " + o.Warning, TextWrapping = TextWrapping.Wrap, Foreground = Danger, FontSize = 12, Margin = new Thickness(0, 2, 0, 0) });
 
         var row = new DockPanel();
-        DockPanel.SetDock(box, Dock.Left);
-        row.Children.Add(box);
+        DockPanel.SetDock(marker, Dock.Left);
+        row.Children.Add(marker);
         row.Children.Add(text);
         var border = new Border
         {
             Child = row,
-            Padding = new Thickness(6, 5, 6, 5),
-            Margin = new Thickness(o.Type == "cerita" ? 0 : 16, o.Type == "cerita" ? 6 : 0, 0, 0),
+            Padding = new Thickness(compact ? 0 : 6, 5, 6, 5),
+            Margin = new Thickness(o.Type == "cerita" || compact ? 0 : 16, o.Type == "cerita" ? 6 : 0, 0, 0),
             CornerRadius = new CornerRadius(6),
             Background = isNext ? Current : Brushes.Transparent,
-            ToolTip = "Double-click: aku sudah di langkah ini",
+            Opacity = compact && o.Optional ? 0.55 : 1,
+            ToolTip = compact ? o.Where : "Double-click: aku sudah di langkah ini",
         };
         border.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) JumpTo(o); };
         return border;
