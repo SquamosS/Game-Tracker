@@ -1,5 +1,9 @@
 using GameTracker;
 
+// Everything the overlay code would write (learned names, logs) goes to a throwaway folder, never to the real data\.
+string scratch = Path.Combine(Path.GetTempPath(), "gametracker-tests");
+Environment.SetEnvironmentVariable("GAMETRACKER_DATA", scratch);
+
 // Checks for overlay\Tracker\ against the real FF7R guide and game.json (copied next to this program). Each check
 // prints only when it fails; the exit code is the number of failures.
 int failed = 0, passed = 0;
@@ -65,6 +69,9 @@ Check("one story step, two quest names", GuideRules.NamedAs(Step("c8-16-requests
 var shiva = Step("c8-16-requests") with { Name = "Shiva" };
 Check("'Shiva Materia' is the step 'Shiva'", rules.Matches(shiva, "Shiva Materia") && rules.SameItem(shiva, "Shiva Materia"));
 Check("'Turbo Ether' is not the step 'Ether'", !rules.SameItem(shiva with { Name = "Ether" }, "Turbo Ether"));
+Check("but a step 'Turbo Ether' contains 'Ether' (Matches)", rules.Matches(shiva with { Name = "Turbo Ether" }, "Ether"));
+Check("a step does not match an unrelated item", !rules.Matches(shiva, "Ether"));
+Check("tests write to the scratch folder", DataPaths.Data.StartsWith(Path.GetTempPath(), StringComparison.OrdinalIgnoreCase));
 
 // ---- Areas ----------------------------------------------------------------------------------------------------------
 Check("area and floor from 'where'", GuideRules.AreaOf(shiva with { Where = "Connecting Passageway (B5): a chest" }) == ("Connecting Passageway", "B5"));

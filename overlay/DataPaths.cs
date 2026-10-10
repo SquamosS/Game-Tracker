@@ -50,6 +50,8 @@ public static class DataPaths
 
     static string FindData()
     {
+        // Tests point the data folder elsewhere, so they can never touch the real progress.
+        if (Environment.GetEnvironmentVariable("GAMETRACKER_DATA") is { Length: > 0 } other) return Directory.CreateDirectory(other).FullName;
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
             if (File.Exists(Path.Combine(dir.FullName, "overlay", "GameTracker.csproj")))
                 return Directory.CreateDirectory(Path.Combine(dir.FullName, "data")).FullName;
