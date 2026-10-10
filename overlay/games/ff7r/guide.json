@@ -1038,10 +1038,18 @@
         {
           "id": "c8-07-backstreets",
           "type": "cerita",
-          "name": "Through the Backstreets / Avoid the Turk / Around the Gate / The Gate Won't Open",
+          "name": "Through the Backstreets / Avoid the Turk / Around the Gate",
           "where": "Gerbang macet; dorong peti, tarik tuas, lalu buka gerbang dari sisi lain buat Aerith.",
           "whereEn": "The gate is stuck; push the crate, pull the lever, then open the gate from the other side for Aerith.",
           "missable": false
+        },
+        {
+          "id": "c8-07a-gate-discovery",
+          "type": "kejadian",
+          "name": "Discovery: The Gate Won't Open",
+          "where": "Nuts 'n' Bolts Hills: gerbang di Scrapyard tidak terbuka saat saklarnya ditekan (discovery aktif). Lanjut sampai area besar (Smogger), kalahkan musuh, naik tangga di pojok kanan, lalu tekan saklar di sisi lain gerbang. Hadiah: jalan pintas.",
+          "whereEn": "Nuts 'n' Bolts Hills: the Scrapyard gate will not open when you flip its switch (the discovery starts). Go on to the large area (Smogger), defeat the enemies, climb the ladder in the right-hand corner, then flip the switch on the other side of the gate. Reward: a shortcut.",
+          "missable": true
         },
         {
           "id": "c8-07b-disc-shinobi",
