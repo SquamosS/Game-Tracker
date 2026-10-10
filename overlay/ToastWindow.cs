@@ -47,7 +47,7 @@ public sealed class ToastWindow : Window
     public void Show(string area, IReadOnlyList<(string Name, bool Missable)> steps, bool fadeIn)
     {
         _text.Inlines.Clear();
-        _text.Inlines.Add(new System.Windows.Documents.Run("◆ DI AREA INI · " + area.ToUpperInvariant() + "\n") { Foreground = Mako, FontSize = 14, FontWeight = FontWeights.SemiBold });
+        _text.Inlines.Add(new System.Windows.Documents.Run(Lang.T("◆ IN THIS AREA · ", "◆ DI AREA INI · ") + area.ToUpperInvariant() + "\n") { Foreground = Mako, FontSize = 14, FontWeight = FontWeights.SemiBold });
         for (int i = 0; i < steps.Count; i++)
         {
             if (i > 0) _text.Inlines.Add(new System.Windows.Documents.Run("   ·   ") { Foreground = Muted, FontSize = 24 });

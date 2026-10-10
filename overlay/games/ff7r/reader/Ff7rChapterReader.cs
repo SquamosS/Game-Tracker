@@ -328,7 +328,7 @@ public sealed partial class Ff7rChapterReader : IDisposable
             (Version, long offset) = Identify(module.ModuleMemorySize, module.BaseAddress);
             if (offset == 0)
             {
-                Problem = $"Versi FF7R tidak dikenali (ukuran modul {module.ModuleMemorySize}), deteksi chapter mati";
+                Problem = Lang.T($"Unknown FF7R version (module size {module.ModuleMemorySize}); chapter detection is off", $"Versi FF7R tidak dikenali (ukuran modul {module.ModuleMemorySize}), deteksi chapter mati");
                 return false;
             }
             _moduleBase = module.BaseAddress;
@@ -340,7 +340,7 @@ public sealed partial class Ff7rChapterReader : IDisposable
         {
             // Usually the game runs as administrator and the overlay does not, or it is still starting up.
             _retryAt = DateTime.Now.AddSeconds(5);
-            Problem = $"FF7R tidak bisa dibaca ({e.Message}). Coba jalankan overlay sebagai administrator";
+            Problem = Lang.T($"Cannot read FF7R ({e.Message}). Try running the overlay as administrator", $"FF7R tidak bisa dibaca ({e.Message}). Coba jalankan overlay sebagai administrator");
             return false;
         }
     }

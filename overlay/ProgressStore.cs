@@ -38,10 +38,10 @@ public static class ProgressStore
         foreach (var backup in BackupsOf(game))
             if (TryRead(backup) is { } restored)
             {
-                Recovered = $"File progress rusak; dipulihkan dari backup {Path.GetFileName(backup)}";
+                Recovered = Lang.T($"Progress file damaged; restored from backup {Path.GetFileName(backup)}", $"File progress rusak; dipulihkan dari backup {Path.GetFileName(backup)}");
                 return restored;
             }
-        Recovered = "File progress rusak dan tidak ada backup yang bisa dibaca";
+        Recovered = Lang.T("Progress file damaged and no readable backup found", "File progress rusak dan tidak ada backup yang bisa dibaca");
         return new();
     }
 

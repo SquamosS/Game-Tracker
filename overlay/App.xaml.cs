@@ -20,7 +20,7 @@ public partial class App : Application
         _single = new Mutex(true, @"Local\GameTracker.Single", out bool first);
         if (!first)
         {
-            MessageBox.Show("Game Tracker sudah berjalan (lihat ikon di dekat jam).", "Game Tracker");
+            MessageBox.Show(Lang.T("Game Tracker is already running (see the icon near the clock).", "Game Tracker sudah berjalan (lihat ikon di dekat jam)."), "Game Tracker");
             Shutdown();
             return;
         }
@@ -69,10 +69,10 @@ public partial class App : Application
         };
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Dashboard", null, (_, _) => ShowDashboard());
-        menu.Items.Add("Tampilkan/sembunyikan overlay", null, (_, _) => { if (_overlay is { } o) { if (o.IsVisible) o.Hide(); else o.Show(); } });
-        menu.Items.Add("Tutup overlay", null, (_, _) => _overlay?.Close());
+        menu.Items.Add(Lang.T("Show/hide overlay", "Tampilkan/sembunyikan overlay"), null, (_, _) => { if (_overlay is { } o) { if (o.IsVisible) o.Hide(); else o.Show(); } });
+        menu.Items.Add(Lang.T("Close overlay", "Tutup overlay"), null, (_, _) => _overlay?.Close());
         menu.Items.Add("-");
-        menu.Items.Add("Keluar", null, (_, _) => Shutdown());
+        menu.Items.Add(Lang.T("Exit", "Keluar"), null, (_, _) => Shutdown());
         _tray.ContextMenuStrip = menu;
         _tray.DoubleClick += (_, _) => ShowDashboard();
     }

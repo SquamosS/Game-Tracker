@@ -58,10 +58,12 @@ public partial class MainWindow
         var missed = ended.Objectives.Where(o => o.Missable && o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id)).ToList();
         if (missed.Count == 0)
         {
-            Notify($"Chapter {ended.Number} selesai: tidak ada missable yang terlewat", seconds: 10);
+            Notify(Lang.T($"Chapter {ended.Number} done: no missables missed", $"Chapter {ended.Number} selesai: tidak ada missable yang terlewat"), seconds: 10);
             return;
         }
-        Notify($"Terlewat di Chapter {ended.Number} ({missed.Count}): {string.Join(" · ", missed.Select(o => o.Name))}. Perlu Chapter Select nanti.", alert: true, seconds: 60);
+        string names = string.Join(" · ", missed.Select(o => o.Name));
+        Notify(Lang.T($"Missed in Chapter {ended.Number} ({missed.Count}): {names}. Needs a Chapter Select later.",
+            $"Terlewat di Chapter {ended.Number} ({missed.Count}): {names}. Perlu Chapter Select nanti."), alert: true, seconds: 60);
         try
         {
             File.AppendAllText(Path.Combine(DataPaths.Logs, "missed.log"),
@@ -171,10 +173,10 @@ public partial class MainWindow
         int current = CurrentStory is { } story ? Array.IndexOf(objectives, story) : objectives.Length;
         foreach (var (step, tag) in OpenSteps(objectives, current))
         {
-            if (tag == "DI SINI" || AreaOf(step) is not var (area, floor)) continue;
+            if (tag == TagHere || AreaOf(step) is not var (area, floor)) continue;
             if (area.Equals(here.Area, StringComparison.OrdinalIgnoreCase)) continue; // same room, other floor: no walk to show
             if (RouteTo(here, area, floor) is not { Count: > 0 } path) continue;
-            string way = path.Count <= 4 ? string.Join(" › ", path) : $"{path[0]} › … › {path[^1]} ({path.Count} ruang)";
+            string way = path.Count <= 4 ? string.Join(" › ", path) : $"{path[0]} › … › {path[^1]} ({path.Count} {Lang.T("rooms", "ruang")})";
             RouteText.Inlines.Add(new System.Windows.Documents.Run("➜ ") { Foreground = Mako, FontWeight = FontWeights.Bold });
             RouteText.Inlines.Add(new System.Windows.Documents.Run(step.Name + ": ") { Foreground = step.Missable ? Danger : Brushes.White, FontWeight = FontWeights.SemiBold });
             RouteText.Inlines.Add(new System.Windows.Documents.Run(way) { Foreground = Muted });

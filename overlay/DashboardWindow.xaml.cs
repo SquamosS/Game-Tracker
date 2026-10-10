@@ -43,6 +43,8 @@ public partial class DashboardWindow : Window
         StartButton.Click += (_, _) => { if (_selected is { } g) OpenRequested?.Invoke(g, !g.IsRunning); };
         OverlayButton.Click += (_, _) => { if (_selected is { } g) OpenRequested?.Invoke(g, false); };
         Activated += (_, _) => Refresh();
+        // The dashboard lives as long as the app, so it can stay subscribed.
+        Lang.Changed += Refresh;
         Loaded += (_, _) => BringToFront();
         // Running state and play time follow the games while the dashboard is open.
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
@@ -99,10 +101,14 @@ public partial class DashboardWindow : Window
         _refreshedAt = DateTime.Now;
         string query = Search.Text.Trim();
         var games = GameRegistry.All.Where(g => query.Length == 0 || g.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+        CloseButton.ToolTip = Lang.T("Exit", "Keluar");
+        SearchHint.Text = Lang.T("Search games...", "Cari game...");
+        Empty.Text = Lang.T("No matching games.", "Tidak ada game yang cocok.");
+        OverlayButton.ToolTip = Lang.T("Open the overlay without starting the game", "Buka overlay tanpa menjalankan game");
         Games.Children.Clear();
         foreach (var game in games) Games.Children.Add(RowFor(game));
         Empty.Visibility = games.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        Count.Text = $"{games.Count} dari {GameRegistry.All.Count} game";
+        Count.Text = Lang.T($"{games.Count} of {GameRegistry.All.Count} games", $"{games.Count} dari {GameRegistry.All.Count} game");
         ShowHero(_selected);
     }
 
@@ -117,7 +123,7 @@ public partial class DashboardWindow : Window
         info.Children.Add(new TextBlock { Text = game.DisplayName, FontFamily = Display, FontSize = 14, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap, Foreground = selected ? Brushes.White : Brush("#CBD5E1") });
         info.Children.Add(new TextBlock
         {
-            Text = running ? "● SEDANG BERJALAN" : TimeOf(game, running) is { } time ? $"{Duration(time.Seconds)} dimainkan" : "Steam belum login",
+            Text = running ? Lang.T("● RUNNING", "● SEDANG BERJALAN") : TimeOf(game, running) is { } time ? Lang.T($"{Duration(time.Seconds)} played", $"{Duration(time.Seconds)} dimainkan") : Lang.T("Not logged in to Steam", "Steam belum login"),
             Foreground = running ? Live : Faint, FontSize = 11.5, Margin = new Thickness(0, 4, 0, 0),
         });
 
@@ -164,37 +170,37 @@ public partial class DashboardWindow : Window
         bool running = _running.Contains(game);
         var time = TimeOf(game, running);
         HeroTitle.Text = game.DisplayName;
-        StatusText.Text = running ? "● SEDANG BERJALAN" : "SIAP DIMAINKAN";
+        StatusText.Text = running ? Lang.T("● RUNNING", "● SEDANG BERJALAN") : Lang.T("READY TO PLAY", "SIAP DIMAINKAN");
         StatusText.Foreground = running ? Live : Mako;
-        StartButton.Content = running ? "▶  LANJUT" : "▶  START";
-        StartButton.ToolTip = running ? "Game sudah berjalan: buka overlay" : "Jalankan game lewat Steam dan buka overlay";
+        StartButton.Content = running ? Lang.T("▶  RESUME", "▶  LANJUT") : "▶  START";
+        StartButton.ToolTip = running ? Lang.T("The game is running: open the overlay", "Game sudah berjalan: buka overlay") : Lang.T("Start the game through Steam and open the overlay", "Jalankan game lewat Steam dan buka overlay");
 
         var steam = SteamOf(game);
         var online = game.SteamAppId is int appId ? OnlineOf(appId) : null;
         Stats.Children.Clear();
         if (time is { } t)
         {
-            Stats.Children.Add(Stat("WAKTU MAIN", Duration(t.Seconds)));
-            Stats.Children.Add(Stat("TERAKHIR MAIN", t.LastPlayed is { } last ? Ago(last) : "—"));
+            Stats.Children.Add(Stat(Lang.T("PLAY TIME", "WAKTU MAIN"), Duration(t.Seconds)));
+            Stats.Children.Add(Stat(Lang.T("LAST PLAYED", "TERAKHIR MAIN"), t.LastPlayed is { } last ? Ago(last) : "—"));
         }
-        if (steam?.Playtime2WeeksMinutes is long recent) Stats.Children.Add(Stat("2 MINGGU TERAKHIR", Duration(recent * 60)));
+        if (steam?.Playtime2WeeksMinutes is long recent) Stats.Children.Add(Stat(Lang.T("LAST 2 WEEKS", "2 MINGGU TERAKHIR"), Duration(recent * 60)));
         if (steam?.AchievementsUnlocked is int got && steam.AchievementsTotal is int all and > 0)
             Stats.Children.Add(Stat("ACHIEVEMENT", $"{got}/{all} · {got * 100 / all}%"));
         if (steam?.CloudState is { } cloud)
-            Stats.Children.Add(Stat("CLOUD SAVE", cloud switch { "synchronized" => "Tersinkron", "changeslocally" => "Perubahan lokal", _ => cloud },
+            Stats.Children.Add(Stat("CLOUD SAVE", cloud switch { "synchronized" => Lang.T("Synced", "Tersinkron"), "changeslocally" => Lang.T("Local changes", "Perubahan lokal"), _ => cloud },
                 cloud == "synchronized" ? Live : Brush("#FBBF24")));
         if (steam?.UpToDate is bool upToDate)
-            Stats.Children.Add(Stat("UPDATE", upToDate ? "Up to date" : "Butuh update", upToDate ? Live : Brush("#FBBF24"),
+            Stats.Children.Add(Stat("UPDATE", upToDate ? "Up to date" : Lang.T("Needs update", "Butuh update"), upToDate ? Live : Brush("#FBBF24"),
                 steam.BuildId is { } build ? $"Build {build}" + (steam.LastUpdated is { } at ? $" · {at:dd MMM yyyy}" : "") : null));
         if (steam?.SizeOnDisk is long size)
-            Stats.Children.Add(Stat("UKURAN", $"{size / 1e9:0.#} GB", tip: steam.LibraryPath));
-        if (online?.Players is int players) Stats.Children.Add(Stat("ONLINE SEKARANG", $"{players:N0} pemain"));
+            Stats.Children.Add(Stat(Lang.T("SIZE", "UKURAN"), $"{size / 1e9:0.#} GB", tip: steam.LibraryPath));
+        if (online?.Players is int players) Stats.Children.Add(Stat(Lang.T("ONLINE NOW", "ONLINE SEKARANG"), Lang.T($"{players:N0} players", $"{players:N0} pemain")));
         if (online?.Price is { } price)
-            Stats.Children.Add(Stat("HARGA STEAM", online.DiscountPercent is int off and > 0 ? $"{price} (-{off}%)" : price,
+            Stats.Children.Add(Stat(Lang.T("STEAM PRICE", "HARGA STEAM"), online.DiscountPercent is int off and > 0 ? $"{price} (-{off}%)" : price,
                 online.DiscountPercent is > 0 ? Live : null));
         if (game.SteamAppId is null) Stats.Children.Add(Stat("PLATFORM", "—"));
-        else if (steam?.Account is null) Stats.Children.Add(Stat("AKUN STEAM", "Belum login", Brush("#FBBF24"), tip: "Data akun (waktu main, achievement, cloud) tampil setelah login Steam"));
-        else Stats.Children.Add(Stat("AKUN STEAM", steam.PersonaName ?? steam.Account));
+        else if (steam?.Account is null) Stats.Children.Add(Stat(Lang.T("STEAM ACCOUNT", "AKUN STEAM"), Lang.T("Not logged in", "Belum login"), Brush("#FBBF24"), tip: Lang.T("Account data (play time, achievements, cloud) shows after logging in to Steam", "Data akun (waktu main, achievement, cloud) tampil setelah login Steam")));
+        else Stats.Children.Add(Stat(Lang.T("STEAM ACCOUNT", "AKUN STEAM"), steam.PersonaName ?? steam.Account));
         ShowSide(steam, online);
     }
 
@@ -241,14 +247,14 @@ public partial class DashboardWindow : Window
             var thumb = new Border
             {
                 Height = 146, Background = new ImageBrush(image) { Stretch = Stretch.UniformToFill }, BorderBrush = Brush("#5538BDF8"),
-                BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 0, 16), Cursor = Cursors.Hand, ToolTip = "Buka folder screenshot",
+                BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 0, 16), Cursor = Cursors.Hand, ToolTip = Lang.T("Open the screenshot folder", "Buka folder screenshot"),
             };
             thumb.MouseLeftButtonDown += (_, _) => OpenPath("/select,\"" + shot + "\"", "explorer.exe");
             Side.Children.Add(thumb);
         }
         if (online?.News is { Count: > 0 } news)
         {
-            Side.Children.Add(Heading("BERITA STEAM"));
+            Side.Children.Add(Heading(Lang.T("STEAM NEWS", "BERITA STEAM")));
             foreach (var item in news)
             {
                 var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
@@ -344,14 +350,14 @@ public partial class DashboardWindow : Window
 
     static string Initials(string name) => string.Concat(name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(3).Select(w => w[0]));
 
-    static string Duration(long seconds) => seconds < 60 ? "0 menit"
-        : seconds < 3600 ? $"{seconds / 60} menit" : $"{seconds / 3600} jam {seconds % 3600 / 60} mnt";
+    static string Duration(long seconds) => seconds < 60 ? Lang.T("0 min", "0 menit")
+        : seconds < 3600 ? Lang.T($"{seconds / 60} min", $"{seconds / 60} menit") : Lang.T($"{seconds / 3600} h {seconds % 3600 / 60} min", $"{seconds / 3600} jam {seconds % 3600 / 60} mnt");
 
     static string Ago(DateTime when)
     {
         var span = DateTime.Now - when;
-        return span.TotalMinutes < 2 ? "Baru saja" : span.TotalHours < 1 ? $"{(int)span.TotalMinutes} menit lalu"
-            : span.TotalDays < 1 ? $"{(int)span.TotalHours} jam lalu" : $"{(int)span.TotalDays} hari lalu";
+        return span.TotalMinutes < 2 ? Lang.T("Just now", "Baru saja") : span.TotalHours < 1 ? Lang.T($"{(int)span.TotalMinutes} min ago", $"{(int)span.TotalMinutes} menit lalu")
+            : span.TotalDays < 1 ? Lang.T($"{(int)span.TotalHours} h ago", $"{(int)span.TotalHours} jam lalu") : Lang.T($"{(int)span.TotalDays} days ago", $"{(int)span.TotalDays} hari lalu");
     }
 
     static SolidColorBrush Brush(string hex) => (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;

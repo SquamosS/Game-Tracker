@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -65,14 +65,31 @@ public partial class MainWindow : Window
         _live = _game?.Reader == "ff7r";
         InitializeComponent();
         Header.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) DragMove(); };
+        // Handled, so a click on the switch does not start dragging the overlay.
+        LangSwitch.MouseLeftButtonDown += (_, e) => { e.Handled = true; Lang.Set(!Lang.Indonesian); };
+        Lang.Changed += OnLanguageChanged;
         Loaded += (_, _) => DockRight();
         SourceInitialized += (_, _) => SetupHotkeys();
         // The poll timer and the guide watcher must stop too: left running, a closed overlay keeps reading the game
         // and saving its own, older progress over the one a reopened overlay saves.
-        Closed += (_, _) => { _toast.Close(); _poll.Stop(); _watcher?.Dispose(); _native?.Dispose(); _reader.Dispose(); };
+        Closed += (_, _) => { Lang.Changed -= OnLanguageChanged; _toast.Close(); _poll.Stop(); _watcher?.Dispose(); _native?.Dispose(); _reader.Dispose(); };
         LoadGuide();
         WatchGuides();
         WatchGame();
+    }
+
+    void OnLanguageChanged() => Render();
+
+    static readonly Brush SwitchOn = Brush("#5EEAD4"), SwitchOnText = Brush("#0F172A");
+
+    /// <summary>Lights the side of the EN | IN switch that is the language shown.</summary>
+    void RenderLanguageSwitch()
+    {
+        bool id = Lang.Indonesian;
+        LangEn.Background = id ? Brushes.Transparent : SwitchOn;
+        LangIn.Background = id ? SwitchOn : Brushes.Transparent;
+        LangEnText.Foreground = id ? Muted : SwitchOnText;
+        LangInText.Foreground = id ? SwitchOnText : Muted;
     }
 
     Chapter? CurrentChapter =>
@@ -85,7 +102,8 @@ public partial class MainWindow : Window
             string? file = _game is not null && File.Exists(_game.GuideFile) ? _game.GuideFile : null;
             if (file is null)
             {
-                _error = _game is null ? "Belum ada game di folder games" : $"Tidak ada panduan: {_game.GuideFile}";
+                _error = _game is null ? Lang.T("No game in the games folder yet", "Belum ada game di folder games")
+                    : Lang.T($"No guide: {_game.GuideFile}", $"Tidak ada panduan: {_game.GuideFile}");
                 _guide = null;
             }
             else
@@ -100,7 +118,7 @@ public partial class MainWindow : Window
         catch (Exception e) when (e is IOException or System.Text.Json.JsonException or InvalidDataException)
         {
             // Keep showing the last good guide while a file is being edited.
-            _error = $"Gagal membaca panduan: {e.Message}";
+            _error = Lang.T($"Could not read the guide: {e.Message}", $"Gagal membaca panduan: {e.Message}");
         }
         Render();
     }
@@ -164,7 +182,7 @@ public partial class MainWindow : Window
                 _progress.Chapter = chapter!.Value;
                 Persist();
             }
-            else _error = $"Chapter {chapter} terdeteksi, tapi belum ada di panduan";
+            else _error = Lang.T($"Chapter {chapter} detected, but it is not in the guide yet", $"Chapter {chapter} terdeteksi, tapi belum ada di panduan");
         }
         // An item step right after the current story step may be handed over any moment: look for it more often.
         _reader.ListRefresh = ExpectingItem() ? TimeSpan.FromSeconds(15) : TimeSpan.FromMinutes(1);
@@ -182,10 +200,10 @@ public partial class MainWindow : Window
         if (_notice is not null && IsVisible && --_noticeSeconds <= 0) { _notice = null; RenderNotice(); }
 
         string status = _reader.Problem
-            ?? (_reader.Version is null ? "FF7R belum jalan"
-                : !_inGame ? $"FF7R {_reader.Version} terdeteksi, menunggu save di-load"
-                : $"FF7R {_reader.Version}: Chapter {_detectedChapter} terdeteksi"
-                    + (_seenOwned is null ? "" : ", inventory terbaca") + (_itemStatus is null ? "" : $"\n{_itemStatus}"));
+            ?? (_reader.Version is null ? Lang.T("FF7R is not running", "FF7R belum jalan")
+                : !_inGame ? Lang.T($"FF7R {_reader.Version} detected, waiting for a save to load", $"FF7R {_reader.Version} terdeteksi, menunggu save di-load")
+                : Lang.T($"FF7R {_reader.Version}: Chapter {_detectedChapter} detected", $"FF7R {_reader.Version}: Chapter {_detectedChapter} terdeteksi")
+                    + (_seenOwned is null ? "" : Lang.T(", inventory read", ", inventory terbaca")) + (_itemStatus is null ? "" : $"\n{_itemStatus}"));
         if (changed || status != _detectStatus || wasInGame != _inGame) { _detectStatus = status; Render(); }
     }
 
@@ -233,7 +251,7 @@ public partial class MainWindow : Window
             if (step is null || !_progress.Done.Add(step.Id)) continue;
             _progress.History.Add(step.Id);
             Save();
-            Notify($"Otomatis dicentang: {step.Name}");
+            Notify(Lang.T($"Auto-ticked: {step.Name}", $"Otomatis dicentang: {step.Name}"));
             changed = true;
         }
         return changed;
@@ -260,13 +278,13 @@ public partial class MainWindow : Window
             if (late.Count == 1)
             {
                 _itemMap.LearnFlag(late[0], pending.Id);
-                Notify($"Dipelajari: flag {late[0]} = {pending.Name}");
+                Notify(Lang.T($"Learned: flag {late[0]} = {pending.Name}", $"Dipelajari: flag {late[0]} = {pending.Name}"));
                 _pendingStory = null;
                 _newFlags.Clear();
             }
             else if (late.Count > 1)
             {
-                Notify("Tidak dipelajari: lebih dari satu flag baru");
+                Notify(Lang.T("Not learned: more than one new flag", "Tidak dipelajari: lebih dari satu flag baru"));
                 _pendingStory = null;
             }
         }
@@ -278,7 +296,7 @@ public partial class MainWindow : Window
             {
                 _progress.Done.Add(step.Id);
                 _progress.History.Add(step.Id);
-                Notify($"Otomatis dicentang: {step.Name}");
+                Notify(Lang.T($"Auto-ticked: {step.Name}", $"Otomatis dicentang: {step.Name}"));
                 changed = true;
             }
         if (changed) Save();
@@ -298,10 +316,10 @@ public partial class MainWindow : Window
             return;
         }
         var flags = _newFlags.Select(f => f.Flag).Distinct().ToList();
-        if (flags.Count > 1) { Notify("Tidak dipelajari: lebih dari satu flag baru"); return; }
+        if (flags.Count > 1) { Notify(Lang.T("Not learned: more than one new flag", "Tidak dipelajari: lebih dari satu flag baru")); return; }
         _newFlags.Clear();
         _itemMap.LearnFlag(flags[0], step.Id);
-        Notify($"Dipelajari: flag {flags[0]} = {step.Name}");
+        Notify(Lang.T($"Learned: flag {flags[0]} = {step.Name}", $"Dipelajari: flag {flags[0]} = {step.Name}"));
     }
 
     /// <summary>
@@ -344,11 +362,11 @@ public partial class MainWindow : Window
         // Materia ids are 10000 and up; learn only when a single unknown of the right kind for this step came in.
         var ids = _unknownNew.Where(u => (u.Id >= 10000) == (step.Type == "materia")).Select(u => u.Id).Distinct().ToList();
         if (ids.Count == 0) return;
-        if (ids.Count > 1) { Notify("Tidak dipelajari: lebih dari satu item baru"); return; }
+        if (ids.Count > 1) { Notify(Lang.T("Not learned: more than one new item", "Tidak dipelajari: lebih dari satu item baru")); return; }
         int id = ids[0];
         _unknownNew.RemoveAll(u => u.Id == id);
         _itemMap.Learn(id, step.Name);
-        Notify($"Dipelajari: item {id} = {step.Name}");
+        Notify(Lang.T($"Learned: item {id} = {step.Name}", $"Dipelajari: item {id} = {step.Name}"));
     }
 
     static readonly HashSet<string> ItemTypes = ["materia", "aksesori", "armor", "senjata", "summon", "music disc", "manuskrip"];
@@ -381,7 +399,7 @@ public partial class MainWindow : Window
         if (_objective is { } objective && CurrentStory is { } current && CurrentChapter?.Number == _detectedChapter)
         {
             _itemMap.LearnFlag("Q:" + objective.TitleKey, current.Id);
-            Notify($"Dipelajari: objektif {objective.TitleKey} = {current.Name}");
+            Notify(Lang.T($"Learned: objective {objective.TitleKey} = {current.Name}", $"Dipelajari: objektif {objective.TitleKey} = {current.Name}"));
         }
     }
 
@@ -445,7 +463,7 @@ public partial class MainWindow : Window
                 if (_progress.Done.Add(step.Id))
                 {
                     _progress.History.Add(step.Id);
-                    Notify($"Otomatis dicentang: {step.Name}");
+                    Notify(Lang.T($"Auto-ticked: {step.Name}", $"Otomatis dicentang: {step.Name}"));
                     changed = true;
                 }
         if (changed) Save();
@@ -515,10 +533,10 @@ public partial class MainWindow : Window
     /// discovery the game has active now wherever you are: once started it stays up until it is ticked.
     /// </summary>
     List<Objective> HereSteps() => CurrentChapter is not { } chapter ? []
-        : chapter.Objectives.Where(o => o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id) && (IsHere(o) || IsActive(o))).ToList();
+        : chapter.Objectives.Where(o => o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id) && (IsHere(o) || IsLiveQuest(o))).ToList();
 
     /// <summary>A side quest or discovery that is the game's live objective now.</summary>
-    bool IsActive(Objective o) => o.Type is "side quest" or "kejadian" && _objective?.Title is { Length: >= 3 } title && SameQuest(o.Name, title);
+    bool IsLiveQuest(Objective o) => o.Type is "side quest" or "kejadian" && _objective?.Title is { Length: >= 3 } title && SameQuest(o.Name, title);
 
     string _hereShown = "";
     readonly ToastWindow _toast = new();
@@ -531,7 +549,7 @@ public partial class MainWindow : Window
         HereText.Inlines.Clear();
         if (steps.Count > 0)
         {
-            HereText.Inlines.Add(new System.Windows.Documents.Run("DI AREA INI  ") { Foreground = Mako, FontWeight = FontWeights.Bold, FontSize = 11 });
+            HereText.Inlines.Add(new System.Windows.Documents.Run(Lang.T("IN THIS AREA  ", "DI AREA INI  ")) { Foreground = Mako, FontWeight = FontWeights.Bold, FontSize = 11 });
             for (int i = 0; i < steps.Count; i++)
             {
                 if (i > 0) HereText.Inlines.Add(new System.Windows.Documents.Run("  ·  ") { Foreground = Muted });
@@ -554,7 +572,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>A step's "where" as shown: its closing "Hard: ..." note (Hard-only rewards) only in Hard mode.</summary>
-    string ShownWhere(Objective o) => _hardMode ? o.Where : HardNote.Replace(o.Where, "");
+    string ShownWhere(Objective o) => _hardMode ? o.ShownWhere : HardNote.Replace(o.ShownWhere, "");
 
     /// <summary>"Discovery: Collapsed Passageway" is the game's "Collapsed Passageway".</summary>
     static bool SameQuest(string guideName, string title) =>
@@ -579,6 +597,18 @@ public partial class MainWindow : Window
 
     /// <summary>What a step is, as shown next to its name.</summary>
     static string TypeLabel(Objective o) => o.Type == "kejadian" && o.Name.StartsWith("Discovery") ? "discovery" : o.Type;
+
+    /// <summary>A step kind as written on the overlay: the guide's own (Indonesian) type names, or English ones.</summary>
+    static string TypeText(string label) => Lang.Indonesian ? label : label switch
+    {
+        "cerita" => "story",
+        "senjata" => "weapon",
+        "aksesori" => "accessory",
+        "manuskrip" => "manuscript",
+        "trofi" => "trophy",
+        "kejadian" => "event",
+        _ => label,
+    };
 
     /// <summary>The compact tracker's marker for a kind of step, drawn in its TypeBrush colour.</summary>
     static string TypeIcon(Objective o) => TypeLabel(o) switch
@@ -656,7 +686,7 @@ public partial class MainWindow : Window
             }
         _progress.Chapter = loaded;
         _storyMayGoBack = true;
-        Notify($"Progress disesuaikan dengan save Chapter {loaded} (backup tersimpan)");
+        Notify(Lang.T($"Progress matched to the Chapter {loaded} save (backup saved)", $"Progress disesuaikan dengan save Chapter {loaded} (backup tersimpan)"));
         Save();
         return true;
 
@@ -741,7 +771,8 @@ public partial class MainWindow : Window
         Bind(Key.T, "Ctrl+Shift+T", ToggleClickThrough);
         Bind(Key.A, "Ctrl+Shift+A", ToggleArchive);
         Bind(Key.H, "Ctrl+Shift+H", ToggleHard);
-        if (failed.Count > 0) _error = $"Hotkey dipakai aplikasi lain: {string.Join(", ", failed)}";
+        Bind(Key.L, "Ctrl+Shift+L", () => Lang.Set(!Lang.Indonesian));
+        if (failed.Count > 0) _error = Lang.T($"Hotkeys taken by another app: {string.Join(", ", failed)}", $"Hotkey dipakai aplikasi lain: {string.Join(", ", failed)}");
         Render();
     }
 
@@ -838,7 +869,7 @@ public partial class MainWindow : Window
     {
         var next = NextStep(CurrentChapter?.Objectives ?? []);
         if (next is null) return;
-        Notify($"✓ Dicentang: {next.Name}");
+        Notify(Lang.T($"✓ Ticked: {next.Name}", $"✓ Dicentang: {next.Name}"));
         SetDone(next.Id, true);
     }
 
@@ -859,7 +890,7 @@ public partial class MainWindow : Window
         string id = _progress.History[^1];
         _progress.History.RemoveAt(_progress.History.Count - 1);
         _progress.Done.Remove(id);
-        Notify($"↶ Dibatalkan: {StepName(id)}");
+        Notify(Lang.T($"↶ Undone: {StepName(id)}", $"↶ Dibatalkan: {StepName(id)}"));
         Save();
     }
 
@@ -882,14 +913,19 @@ public partial class MainWindow : Window
         Render();
     }
 
-    const string SaveFailed = "Gagal menyimpan progress (file dikunci/disk penuh?). Dicoba lagi saat centang berikutnya.";
+    static string SaveFailed => Lang.T("Could not save progress (file locked or disk full?). Retried at the next tick.",
+        "Gagal menyimpan progress (file dikunci/disk penuh?). Dicoba lagi saat centang berikutnya.");
+
+    bool _saveFailed;
 
     /// <summary>Writes the progress; a failed write shows in the footer until a later one succeeds.</summary>
     void Persist()
     {
         if (_guide is null) return;
-        if (!ProgressStore.Save(_guide.Game, _progress)) _error = SaveFailed;
-        else if (_error == SaveFailed) _error = null;
+        bool failed = !ProgressStore.Save(_guide.Game, _progress);
+        if (failed) _error = SaveFailed;
+        else if (_saveFailed) _error = null;
+        _saveFailed = failed;
     }
 
     static readonly Brush QuestTitle = Brush("#38BDF8"), QuestText = Brush("#BAE6FD"), SubTitle = Brush("#FBBF24"), SubText = Brush("#E2E8F0");
@@ -913,7 +949,7 @@ public partial class MainWindow : Window
         }
         if (_objective is not { } live)
         {
-            if (_inGame) ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("Mencari objektif aktif...") { Foreground = Muted, FontSize = 12 });
+            if (_inGame) ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(Lang.T("Looking for the active objective...", "Mencari objektif aktif...")) { Foreground = Muted, FontSize = 12 });
             return;
         }
         // The quest is the largest text on the overlay: it is what you are doing right now.
@@ -926,11 +962,12 @@ public partial class MainWindow : Window
             ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n   " + subText) { Foreground = SubText, FontSize = 11.5, FontStyle = FontStyles.Italic });
     }
 
-    bool WarningOpen(Objective o) => o.Warning is not null && (o.Needs is not { Length: > 0 } needs || !needs.All(_progress.Done.Contains));
+    bool WarningOpen(Objective o) => o.ShownWarning is not null && (o.Needs is not { Length: > 0 } needs || !needs.All(_progress.Done.Contains));
 
     void Render()
     {
         List.Children.Clear();
+        RenderLanguageSwitch();
         var chapter = CurrentChapter;
         RenderObjective();
         // The area first and large (the guide names areas), the floor after it, small: readable at a glance.
@@ -954,17 +991,17 @@ public partial class MainWindow : Window
         // No checklist until a save is loaded: the chapter would only be a guess.
         if (!_inGame && _reader.Problem is null)
         {
-            ChapterText.Text = _reader.Version is null ? "MENUNGGU GAME" : "MENUNGGU SAVE DI-LOAD";
+            ChapterText.Text = _reader.Version is null ? Lang.T("WAITING FOR THE GAME", "MENUNGGU GAME") : Lang.T("WAITING FOR A SAVE TO LOAD", "MENUNGGU SAVE DI-LOAD");
             CountText.Text = "";
             ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(_reader.Version is null
-                ? "Buka FF7R, overlay akan mengikuti chapter kamu otomatis."
-                : "Load save atau mulai chapter, checklist-nya muncul otomatis.") { Foreground = Muted, FontSize = 12 });
+                ? Lang.T("Start FF7R; the overlay follows your chapter on its own.", "Buka FF7R, overlay akan mengikuti chapter kamu otomatis.")
+                : Lang.T("Load a save or start a chapter; the checklist shows up on its own.", "Load save atau mulai chapter, checklist-nya muncul otomatis.")) { Foreground = Muted, FontSize = 12 });
             Bar.Width = 0;
             WarnBox.Visibility = Visibility.Collapsed;
             return;
         }
         // A small label; INTERmission titles already say which part they are.
-        ChapterText.Text = chapter is null ? "BELUM ADA PANDUAN"
+        ChapterText.Text = chapter is null ? Lang.T("NO GUIDE YET", "BELUM ADA PANDUAN")
             : (_hardMode ? "HARD · " : "") + (chapter.Number >= 21 ? chapter.Title.ToUpperInvariant() : $"CH {chapter.Number} · {chapter.Title.ToUpperInvariant()}");
 
         var objectives = chapter?.Objectives ?? [];
@@ -984,9 +1021,9 @@ public partial class MainWindow : Window
         var toGet = openBefore.Where(o => o.Missable && o.Type is not ("cerita" or "trofi")).Select(o => o.Name)
             .Concat((gate?.Needs ?? []).Where(id => !_progress.Done.Contains(id) && steps.ContainsKey(id)).Select(id => steps[id].Name))
             .Distinct().ToList();
-        // What closes behind you: the warning's sentence that starts with "Setelah" ("after this ...").
-        string? reason = gate?.Warning is { } warning
-            ? System.Text.RegularExpressions.Regex.Split(warning, @"(?<=\.)\s+").FirstOrDefault(s => s.StartsWith("Setelah"))
+        // What closes behind you: the warning's sentence that starts with "Setelah" ("After ..." in English).
+        string? reason = gate?.ShownWarning is { } warning
+            ? System.Text.RegularExpressions.Regex.Split(warning, @"(?<=\.)\s+").FirstOrDefault(s => s.StartsWith(Lang.T("After", "Setelah")))
             : null;
         // Amber while the point of no return is still ahead; red once it is the story step you are on. The reason
         // ("Setelah ...") only shows then, or in the full checklist: a notice that is always loud gets ignored.
@@ -995,7 +1032,8 @@ public partial class MainWindow : Window
         WarnBox.BorderBrush = WarnText.Foreground = urgent ? Danger : Late;
         WarnText.Text = toGet.Count == 0 ? "" : string.Join(Environment.NewLine, new[]
         {
-            gate is null ? $"⚠ Belum diambil ({toGet.Count}): {string.Join(" · ", toGet)}" : $"⚠ {toGet.Count} lagi sebelum {gate.Name}: {string.Join(" · ", toGet)}",
+            gate is null ? Lang.T($"⚠ Not picked up yet ({toGet.Count}): {string.Join(" · ", toGet)}", $"⚠ Belum diambil ({toGet.Count}): {string.Join(" · ", toGet)}")
+                : Lang.T($"⚠ {toGet.Count} left before {gate.Name}: {string.Join(" · ", toGet)}", $"⚠ {toGet.Count} lagi sebelum {gate.Name}: {string.Join(" · ", toGet)}"),
             urgent || _full ? reason : null,
         }.Where(s => s is not null));
 
@@ -1014,7 +1052,8 @@ public partial class MainWindow : Window
         {
             var toggle = new TextBlock
             {
-                Text = _showDone ? $"▾ Sembunyikan {archived} langkah selesai (Ctrl+Shift+A)" : $"▸ Arsip: {archived} langkah selesai (klik atau Ctrl+Shift+A)",
+                Text = _showDone ? Lang.T($"▾ Hide {archived} finished steps (Ctrl+Shift+A)", $"▾ Sembunyikan {archived} langkah selesai (Ctrl+Shift+A)")
+                    : Lang.T($"▸ Archive: {archived} finished steps (click or Ctrl+Shift+A)", $"▸ Arsip: {archived} langkah selesai (klik atau Ctrl+Shift+A)"),
                 Foreground = Muted, FontSize = 11.5, Margin = new Thickness(6, 0, 0, 6), Cursor = Cursors.Hand,
             };
             toggle.MouseLeftButtonDown += (_, _) => ToggleArchive();
@@ -1026,7 +1065,7 @@ public partial class MainWindow : Window
             if (o.Type == "cerita") phase = i;
             bool isDone = _progress.Done.Contains(o.Id);
             if (isDone && !_showDone) continue;
-            string? tag = o.Type == "cerita" || isDone ? null : phase == current ? "SEKARANG" : phase < current ? "TERTINGGAL" : null;
+            string? tag = o.Type == "cerita" || isDone ? null : phase == current ? TagNow : phase < current ? TagBehind : null;
             var row = Row(o, isDone, o.Id == nextId, tag);
             List.Children.Add(row);
             if (o.Id == nextId) Dispatcher.BeginInvoke(() => row.BringIntoView(), DispatcherPriority.Loaded);
@@ -1046,9 +1085,20 @@ public partial class MainWindow : Window
             List.Children.Add(Row(step, false, false, tag));
     }
 
+    /// <summary>A step's tag: a step of the current story step, one in your area, one left behind.</summary>
+    const string TagNow = "NOW", TagHere = "HERE", TagBehind = "BEHIND";
+
+    static string TagText(string tag) => tag switch
+    {
+        TagNow => Lang.T("NOW", "SEKARANG"),
+        TagHere => Lang.T("HERE", "DI SINI"),
+        TagBehind => Lang.T("LEFT BEHIND", "TERTINGGAL"),
+        _ => tag,
+    };
+
     /// <summary>
     /// The compact tracker's steps: open items and side quests up to the current story step, those in your area
-    /// first ("DI SINI"), then missables; earlier ones tagged "TERTINGGAL". Optional pick-ups only while you pass them.
+    /// first (TagHere), then missables; earlier ones tagged TagBehind. Optional pick-ups only while you pass them.
     /// </summary>
     List<(Objective Step, string? Tag)> OpenSteps(Objective[] objectives, int current)
     {
@@ -1062,9 +1112,9 @@ public partial class MainWindow : Window
             // Trophies are not tracked here: the rewards they come with are steps of their own.
             if (o.Type == "trofi") continue;
             if (o.Optional && phase < current) continue;
-            open.Add((o, IsHere(o) ? "DI SINI" : phase == current ? null : "TERTINGGAL"));
+            open.Add((o, IsHere(o) ? TagHere : phase == current ? null : TagBehind));
         }
-        return open.OrderByDescending(x => x.Tag == "DI SINI").ThenByDescending(x => x.Step.Missable).ToList();
+        return open.OrderByDescending(x => x.Tag == TagHere).ThenByDescending(x => x.Step.Missable).ToList();
     }
 
     /// <summary>
@@ -1098,15 +1148,15 @@ public partial class MainWindow : Window
         }
 
         var title = new TextBlock { TextWrapping = TextWrapping.Wrap, FontWeight = isNext ? FontWeights.SemiBold : FontWeights.Normal };
-        if (tag is not null) title.Inlines.Add(new System.Windows.Documents.Run(tag + " ") { Foreground = tag is "SEKARANG" or "DI SINI" ? Now : Late, FontWeight = FontWeights.Bold, FontSize = 10.5 });
+        if (tag is not null) title.Inlines.Add(new System.Windows.Documents.Run(TagText(tag) + " ") { Foreground = tag is TagNow or TagHere ? Now : Late, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (o.Missable && !done && !compact) title.Inlines.Add(new System.Windows.Documents.Run("! ") { Foreground = Danger, FontWeight = FontWeights.Black, FontSize = 14 });
-        if (o.Optional && !done && !compact) title.Inlines.Add(new System.Windows.Documents.Run("OPSIONAL ") { Foreground = Muted, FontWeight = FontWeights.Bold, FontSize = 10.5 });
+        if (o.Optional && !done && !compact) title.Inlines.Add(new System.Windows.Documents.Run(Lang.T("OPTIONAL ", "OPSIONAL ")) { Foreground = Muted, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (RewardTag(o) is { } reward && !done) title.Inlines.Add(new System.Windows.Documents.Run(reward + " ") { Foreground = TrophyColor, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         // The icon alone is too small to tell a music disc from an item: name the kind unless the name already says it.
-        if (compact && o.Type != "cerita" && !o.Name.Contains(TypeLabel(o), StringComparison.OrdinalIgnoreCase))
-            title.Inlines.Add(new System.Windows.Documents.Run(TypeLabel(o).ToUpperInvariant() + " ") { Foreground = TypeBrush(TypeLabel(o)), FontWeight = FontWeights.Bold, FontSize = 10.5 });
+        if (compact && o.Type != "cerita" && !o.Name.Contains(TypeText(TypeLabel(o)), StringComparison.OrdinalIgnoreCase))
+            title.Inlines.Add(new System.Windows.Documents.Run(TypeText(TypeLabel(o)).ToUpperInvariant() + " ") { Foreground = TypeBrush(TypeLabel(o)), FontWeight = FontWeights.Bold, FontSize = 10.5 });
         title.Inlines.Add(new System.Windows.Documents.Run(o.Name) { Foreground = done ? Done : o.Type == "cerita" || compact ? Brushes.White : TypeBrush(TypeLabel(o)), TextDecorations = done ? TextDecorations.Strikethrough : null });
-        if (!compact) title.Inlines.Add(new System.Windows.Documents.Run($"  {TypeLabel(o)}") { Foreground = TypeBrush(TypeLabel(o)), FontSize = 10.5, FontWeight = FontWeights.SemiBold });
+        if (!compact) title.Inlines.Add(new System.Windows.Documents.Run($"  {TypeText(TypeLabel(o))}") { Foreground = TypeBrush(TypeLabel(o)), FontSize = 10.5, FontWeight = FontWeights.SemiBold });
 
         var text = new StackPanel();
         text.Children.Add(title);
@@ -1114,7 +1164,7 @@ public partial class MainWindow : Window
             ? new TextBlock { Text = ShownWhere(o), TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Muted, FontSize = 12 }
             : new TextBlock { Text = ShownWhere(o), TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12 });
         if (!done && WarningOpen(o))
-            text.Children.Add(new TextBlock { Text = "⚠ " + o.Warning, TextWrapping = TextWrapping.Wrap, Foreground = Danger, FontSize = 12, Margin = new Thickness(0, 2, 0, 0) });
+            text.Children.Add(new TextBlock { Text = "⚠ " + o.ShownWarning, TextWrapping = TextWrapping.Wrap, Foreground = Danger, FontSize = 12, Margin = new Thickness(0, 2, 0, 0) });
 
         var row = new DockPanel();
         DockPanel.SetDock(marker, Dock.Left);
@@ -1128,7 +1178,7 @@ public partial class MainWindow : Window
             CornerRadius = new CornerRadius(6),
             Background = isNext ? Current : Brushes.Transparent,
             Opacity = compact && o.Optional ? 0.55 : 1,
-            ToolTip = compact ? ShownWhere(o) : "Double-click: aku sudah di langkah ini",
+            ToolTip = compact ? ShownWhere(o) : Lang.T("Double-click: I am at this step", "Double-click: aku sudah di langkah ini"),
         };
         border.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) JumpTo(o); };
         return border;
