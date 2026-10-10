@@ -1154,7 +1154,8 @@ public partial class MainWindow : Window
             if (o.Type == "cerita") phase = i;
             bool isDone = _progress.Done.Contains(o.Id);
             if (isDone && !_showDone) continue;
-            string? tag = o.Type == "cerita" || isDone ? null : phase == current ? TagNow : phase < current ? TagBehind : null;
+            string? tag = o.Type == "cerita" || isDone ? null : phase == current ? TagNow
+                : phase < current && (o.Revisit is null || _progress.Done.Contains(o.Revisit)) ? TagBehind : null;
             var row = Row(o, isDone, o.Id == nextId, tag);
             List.Children.Add(row);
             if (o.Id == nextId) Dispatcher.BeginInvoke(() => row.BringIntoView(), DispatcherPriority.Loaded);
@@ -1201,6 +1202,8 @@ public partial class MainWindow : Window
             // Trophies are not tracked here: the rewards they come with are steps of their own.
             if (o.Type == "trofi") continue;
             if (o.Optional && phase < current) continue;
+            // Behind you on a stretch you cannot walk back: shown again once you can (Revisit).
+            if (phase < current && o.Revisit is { } back && !_progress.Done.Contains(back)) continue;
             open.Add((o, IsHere(o) ? TagHere : phase == current ? null : TagBehind));
         }
         return open.OrderByDescending(x => x.Tag == TagHere).ThenByDescending(x => x.Step.Missable).ToList();

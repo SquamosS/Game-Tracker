@@ -12,9 +12,11 @@ public record Detect(string[]? Ocr);
 /// Where and Warning are the Indonesian originals the overlay's rules read ("otomatis", "Setelah ..."); WhereEn and
 /// WarningEn are their English versions, shown in English (the original when there is none). After: the step that
 /// makes this one available (Ch8 side quests open with "Requests for the Mercenary"); until it is done the step stays
-/// out of the "in this area" banner, unless the game shows it as the live quest.</summary>
+/// out of the "in this area" banner, unless the game shows it as the live quest. Revisit: the step that lets you come
+/// back for this one once its part of the story is behind you (Station Way opens again with the Ch8 hub); until then it
+/// is not shown as left behind.</summary>
 public record Objective(string Id, string Type, string Name, string Where, bool Missable, Detect? Detect, string? Warning = null, int? Progress = null, string[]? Needs = null, bool Optional = false, bool Hard = false,
-    string? WhereEn = null, string? WarningEn = null, string? After = null)
+    string? WhereEn = null, string? WarningEn = null, string? After = null, string? Revisit = null)
 {
     public string ShownWhere => !Lang.Indonesian && WhereEn is not null ? WhereEn : Where;
     public string? ShownWarning => !Lang.Indonesian && WarningEn is not null ? WarningEn : Warning;

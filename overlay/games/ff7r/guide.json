@@ -1058,6 +1058,7 @@
           "where": "Station Way: bicara dengan pria di samping gramofon yang menyala di area lapang dekat Sector 5 Undercity Station.",
           "whereEn": "Station Way: talk to the man next to the playing gramophone in the open area near Sector 5 Undercity Station.",
           "missable": true,
+          "revisit": "c8-16-requests",
           "detect": null
         },
         {
