@@ -176,12 +176,14 @@ public sealed class TrailRecorder(IGameReader reader, ProgressTracker tracker, G
     }
 
     /// <summary>
-    /// How far Cloud is from the step's recorded spot. Only while the area volumes of the loaded map name that spot's
+    /// How far Cloud is from the step's spot: a side quest's giver standing in the level now (GiverDistance), else the
+    /// recorded spot. A recorded spot only while the area volumes of the loaded map name that spot's
     /// area as recorded (asked again every 30 s): the same coordinates in another map would be a guess.
     /// </summary>
     public string? PointDistance(Objective o)
     {
         if (!_live || _area.Position is not { } p) return null;
+        if (GiverDistance(o, p) is { } giver) return giver;
         // The trail of an earlier playthrough first (TrailSpot), then a spot recorded by hand.
         if ((TrailSpot(o) ?? (Points.TryGetValue(o.Id, out var fixedPoint) ? (o.Id, fixedPoint) : null)) is not var (key, point)) return null;
         // Asked again after 30 s, or 5 s while unknown (the map's area volumes may still be loading).
@@ -189,6 +191,17 @@ public sealed class TrailRecorder(IGameReader reader, ProgressTracker tracker, G
             _pointArea[key] = known = (_reader.ReadLocation(new GamePosition(point.X, point.Y, point.Z))?.Area, DateTime.Now);
         if (known.Area is null || !known.Area.Equals(point.Area, StringComparison.OrdinalIgnoreCase)) return null;
         return World.Metres(World.Distance(new GamePosition(point.X, point.Y, point.Z), p, _reader.UnitsPerMetre));
+    }
+
+    /// <summary>
+    /// How far Cloud is from the person giving the step's side quest, read live (IGameReader.ReadQuestGivers): only for a
+    /// quest step not done whose quest the game's page lists as not taken yet, and only when the step's name is that quest's.
+    /// </summary>
+    string? GiverDistance(Objective o, GamePosition p)
+    {
+        if (!_rules.IsQuest(o) || _tracker.Progress.Done.Contains(o.Id) || _reader.ReadQuestGivers() is not { } givers) return null;
+        var at = givers.Where(g => GuideRules.SameQuest(o, g.Title)).Select(g => g.At).ToList();
+        return at.Count == 1 ? World.Metres(World.Distance(at[0], p, _reader.UnitsPerMetre)) : null;
     }
 
     /// <summary>Reads the trail: once, when the overlay starts.</summary>

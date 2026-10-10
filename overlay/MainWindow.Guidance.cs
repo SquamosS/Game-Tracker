@@ -95,7 +95,7 @@ public partial class MainWindow
         }
     }
 
-    /// <summary>How far a step is: its chest (ChestDistance), else its recorded spot (PointDistance).</summary>
+    /// <summary>How far a step is: its chest (ChestDistance), else its quest giver or recorded spot (PointDistance).</summary>
     string? StepDistance(Objective o) => _chests.ChestDistance(o) ?? _trails.PointDistance(o);
 
 }

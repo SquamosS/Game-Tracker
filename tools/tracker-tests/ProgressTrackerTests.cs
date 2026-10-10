@@ -13,6 +13,7 @@ sealed class FakeReader : GameReaderBase
     public Func<GamePosition, GameLocation?>? Locate;
     public List<GameChest> ChestList = [];
     public Dictionary<string, bool> OpenFlags = [];
+    public List<QuestGiver>? Givers;
 
     public override string? Version => "test";
     public override double UnitsPerMetre => 100; // positions below are in centimetres, as in Unreal
@@ -22,6 +23,7 @@ sealed class FakeReader : GameReaderBase
     public override HashSet<int>? ReadLiveOwnedIds(IReadOnlyCollection<long> changedSlots) => LiveIds;
     public override HashSet<string>? ReadFlags() => [.. Flags];
     public override IReadOnlyList<SideQuest> SideQuests => Quests;
+    public override IReadOnlyList<QuestGiver>? ReadQuestGivers() => Givers;
     public override GameLocation? ReadLocation(GamePosition p) => Locate?.Invoke(p);
     public override IReadOnlyList<GameChest> Chests => ChestList;
     public override bool? ChestOpened(GameChest chest) => OpenFlags.TryGetValue(chest.Id, out var open) ? open : null;

@@ -27,6 +27,9 @@ public sealed record OwnedItem(int Id, int Count, uint Obtained, long Slot = 0);
 /// <summary>A side quest as the game's quest page lists it: title, the game's quest id and stage, and whether it is cleared.</summary>
 public sealed record SideQuest(string Title, string Quest, string Stage, bool Finished);
 
+/// <summary>Someone standing in the loaded level who gives a side quest of the quest page not taken yet: its title (SideQuest.Title), where they stand.</summary>
+public sealed record QuestGiver(string Title, GamePosition At);
+
 /// <summary>An object standing in the loaded level (chest, pickup...), by its class name.</summary>
 public sealed record FieldActor(string Class, GamePosition At);
 
@@ -100,6 +103,9 @@ public interface IGameReader : IDisposable
 
     /// <summary>Objects standing in the loaded level now.</summary>
     IReadOnlyList<FieldActor>? ReadFieldActors();
+
+    /// <summary>Who gives the side quests the quest page lists and that are not taken yet, standing in the level now. Null = not known.</summary>
+    IReadOnlyList<QuestGiver>? ReadQuestGivers() => null;
 
     IGameNames Names { get; }
 
@@ -211,6 +217,7 @@ public abstract class GameReaderBase : IGameReader
     public virtual GamePosition? ReadPosition() => null;
     public virtual GameLocation? ReadLocation(GamePosition p) => null;
     public virtual IReadOnlyList<FieldActor>? ReadFieldActors() => null;
+    public virtual IReadOnlyList<QuestGiver>? ReadQuestGivers() => null;
     public virtual IGameNames Names => GameNamesBase.None;
     public virtual List<OwnedItem>? ReadOwned() => null;
     public virtual HashSet<int>? ReadLiveOwnedIds(IReadOnlyCollection<long> changedSlots) => null;

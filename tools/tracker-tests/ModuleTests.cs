@@ -86,6 +86,28 @@ static class ModuleTests
         chests.LearnOpened([10001], null);
         check("chests: its item arriving within 4 m opens the chest", chests.ChestsHere().Count == 0 && chests.ChestDistance(fire) is null);
 
+        // ---- TrailRecorder: the person giving a side quest, standing in the level now ---------------------------------
+        var givers = typeof(Ff7rChapterReader).GetInterfaceMap(typeof(IGameReader));
+        int giversAt = Array.FindIndex(givers.InterfaceMethods, m => m.Name == nameof(IGameReader.ReadQuestGivers));
+        check("giver: FF7R's reader answers who gives a quest itself (not the interface's 'not known')", givers.TargetMethods[giversAt].DeclaringType == typeof(Ff7rChapterReader));
+        check("giver: a reader without it does not know", new NoGameReader().ReadQuestGivers() is null);
+        tracker.Progress.Chapter = 2;
+        var trails = new TrailRecorder(reader, tracker, rules, area, status, true, DataPaths.Game("test-trail"), DataPaths.GameLogs("test-trail"));
+        var kids = Step("c2-kids");
+        area.Follow(new(1200, 300, 0));
+        check("giver: none known, no distance", trails.PointDistance(kids) is null);
+        reader.Givers = [new QuestGiver("Kids on Patrol", new GamePosition(1500, 700, 0))];
+        check("giver: the distance to the person giving the quest", trails.PointDistance(kids) == "5 m");
+        check("giver: not for another step (its reward)", trails.PointDistance(Step("c2-bat")) is null);
+        check("giver: only for a side quest step, not an item named like it", trails.PointDistance(kids with { Id = "c2-kids-item", Type = "aksesori" }) is null);
+        reader.Givers = [.. reader.Givers, new QuestGiver("Kids on Patrol", new GamePosition(0, 0, 0))];
+        check("giver: two people for one quest is a guess: no distance", trails.PointDistance(kids) is null);
+        reader.Givers = [new QuestGiver("Kids on Patrol", new GamePosition(1500, 700, 0))];
+        tracker.Progress.Done.Add("c2-kids");
+        check("giver: a quest done has no distance", trails.PointDistance(kids) is null);
+        tracker.Progress.Done.Remove("c2-kids");
+        reader.Givers = null;
+
         // ---- Checklist: which steps show, with which tag -------------------------------------------------------------
         var list = new Checklist(tracker, rules, status, area);
         tracker.Guide = ProgressTrackerTests.SmallGuide();
