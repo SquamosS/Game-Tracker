@@ -66,7 +66,7 @@ public partial class MainWindow
             $"Terlewat di Chapter {ended.Number} ({missed.Count}): {names}. Perlu Chapter Select nanti."), alert: true, seconds: 60);
         try
         {
-            File.AppendAllText(Path.Combine(DataPaths.Logs, "missed.log"),
+            File.AppendAllText(Path.Combine(_logs, "missed.log"),
                 $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\tchapter {ended.Number}\t{string.Join(" | ", missed.Select(o => $"{o.Id} {o.Name}"))}{Environment.NewLine}");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
@@ -74,15 +74,15 @@ public partial class MainWindow
 
     // ---- Rooms walked between -------------------------------------------------------------------------------------
 
-    static readonly string LinksFile = Path.Combine(DataPaths.Data, "area-links.json");
+    string LinksFile => Path.Combine(_data, "area-links.json");
 
     /// <summary>
     /// Pairs of rooms ("floor|area") you walked straight from one into the other: the only connections the route
     /// trusts. Room boxes that merely touch can be split by a wall; a walk between them cannot.
     /// </summary>
-    readonly HashSet<string> _links = LoadLinks();
+    readonly HashSet<string> _links;
 
-    static HashSet<string> LoadLinks()
+    HashSet<string> LoadLinks()
     {
         try { return File.Exists(LinksFile) ? JsonSerializer.Deserialize<HashSet<string>>(File.ReadAllText(LinksFile)) ?? [] : []; }
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return []; }
@@ -210,7 +210,7 @@ public partial class MainWindow
         _chestsLogIncomplete = false;
         try
         {
-            string folder = Directory.CreateDirectory(Path.Combine(DataPaths.Data, "chests")).FullName;
+            string folder = Directory.CreateDirectory(Path.Combine(_data, "chests")).FullName;
             foreach (var table in chests.GroupBy(c => ChestTable.Match(c.Id).Value))
             {
                 string file = Path.Combine(folder, (table.Key.Length > 0 ? table.Key : "other") + ".tsv");
@@ -250,7 +250,7 @@ public partial class MainWindow
         if (lines.Count == 0) return;
         try
         {
-            string file = Path.Combine(DataPaths.Logs, "items.log");
+            string file = Path.Combine(_logs, "items.log");
             if (!File.Exists(file)) File.WriteAllText(file, "time\tchapter\tid\tname\tcount\tarea\tfloor\tx\ty\tz\tstate\tobjective" + Environment.NewLine);
             File.AppendAllLines(file, lines);
         }
@@ -276,21 +276,21 @@ public partial class MainWindow
             lines.Add($"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{chest.Id}\tflag {(chest.Flag is { } f ? $"0x{f:X}" : "?")}\t{(open ? "opened" : "closed")}\t{distance}\t{names}");
         }
         if (lines.Count == 0) return;
-        try { File.AppendAllLines(Path.Combine(DataPaths.Logs, "chest-flag.log"), lines); }
+        try { File.AppendAllLines(Path.Combine(_logs, "chest-flag.log"), lines); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
     // ---- Chests opened, learned in front of them ----------------------------------------------------------------
 
-    static readonly string OpenedFile = Path.Combine(DataPaths.Data, "chests", "opened.json");
+    string OpenedFile => Path.Combine(_data, "chests", "opened.json");
 
     /// <summary>
     /// Chests learned to be opened (ids, e.g. "obt080_treasure0030"): an item the chest holds arrived while Cloud stood
     /// within 4 m of it. Only a fallback now: the game's own flag (IGameReader.ChestOpened) wins when it is known.
     /// </summary>
-    readonly HashSet<string> _opened = LoadOpened();
+    readonly HashSet<string> _opened;
 
-    static HashSet<string> LoadOpened()
+    HashSet<string> LoadOpened()
     {
         try { return File.Exists(OpenedFile) ? JsonSerializer.Deserialize<HashSet<string>>(File.ReadAllText(OpenedFile)) ?? [] : []; }
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return []; }
@@ -393,7 +393,7 @@ public partial class MainWindow
         }
         try
         {
-            string file = Path.Combine(DataPaths.Data, "points-recorded.tsv");
+            string file = Path.Combine(_data, "points-recorded.tsv");
             if (!File.Exists(file)) File.WriteAllText(file, "time\tchapter\tarea\tfloor\tx\ty\tz\tobjective" + Environment.NewLine);
             File.AppendAllText(file, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{_detectedChapter}\t{_here?.Area}\t{_here?.Floor}\t{p.X:F0}\t{p.Y:F0}\t{p.Z:F0}\t{_objective?.Title}{Environment.NewLine}");
             Notify(Lang.T($"Spot saved: {_here?.Area ?? "?"} ({p.X:F0}, {p.Y:F0}, {p.Z:F0})", $"Titik disimpan: {_here?.Area ?? "?"} ({p.X:F0}, {p.Y:F0}, {p.Z:F0})"));
@@ -458,7 +458,7 @@ public partial class MainWindow
         if (fresh.Count == 0) return;
         _fieldLogged.AddRange(fresh);
         var lines = fresh.Select(a => $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{_here?.Area}\t{a.Class}\t{a.At.X:0}\t{a.At.Y:0}\t{a.At.Z:0}");
-        try { File.AppendAllLines(Path.Combine(DataPaths.Logs, "field-actors.log"), lines); }
+        try { File.AppendAllLines(Path.Combine(_logs, "field-actors.log"), lines); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 

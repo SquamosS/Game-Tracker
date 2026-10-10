@@ -239,10 +239,10 @@ public sealed partial class Ff7rChapterReader
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             var result = FindObjectives(cancel);
-            File.WriteAllLines(Path.Combine(DataPaths.Logs, "objective-titles.txt"),
+            File.WriteAllLines(Path.Combine(DataPaths.GameLogs("ff7r"), "objective-titles.txt"),
                 result.Item1.Values.OrderBy(o => o.Row).Select(o => $"{o.TitleKey}\t{o.Title}").Distinct()
                     .Concat(SideQuests.OrderBy(q => q.Quest).ThenBy(q => q.Stage).Select(q => $"side {q.Quest} stage {q.Stage}\t{q.Title}")));
-            File.AppendAllText(Path.Combine(DataPaths.Logs, "objective-search.log"),
+            File.AppendAllText(Path.Combine(DataPaths.GameLogs("ff7r"), "objective-search.log"),
                 $"{DateTime.Now:HH:mm:ss} search {sw.Elapsed.TotalSeconds:F1}s {ObjectiveDebug}{Environment.NewLine}");
             return result;
         }

@@ -58,6 +58,14 @@ public partial class MainWindow : Window
     /// </summary>
     readonly bool _live;
 
+    /// <summary>The game's own folder data\&lt;id&gt;\ and its logs: progress, trail, chests, points, diagnostics.</summary>
+    readonly string _data, _logs;
+
+    /// <summary>Files of the old shared layout (data\...) that a live game wrote: moved into its folder once.</summary>
+    static readonly string[] LiveFiles = ["trail.json", "area-links.json", "points-recorded.tsv", "chests",
+        .. new[] { "area.log", "chest-flag.log", "field-actors.log", "items.log", "missed.log", "position.log", "quest-choice.log", "state.log", "trail.log" }
+            .Select(log => Path.Combine("logs", log))];
+
     /// <summary>The game's step types (game.json "stepTypes"): role, English name, icon, colour.</summary>
     readonly IReadOnlyDictionary<string, StepType> _types;
 
@@ -70,6 +78,13 @@ public partial class MainWindow : Window
         _live = reader is not null;
         _reader = reader ?? new NoGameReader();
         _types = _game?.StepTypes ?? new Dictionary<string, StepType>();
+        _data = DataPaths.Game(_game?.Id);
+        _logs = DataPaths.GameLogs(_game?.Id);
+        // The old shared layout kept the live files in data\: only a game with a reader wrote them.
+        if (_live) foreach (var old in LiveFiles) DataPaths.MoveOld(_data, old);
+        _links = LoadLinks();
+        _opened = LoadOpened();
+        _trail = LoadTrail();
         InitializeComponent();
         Header.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) DragMove(); };
         // Handled, so a click on the switch does not start dragging the overlay.
@@ -127,7 +142,7 @@ public partial class MainWindow : Window
             {
                 _guideAll = Guide.Load(file);
                 _points = LoadPoints(Path.Combine(_game!.Folder, "points.json"));
-                _progress = ProgressStore.Load(_guideAll.Game);
+                _progress = ProgressStore.Load(_data, _guideAll.Game);
                 _hardMode = _progress.Hard;
                 _guide = _guideAll.ForMode(_hardMode);
                 _error = ProgressStore.Recovered;
@@ -458,7 +473,7 @@ public partial class MainWindow : Window
         bool tie = _reader.Candidates.Count(c => index(c) == top && c.Row != chosen.Row) > 0;
         try
         {
-            System.IO.File.AppendAllText(System.IO.Path.Combine(DataPaths.Logs, "quest-choice.log"),
+            System.IO.File.AppendAllText(System.IO.Path.Combine(_logs, "quest-choice.log"),
                 $"{DateTime.Now:HH:mm:ss} chapter {_detectedChapter}: {chosen.Title ?? chosen.TitleKey}{(tie ? "  [RAGU: kandidat lain di langkah guide yang sama]" : "")}{(guidePick is null ? "" : $"  [BEDA: guide memilih {guidePick.Title}]")}{Environment.NewLine}{text}{Environment.NewLine}");
         }
         catch (System.IO.IOException) { }
@@ -507,7 +522,7 @@ public partial class MainWindow : Window
         // Every change of area, with the position, in data\logs\area.log: to check maps whose areas read differently.
         try
         {
-            File.AppendAllText(Path.Combine(DataPaths.Logs, "area.log"),
+            File.AppendAllText(Path.Combine(_logs, "area.log"),
                 $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\tch {_detectedChapter}\t{here?.Area ?? "-"}\t{here?.Floor}\t{p?.X:F0}\t{p?.Y:F0}\t{p?.Z:F0}{Environment.NewLine}");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
@@ -530,7 +545,7 @@ public partial class MainWindow : Window
         _loggedPosition = p;
         try
         {
-            File.AppendAllText(Path.Combine(DataPaths.Logs, "position.log"),
+            File.AppendAllText(Path.Combine(_logs, "position.log"),
                 $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\tch {_detectedChapter}\t{p.X:F0}\t{p.Y:F0}\t{p.Z:F0}\t{_objective?.Title}{Environment.NewLine}");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
@@ -763,7 +778,7 @@ public partial class MainWindow : Window
     {
         if (_guide is null || _detectedChapter is not int loaded || _reader.ReadLiveOwnedIds(_loadedSlots) is not { } live) return false;
         _reconcile = false;
-        ProgressStore.Backup(_guide.Game);
+        ProgressStore.Backup(_data, _guide.Game);
         _progress.Ever.UnionWith(_progress.Done);
         // Money is always owned and its name is part of "Gil Up": leave it out, as FollowItems does.
         var ownedNames = live.Where(id => !_names.IsCurrency(id)).Select(id => _names.Name(id)).OfType<string>().ToList();
@@ -926,7 +941,7 @@ public partial class MainWindow : Window
         _gameState = state;
         try
         {
-            File.AppendAllText(Path.Combine(DataPaths.Logs, "state.log"),
+            File.AppendAllText(Path.Combine(_logs, "state.log"),
                 $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}	{(state is null ? "-" : state.Detail)}	{_here?.Area}	{_objective?.Title}{Environment.NewLine}");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
@@ -1035,7 +1050,7 @@ public partial class MainWindow : Window
     void Persist()
     {
         if (_guide is null) return;
-        if (!ProgressStore.Save(_guide.Game, _progress)) _error = _saveFailed = SaveFailed;
+        if (!ProgressStore.Save(_data, _guide.Game, _progress)) _error = _saveFailed = SaveFailed;
         else if (_saveFailed is not null)
         {
             if (_error == _saveFailed) _error = null;

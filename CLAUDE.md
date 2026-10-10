@@ -18,7 +18,7 @@ Overlay 100%-completion (C# .NET 8 WPF, Windows), game pertama FINAL FANTASY VII
 - `overlay/` aplikasi bersama (dashboard + overlay), dipakai semua game.
 - `overlay/games/<id>/` semua file satu game: `game.json` (nama, proses, Steam id, reader), `guide.json` (panduan), `points.json` (titik tujuan per langkah), `assets/` (gambar), data lain. FF7R: `overlay/games/ff7r/` dengan pembaca memori di `reader/` (`Ff7rChapterReader.cs` + partial `Ff7r*.cs`, `ItemMap.cs`). Cara menambah game: `overlay/games/README.md`.
 - `tools/ff7r-scan/` scanner riset memori (output ke `research/scan/`).
-- `data/` progres & runtime (di-ignore git): progres, `trail.json` (jejak), `chests/` (peti termuat + `opened.json`), `points-recorded.tsv` (Ctrl+Shift+Alt+P), `logs/*.log` (crash, state, position, area, items, trail, chest-flag, field-actors, quest-choice, objective-search). Target: per game `data/<id>/` (belum, lihat Arsitektur).
+- `data/` (di-ignore git): bersama = `settings.json`, `playtime.json`, `logs/` (crash, games, steam-online). Per game `data/<id>/`: progres `<nama game>.json` + `backups/`, `trail.json` (jejak), `area-links.json`, `chests/` (peti termuat + `opened.json`), `points-recorded.tsv` (Ctrl+Shift+Alt+P), `logs/*.log` (state, position, area, items, trail, chest-flag, field-actors, quest-choice, missed; FF7R juga objective-search, objective-titles), FF7R `item-map.json`. File tata letak lama dipindah otomatis sekali (`DataPaths.MoveOld`, tidak menimpa).
 - `research/` riset & hasil walkthrough (di-ignore git).
 
 ## Arsitektur: overlay sebagai canvas (aturan, berlaku untuk semua perubahan)
@@ -26,9 +26,9 @@ Overlay 100%-completion (C# .NET 8 WPF, Windows), game pertama FINAL FANTASY VII
 - Kode bersama bicara ke pembaca game lewat antarmuka umum (target `IGameReader`): chapter, objektif & halaman quest (judul, tahap, selesai), inventory, posisi & area, state (menu/battle/cutscene), titik penting (peti: posisi, isi, dibuka?, ada di peta?). Pembaca boleh mengisi sebagian; fitur tanpa data mati diam-diam (null = tidak tahu, tidak menebak).
 - Aturan panduan lewat kolom eksplisit di `guide.json` (`after`, `revisit`, `optional`, `missable`, `hard`, `rewardOf`, `auto`, `gameTitle`, `closes`), bukan mencari kata di teks "where" (hanya nama area di awalnya).
 - Jenis langkah, ikon, warna: per game di `game.json` `stepTypes` (role story/quest/event/item/trophy, `neverLost`, `unique`); kode bersama hanya bertanya role/tanda.
-- Data runtime per game (target `data/<id>/`), supaya progres/jejak/log game lain tidak tercampur.
+- Data runtime per game di `data/<id>/` (`DataPaths.Game/GameLogs`), supaya progres/jejak/log game lain tidak tercampur; hanya pengaturan, waktu main dan log aplikasi yang bersama.
 - Game tanpa reader tetap jalan sebagai checklist manual (hotkey), dengan titik manual dan jejak dari posisi kalau ada.
-- **Status 10 Okt 2026:** tahap 1 selesai: `IGameReader`/`IGameNames` (`overlay/GameReader.cs`), `MainWindow` hanya lewat antarmuka, konvensi kunci FF7R ada di pembaca. Tahap 2 selesai: aturan teks jadi kolom guide.json. Tahap 3 selesai: jenis langkah di game.json. Belum: data per game (tahap 4). Rencana 4 tahap (antarmuka pembaca; aturan teks -> kolom; jenis langkah di game.json; data per game) ada di `docs/HANDOFF-AI.md` bagian 0. Fitur baru jangan menambah ketergantungan langsung ke FF7R di kode bersama.
+- **Status 11 Okt 2026:** tahap 1 selesai: `IGameReader`/`IGameNames` (`overlay/GameReader.cs`), `MainWindow` hanya lewat antarmuka, konvensi kunci FF7R ada di pembaca. Tahap 2 selesai: aturan teks jadi kolom guide.json. Tahap 3 selesai: jenis langkah di game.json. Tahap 4 selesai: data per game `data/<id>/`. Rombakan canvas selesai. Rencana 4 tahap (antarmuka pembaca; aturan teks -> kolom; jenis langkah di game.json; data per game) ada di `docs/HANDOFF-AI.md` bagian 0. Fitur baru jangan menambah ketergantungan langsung ke FF7R di kode bersama.
 
 ## Aturan kode & performa (game harus tetap lancar)
 - Poll overlay 1x/detik di thread UI: hanya baca kecil. Angka tunggal lewat overload `ReadProcessMemory(..., out long/int/byte, ..., out nint)` (tanpa array); `lpNumberOfBytesRead` selalu `nint`.

@@ -1,4 +1,4 @@
-"""Checks the guide's item steps against the chests the overlay logged (data/chests/*.tsv).
+"""Checks the guide's item steps against the chests the overlay logged (data/ff7r/chests/*.tsv).
 
 Run from the project root: python -I tools/ff7r-scan/audit-chests.py
 For each chest holding equipment, materia or a key item: the guide steps of the same item and whether the guide's
@@ -24,14 +24,14 @@ def same(step, name):
     return n == name.lower() or (name.endswith(' Materia') and n == name[:-8].lower())
 
 import os
-opened = set(json.load(open('data/chests/opened.json', encoding='utf-8'))) if os.path.exists('data/chests/opened.json') else set()
+opened = set(json.load(open('data/ff7r/chests/opened.json', encoding='utf-8'))) if os.path.exists('data/ff7r/chests/opened.json') else set()
 chests = []
-for f in sorted(glob.glob('data/chests/*.tsv')):
+for f in sorted(glob.glob('data/ff7r/chests/*.tsv')):
     for row in csv.DictReader(open(f, encoding='utf-8'), delimiter='\t'):
         row['ids'] = [int(i) for i in row['item ids'].split(',') if i.isdigit()]
         chests.append(row)
 
-print(f'== {len(chests)} peti dari {len(glob.glob("data/chests/*.tsv"))} tabel ==')
+print(f'== {len(chests)} peti dari {len(glob.glob("data/ff7r/chests/*.tsv"))} tabel ==')
 matched = set()
 for ch in chests:
     names = [items.get(i, f'#{i}') for i in ch['ids']]

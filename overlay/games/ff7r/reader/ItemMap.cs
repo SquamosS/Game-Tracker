@@ -9,7 +9,8 @@ namespace GameTracker;
 /// </summary>
 public class ItemMap : IGameNames
 {
-    static readonly string File_ = Path.Combine(DataPaths.Data, "ff7r-item-map.json");
+    /// <summary>data\ff7r\item-map.json (was data\ff7r-item-map.json, moved at the first load).</summary>
+    static readonly string File_ = Path.Combine(DataPaths.Game("ff7r"), "item-map.json");
 
     // Ids follow the game's localization keys: accessories 9016 + E_ACC number, materia 10000/11000/12000/13000/14000
     // + M_MAG/M_SUP/M_COM/M_IND/M_SUM number. Names read from the game's own text table (tools/ff7r-scan).
@@ -117,6 +118,11 @@ public class ItemMap : IGameNames
 
     public static ItemMap Load()
     {
+        if (!File.Exists(File_) && File.Exists(Path.Combine(DataPaths.Data, "ff7r-item-map.json")))
+        {
+            try { File.Move(Path.Combine(DataPaths.Data, "ff7r-item-map.json"), File_); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
         try { return JsonSerializer.Deserialize<ItemMap>(File.ReadAllText(File_)) ?? new(); }
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return new(); }
     }

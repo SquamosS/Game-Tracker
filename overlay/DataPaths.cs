@@ -15,6 +15,39 @@ public static class DataPaths
         ? parent.FullName : AppContext.BaseDirectory;
     public static string Logs { get; } = Directory.CreateDirectory(Path.Combine(Data, "logs")).FullName;
 
+    /// <summary>
+    /// One game's own folder data\&lt;id&gt;\ (progress, trail, chests...), so games never mix their files. Shared files
+    /// (settings, play time, crash log) stay in data\. No game: data\ itself.
+    /// </summary>
+    public static string Game(string? id) => id is null ? Data : Directory.CreateDirectory(Path.Combine(Data, id)).FullName;
+
+    /// <summary>One game's logs: data\&lt;id&gt;\logs\.</summary>
+    public static string GameLogs(string? id) => id is null ? Logs : Directory.CreateDirectory(Path.Combine(Game(id), "logs")).FullName;
+
+    /// <summary>
+    /// Moves a file or folder of the old shared layout (data\&lt;relative&gt;) into a game's folder, once: never over one that
+    /// is already there (then the old one stays where it is). A failed move is tried again at the next start.
+    /// </summary>
+    public static void MoveOld(string gameDir, string relative)
+    {
+        string from = Path.Combine(Data, relative), to = Path.Combine(gameDir, relative);
+        if (string.Equals(Path.GetFullPath(from), Path.GetFullPath(to), StringComparison.OrdinalIgnoreCase)) return;
+        try
+        {
+            if (File.Exists(from) && !File.Exists(to))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+                File.Move(from, to);
+            }
+            else if (Directory.Exists(from) && !Directory.Exists(to))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+                Directory.Move(from, to);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
     static string FindData()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)

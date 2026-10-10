@@ -18,10 +18,10 @@ public partial class MainWindow
         public GuidePoint? Done { get; set; }
     }
 
-    static readonly string TrailFile = Path.Combine(DataPaths.Data, "trail.json");
-    readonly Dictionary<string, TrailEntry> _trail = LoadTrail();
+    string TrailFile => Path.Combine(_data, "trail.json");
+    readonly Dictionary<string, TrailEntry> _trail;
 
-    static Dictionary<string, TrailEntry> LoadTrail()
+    Dictionary<string, TrailEntry> LoadTrail()
     {
         try { return File.Exists(TrailFile) ? JsonSerializer.Deserialize<Dictionary<string, TrailEntry>>(File.ReadAllText(TrailFile)) ?? [] : []; }
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return []; }
@@ -84,7 +84,7 @@ public partial class MainWindow
             if (!put(entry)) return false;
             try
             {
-                File.AppendAllText(Path.Combine(DataPaths.Logs, "trail.log"),
+                File.AppendAllText(Path.Combine(_logs, "trail.log"),
                     $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\tch {chapter.Number}\t{step.Id}\t{what}\t{here.Area}\t{here.Floor}\t{p.X:0}\t{p.Y:0}\t{p.Z:0}{Environment.NewLine}");
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
@@ -104,7 +104,7 @@ public partial class MainWindow
     {
         try
         {
-            Directory.CreateDirectory(DataPaths.Data);
+            Directory.CreateDirectory(_data);
             string temp = TrailFile + ".tmp";
             File.WriteAllText(temp, JsonSerializer.Serialize(_trail, new JsonSerializerOptions { WriteIndented = true }));
             File.Move(temp, TrailFile, true);

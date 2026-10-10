@@ -54,7 +54,7 @@ Folder yang namanya diawali `_` (mis. `_template`) dilewati. Salin `_template` u
 
 ```json
 {
-  "game": "NAMA GAME (dipakai juga untuk nama file progres di data/)",
+  "game": "NAMA GAME (dipakai juga untuk nama file progres di data/<id>/)",
   "status": "draft",
   "notes": [],
   "chapters": [
@@ -102,7 +102,7 @@ Titik tujuan per langkah, untuk jarak dari pemain (hanya game dengan reader yang
 ```
 
 Jarak hanya tampil kalau area titik itu terbaca di peta yang dimuat. Rekam sambil main dengan Ctrl+Shift+Alt+P
-(`data/points-recorded.tsv`). Jejak otomatis (`data/trail.json`: tempat quest diambil, tahap selesai, item diambil) dipakai lebih dulu.
+(`data/<id>/points-recorded.tsv`). Jejak otomatis (`data/<id>/trail.json`: tempat quest diambil, tahap selesai, item diambil) dipakai lebih dulu.
 
 ## reader/ (opsional)
 
