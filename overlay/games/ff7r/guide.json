@@ -1108,7 +1108,8 @@
           "name": "Costa del Sol",
           "where": "Center District: beli 50 gil di Materia Shop Sector 5 Slums.",
           "whereEn": "Center District: buy for 50 gil at the Materia Shop in Sector 5 Slums.",
-          "missable": false
+          "missable": false,
+          "after": "c8-16-requests"
         },
         {
           "id": "c8-14-disc-tango",
@@ -1116,7 +1117,8 @@
           "name": "Tango of Tears",
           "where": "Center District: jukebox di dalam bangunan (rumah lansia) di sebelah kiri Leaf House, lewat peti Echo Mist di pojok selatan.",
           "whereEn": "Center District: jukebox inside the building (elderly home) to the left of Leaf House, past the Echo Mist chest in the south corner.",
-          "missable": false
+          "missable": false,
+          "after": "c8-16-requests"
         },
         {
           "id": "c8-15-hideout",
