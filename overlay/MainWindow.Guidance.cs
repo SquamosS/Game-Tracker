@@ -484,6 +484,11 @@ public partial class MainWindow
     {
         var pickUp = QuestPickUp.Match(chest.Id);
         if (!pickUp.Success) return true;
+        // Chapter 8's side quests: an entry "080_SLU5B_q05" (The Angel of the Slums) under way, stage 01-98, not cleared.
+        var entries = _reader.SideQuests.Where(q => q.Quest.StartsWith(pickUp.Groups[1].Value + "_")
+            && q.Quest.EndsWith("_q" + pickUp.Groups[2].Value)).ToList();
+        if (entries.Count > 0)
+            return !entries.Any(q => q.Finished) && entries.Any(q => int.TryParse(q.Stage, out int stage) && stage is > 0 and < 99);
         var quest = _objective?.TitleKey is { } key ? QuestKey.Match(key) : null;
         if (quest is not { Success: true } || quest.Groups[1].Value != pickUp.Groups[1].Value) return false;
         string number = pickUp.Groups[2].Value, live = quest.Groups[2].Value;
