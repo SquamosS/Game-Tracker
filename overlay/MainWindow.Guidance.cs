@@ -55,7 +55,7 @@ public partial class MainWindow
     /// </summary>
     void RecapMissed(Chapter ended)
     {
-        var missed = ended.Objectives.Where(o => o.Missable && !IsStory(o) && !IsTrophy(o) && !_progress.Done.Contains(o.Id)).ToList();
+        var missed = ended.Objectives.Where(o => o.Missable && !_rules.IsStory(o) && !_rules.IsTrophy(o) && !_progress.Done.Contains(o.Id)).ToList();
         if (missed.Count == 0)
         {
             Notify(Lang.T($"Chapter {ended.Number} done: no missables missed", $"Chapter {ended.Number} selesai: tidak ada missable yang terlewat"), seconds: 10);
@@ -173,7 +173,7 @@ public partial class MainWindow
         int current = CurrentStory is { } story ? Array.IndexOf(objectives, story) : objectives.Length;
         foreach (var (step, tag) in OpenSteps(objectives, current))
         {
-            if (tag == TagHere || AreaOf(step) is not var (area, floor)) continue;
+            if (tag == TagHere || GuideRules.AreaOf(step) is not var (area, floor)) continue;
             if (area.Equals(here.Area, StringComparison.OrdinalIgnoreCase)) continue; // same room, other floor: no walk to show
             if (RouteTo(here, area, floor) is not { Count: > 0 } path) continue;
             string way = path.Count <= 4 ? string.Join(" › ", path) : $"{path[0]} › … › {path[^1]} ({path.Count} {Lang.T("rooms", "ruang")})";
@@ -345,11 +345,6 @@ public partial class MainWindow
         return area;
     }
 
-    /// <summary>The step is that item: the same name, or its short name ("Shiva" for "Shiva Materia"; not "Turbo Ether" for "Ether").</summary>
-    bool SameItem(Objective step, string name) =>
-        step.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
-        || (_names.ShortName(name) is { } shortName && step.Name.Equals(shortName, StringComparison.OrdinalIgnoreCase));
-
     /// <summary>
     /// A chest opened before it could be watched: it is the only chest holding each of its items, and each of those is a
     /// guide step already ticked (ticked from the inventory or by you).
@@ -359,7 +354,7 @@ public partial class MainWindow
         if (_guide is null) return false;
         var names = chest.Items.Distinct().Select(_names.Name).ToList();
         return names.All(name => name is not null && ReferenceEquals(_chestByName.GetValueOrDefault(name), chest)
-            && _guide.Chapters.SelectMany(c => c.Objectives).Any(o => _progress.Done.Contains(o.Id) && SameItem(o, name)));
+            && _guide.Chapters.SelectMany(c => c.Objectives).Any(o => _progress.Done.Contains(o.Id) && _rules.SameItem(o, name)));
     }
 
     /// <summary>A spot in the game world for a guide step (games/<id>/points.json): where it is done, in which area.</summary>
@@ -438,7 +433,7 @@ public partial class MainWindow
     /// <summary>The placed state of the one chest holding this step's item; null when no single chest holds it.</summary>
     bool? ChestPlaced(Objective o)
     {
-        if (!IsItem(o)) return null;
+        if (!_rules.IsItem(o)) return null;
         if (!ReferenceEquals(_chestsIndexed, _reader.Chests)) IndexChests();
         return _chestByName.GetValueOrDefault(o.Name) is { } chest ? Placed(chest) : null;
     }
@@ -467,7 +462,7 @@ public partial class MainWindow
     /// Flowers, after the Rude fight): not listed before its time.
     /// </summary>
     bool ForLater(GameChest chest) => CurrentChapter is { } chapter && chest.Items.Select(_names.Name).OfType<string>()
-        .Any(name => chapter.Objectives.Any(o => SameItem(o, name) && !_progress.Done.Contains(o.Id) && NotYet(o, chapter)));
+        .Any(name => chapter.Objectives.Any(o => _rules.SameItem(o, name) && !_progress.Done.Contains(o.Id) && NotYet(o, chapter)));
 
     /// <summary>
     /// Opened: the game's own flag when it can be read; else learned (opened.json) or inferred from ticked steps (Collected).

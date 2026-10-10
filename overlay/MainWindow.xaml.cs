@@ -66,8 +66,8 @@ public partial class MainWindow : Window
         .. new[] { "area.log", "chest-flag.log", "field-actors.log", "items.log", "missed.log", "position.log", "quest-choice.log", "state.log", "trail.log" }
             .Select(log => Path.Combine("logs", log))];
 
-    /// <summary>The game's step types (game.json "stepTypes"): role, English name, icon, colour.</summary>
-    readonly IReadOnlyDictionary<string, StepType> _types;
+    /// <summary>The guide's rules for this game: step roles (game.json "stepTypes"), name matching, rewards, areas.</summary>
+    readonly GuideRules _rules;
 
     public MainWindow() : this(null) { }
 
@@ -77,7 +77,7 @@ public partial class MainWindow : Window
         var reader = GameReaders.Create(_game?.Reader);
         _live = reader is not null;
         _reader = reader ?? new NoGameReader();
-        _types = _game?.StepTypes ?? new Dictionary<string, StepType>();
+        _rules = new GuideRules(_game?.StepTypes ?? new Dictionary<string, StepType>(), _reader.Names);
         _data = DataPaths.Game(_game?.Id);
         _logs = DataPaths.GameLogs(_game?.Id);
         // The old shared layout kept the live files in data\: only a game with a reader wrote them.
@@ -206,8 +206,8 @@ public partial class MainWindow : Window
                 // ticks from what that save holds.
                 if (chapter != _progress.Chapter && chapter != _progress.Chapter + 1) { _reconcile = true; ForgetRecent(); _reader.ForgetChestCopy(); _reader.ForgetSideQuests(); }
                 else if (chapter > _progress.Chapter && _guide.Chapters.FirstOrDefault(c => c.Number == _progress.Chapter) is { } finished)
-                    foreach (var o in finished.Objectives.Where(o => IsStory(o) || RewardTag(o) == "REWARD CHAPTER"
-                        || (IsTrophy(o) && ChapterEndTrophy(o))))
+                    foreach (var o in finished.Objectives.Where(o => _rules.IsStory(o) || _rules.RewardTag(o) == "REWARD CHAPTER"
+                        || (_rules.IsTrophy(o) && GuideRules.ChapterEndTrophy(o))))
                         if (_progress.Done.Add(o.Id)) _progress.History.Add(o.Id);
                 // Played into the next chapter (not a save loaded or the overlay just started): recap the one that ended
                 // once the last pickups had time to be read (FollowRecap).
@@ -268,7 +268,7 @@ public partial class MainWindow : Window
             foreach (var o in owned)
                 if (_names.Name(o.Id) is { } disc)
                     foreach (var step in _guide.Chapters.SelectMany(c => c.Objectives))
-                        if (TypeOf(step).Unique && Matches(step, disc) && _progress.Done.Add(step.Id)) changed = true;
+                        if (_rules.TypeOf(step).Unique && _rules.Matches(step, disc) && _progress.Done.Add(step.Id)) changed = true;
             if (changed) Save();
             return true;
         }
@@ -342,7 +342,7 @@ public partial class MainWindow : Window
         bool changed = false;
         foreach (var flag in flags)
             if (_names.FlagName(flag) is { } name
-                && chapter.Objectives.FirstOrDefault(o => !_progress.Done.Contains(o.Id) && (o.Id == name || Matches(o, name))) is { } step)
+                && chapter.Objectives.FirstOrDefault(o => !_progress.Done.Contains(o.Id) && (o.Id == name || _rules.Matches(o, name))) is { } step)
             {
                 _progress.Done.Add(step.Id);
                 _progress.History.Add(step.Id);
@@ -362,7 +362,7 @@ public partial class MainWindow : Window
         _newFlags.RemoveAll(f => DateTime.Now - f.When > TimeSpan.FromMinutes(3) || _names.FlagName(f.Flag) is not null);
         if (_newFlags.Count == 0)
         {
-            if (IsStory(step)) _pendingStory = (step, DateTime.Now);
+            if (_rules.IsStory(step)) _pendingStory = (step, DateTime.Now);
             return;
         }
         var flags = _newFlags.Select(f => f.Flag).Distinct().ToList();
@@ -384,19 +384,14 @@ public partial class MainWindow : Window
         _seenFlags = null;
     }
 
-    /// <summary>The item's name, or its short name ("Shiva" for "Shiva Materia", IGameNames.ShortName), is in the step's.</summary>
-    bool Matches(Objective step, string name) =>
-        step.Name.Contains(name, StringComparison.OrdinalIgnoreCase)
-        || (_names.ShortName(name) is { } shortName && step.Name.Contains(shortName, StringComparison.OrdinalIgnoreCase));
-
     /// <summary>The open step this item belongs to: the current one first, then ones left behind.</summary>
     Objective? StepFor(string name)
     {
         var objectives = CurrentChapter?.Objectives ?? [];
         int next = CurrentStory is { } story ? Array.IndexOf(objectives, story) : objectives.Length;
-        int due = Array.FindIndex(objectives, next + 1, o => IsStory(o));
+        int due = Array.FindIndex(objectives, next + 1, o => _rules.IsStory(o));
         var open = objectives.Select((o, i) => (o, i))
-            .Where(x => !IsStory(x.o) && !_progress.Done.Contains(x.o.Id) && Matches(x.o, name)).ToList();
+            .Where(x => !_rules.IsStory(x.o) && !_progress.Done.Contains(x.o.Id) && _rules.Matches(x.o, name)).ToList();
         // Prefer the step of the current story step (where you are), then ones left behind, then later ones:
         // the same item can be listed twice (an MP Up on the catwalk and one in a vending machine).
         return open.FirstOrDefault(x => x.i > next && (due < 0 || x.i < due)).o
@@ -421,10 +416,10 @@ public partial class MainWindow : Window
 
     /// <summary>Whether an item step not yet done follows the current story step (before the next one).</summary>
     bool ExpectingItem() => CurrentChapter is { } chapter && CurrentStory is { } story
-        && chapter.Objectives.SkipWhile(o => o != story).Skip(1).TakeWhile(o => !IsStory(o))
-            .Any(o => IsItem(o) && !_progress.Done.Contains(o.Id));
+        && chapter.Objectives.SkipWhile(o => o != story).Skip(1).TakeWhile(o => !_rules.IsStory(o))
+            .Any(o => _rules.IsItem(o) && !_progress.Done.Contains(o.Id));
 
-    Objective? CurrentStory => CurrentChapter?.Objectives.FirstOrDefault(o => IsStory(o) && !_progress.Done.Contains(o.Id));
+    Objective? CurrentStory => CurrentChapter?.Objectives.FirstOrDefault(o => _rules.IsStory(o) && !_progress.Done.Contains(o.Id));
 
     /// <summary>Story steps before the target become done, the target and later ones open. Items are left alone.</summary>
     void SetStoryPosition(Objective target)
@@ -433,7 +428,7 @@ public partial class MainWindow : Window
         foreach (var o in CurrentChapter?.Objectives ?? [])
         {
             if (o == target) before = false;
-            if (!IsStory(o)) continue;
+            if (!_rules.IsStory(o)) continue;
             if (before) { if (_progress.Done.Add(o.Id)) _progress.History.Add(o.Id); }
             else if (_progress.Done.Remove(o.Id)) _progress.History.Remove(o.Id);
         }
@@ -450,10 +445,6 @@ public partial class MainWindow : Window
             Notify(Lang.T($"Learned: objective {objective.TitleKey} = {current.Name}", $"Dipelajari: objektif {objective.TitleKey} = {current.Name}"));
         }
     }
-
-    /// <summary>Story steps carry the game's quest names; one step may cover several ("A / B").</summary>
-    static bool NamedAs(Objective step, string title) =>
-        step.Name.Split(" / ").Any(part => part.Trim().Equals(title, StringComparison.OrdinalIgnoreCase));
 
     string _lastChoiceLog = "";
 
@@ -489,7 +480,7 @@ public partial class MainWindow : Window
         bool changed = false;
         // Chapter 8's side quests are entries with their own texts (IGameReader.SideQuests).
         foreach (var side in _reader.SideQuests.Where(s => s.Finished))
-            foreach (var step in chapter.Objectives.Where(o => IsQuest(o) && SameQuest(o, side.Title)))
+            foreach (var step in chapter.Objectives.Where(o => _rules.IsQuest(o) && GuideRules.SameQuest(o, side.Title)))
                 if (_progress.Done.Add(step.Id))
                 {
                     _progress.History.Add(step.Id);
@@ -497,7 +488,7 @@ public partial class MainWindow : Window
                     changed = true;
                 }
         foreach (var done in _reader.Candidates.Where(c => c.Title is not null && c.Finished))
-            foreach (var step in chapter.Objectives.Where(o => IsQuestOrEvent(o) && SameQuest(o, done.Title!)))
+            foreach (var step in chapter.Objectives.Where(o => _rules.IsQuestOrEvent(o) && GuideRules.SameQuest(o, done.Title!)))
                 if (_progress.Done.Add(step.Id))
                 {
                     _progress.History.Add(step.Id);
@@ -551,24 +542,10 @@ public partial class MainWindow : Window
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
-    /// <summary>
-    /// The area a step's "where" starts with, as the guide writes it: "Connecting Passageway (B5): ..." gives the area
-    /// and the floor hint B5; null when the text does not start with an area.
-    /// </summary>
-    static (string Area, string? Floor)? AreaOf(Objective o)
-    {
-        var m = AreaPattern.Match(o.Where);
-        if (!m.Success) return null;
-        var floor = FloorPattern.Match(m.Groups[2].Value);
-        return (m.Groups[1].Value.Trim(), floor.Success ? floor.Value : null);
-    }
-
-    static readonly System.Text.RegularExpressions.Regex AreaPattern = new(@"^([^:(]{3,60}?)\s*(?:\(([^)]*)\))?\s*:", System.Text.RegularExpressions.RegexOptions.Compiled),
-        FloorPattern = new(@"\bB\d+\b", System.Text.RegularExpressions.RegexOptions.Compiled),
-        HardNote = new(@"\s*\(?Hard:.*$", System.Text.RegularExpressions.RegexOptions.Compiled);
+    static readonly System.Text.RegularExpressions.Regex HardNote = new(@"\s*\(?Hard:.*$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <summary>Whether the step is in the area you are in now (and on its floor, when the guide names one).</summary>
-    bool IsHere(Objective o) => _here is { } here && AreaOf(o) is var (area, floor)
+    bool IsHere(Objective o) => _here is { } here && GuideRules.AreaOf(o) is var (area, floor)
         && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase)
         && (floor is null || (here.Floor ?? "").Split(' ', '-').Contains(floor));
 
@@ -579,9 +556,9 @@ public partial class MainWindow : Window
     /// the same garden), as in the compact list.
     /// </summary>
     List<Objective> HereSteps() => CurrentChapter is not { } chapter ? []
-        : chapter.Objectives.Where(o => !IsStory(o) && !IsTrophy(o) && !_progress.Done.Contains(o.Id)
+        : chapter.Objectives.Where(o => !_rules.IsStory(o) && !_rules.IsTrophy(o) && !_progress.Done.Contains(o.Id)
             && (IsLiveQuest(o) || (IsHere(o) && !NotYet(o, chapter) && ChestPlaced(o) != false))
-            && !(RewardOf(o, chapter) is { } quest && !_progress.Done.Contains(quest.Id))).ToList();
+            && !(GuideRules.RewardOf(o, chapter) is { } quest && !_progress.Done.Contains(quest.Id))).ToList();
 
     /// <summary>
     /// Whether the game's quest page shows this side quest (IGameReader.SideQuests): "???" quests
@@ -590,10 +567,10 @@ public partial class MainWindow : Window
     /// </summary>
     bool? SideQuestOpen(Objective o)
     {
-        if (!IsQuest(o) || CurrentChapter is not { } chapter) return null;
+        if (!_rules.IsQuest(o) || CurrentChapter is not { } chapter) return null;
         var sides = _reader.SideQuests;
-        bool Listed(Objective q) => sides.Any(s => SameQuest(q, s.Title));
-        if (!chapter.Objectives.Any(q => IsQuest(q) && Listed(q))) return null;
+        bool Listed(Objective q) => sides.Any(s => GuideRules.SameQuest(q, s.Title));
+        if (!chapter.Objectives.Any(q => _rules.IsQuest(q) && Listed(q))) return null;
         return Listed(o);
     }
 
@@ -614,20 +591,13 @@ public partial class MainWindow : Window
         if (index < 0 || CurrentStory is not { } story) return false;
         int current = Array.IndexOf(chapter.Objectives, story);
         // The story step this one belongs to: the last one before it.
-        int phase = Array.FindLastIndex(chapter.Objectives, index, s => IsStory(s));
+        int phase = Array.FindLastIndex(chapter.Objectives, index, s => _rules.IsStory(s));
         return current >= 0 && phase > current;
     }
 
-    /// <summary>
-    /// The side quest or discovery of the chapter whose reward this step is (guide column rewardOf: Nail Bat is the reward
-    /// of Kids on Patrol). Nothing to find in the area until the quest is done, and the quest itself shows there already.
-    /// </summary>
-    static Objective? RewardOf(Objective o, Chapter chapter) =>
-        o.RewardOf is { } id ? chapter.Objectives.FirstOrDefault(q => q.Id == id && q != o) : null;
-
     /// <summary>A side quest or discovery that is the game's live objective now.</summary>
     /// Not one left for later (GameObjective.Later): that one shows only in its area.
-    bool IsLiveQuest(Objective o) => IsQuestOrEvent(o) && _objective?.Title is { Length: >= 3 } title && SameQuest(o, title)
+    bool IsLiveQuest(Objective o) => _rules.IsQuestOrEvent(o) && _objective?.Title is { Length: >= 3 } title && GuideRules.SameQuest(o, title)
         && !_objective.Later;
 
     string _hereShown = "";
@@ -686,7 +656,7 @@ public partial class MainWindow : Window
     /// </summary>
     string? ChestDistance(Objective o)
     {
-        if (!_live || _herePosition is not { } p || !IsItem(o) || AreaOf(o) is not var (stepArea, _)) return null;
+        if (!_live || _herePosition is not { } p || !_rules.IsItem(o) || GuideRules.AreaOf(o) is not var (stepArea, _)) return null;
         if (!ReferenceEquals(_chestsIndexed, _reader.Chests)) IndexChests();
         if (_chestByName.GetValueOrDefault(o.Name) is not { At: { } at } only || Placed(only) == false) return null;
         // The game's flag when known; else the item arriving this session or a learned opening means the chest is empty.
@@ -706,50 +676,20 @@ public partial class MainWindow : Window
                     _chestByName[key] = _chestByName.ContainsKey(key) ? null : chest;
     }
 
-    /// <summary>The game's name for the quest is the step's (GameTitle when the guide names it otherwise: "Discovery: X" is "X").</summary>
-    static bool SameQuest(Objective step, string title) =>
-        (step.GameTitle ?? step.Name).Trim().StartsWith(title, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>
-    /// Items handed over automatically need no searching (guide column auto): "REWARD BOSS" (after a boss), "REWARD
-    /// CHAPTER" (at the end of the chapter) or "REWARD" (otherwise automatic). Null for anything you have to find yourself.
-    /// </summary>
-    string? RewardTag(Objective o) => IsStory(o) || IsTrophy(o) || o.Optional ? null : o.Auto switch
-    {
-        null => null,
-        "chapter" => "REWARD CHAPTER",
-        "boss" => "REWARD BOSS",
-        _ => "REWARD",
-    };
-
-    /// <summary>The trophy that comes with finishing the chapter (auto "chapter").</summary>
-    static bool ChapterEndTrophy(Objective o) => o.Auto == "chapter";
-
-    // ---- Step types: the game's own list (game.json "stepTypes"); rules ask a type's role, never its name -------------
-
-    static readonly StepType NoType = new();
-
-    StepType TypeOf(Objective o) => _types.GetValueOrDefault(o.Type) ?? NoType;
-    bool IsStory(Objective o) => TypeOf(o).Role == "story";
-    bool IsTrophy(Objective o) => TypeOf(o).Role == "trophy";
-    bool IsQuest(Objective o) => TypeOf(o).Role == "quest";
-    bool IsEvent(Objective o) => TypeOf(o).Role == "event";
-    bool IsQuestOrEvent(Objective o) => TypeOf(o).Role is "quest" or "event";
-    /// <summary>An item the game hands over: ticked from the inventory.</summary>
-    bool IsItem(Objective o) => TypeOf(o).Role == "item";
+    // ---- Step types as shown: the game's own list (game.json "stepTypes", GuideRules.TypeOf) --------------------------
 
     /// <summary>A step kind as written on the overlay: the guide's own type name, or its English one.</summary>
-    string TypeText(Objective o) => Lang.Indonesian ? o.Type : TypeOf(o).En ?? o.Type;
+    string TypeText(Objective o) => Lang.Indonesian ? o.Type : _rules.TypeOf(o).En ?? o.Type;
 
     /// <summary>The compact tracker's marker for a kind of step, drawn in its TypeBrush colour.</summary>
-    string TypeIcon(Objective o) => TypeOf(o).Icon ?? "•";
+    string TypeIcon(Objective o) => _rules.TypeOf(o).Icon ?? "•";
 
     readonly Dictionary<string, Brush> _typeBrushes = [];
 
     /// <summary>One colour per kind of step, so discoveries, gear and collectibles are told apart at a glance.</summary>
     Brush TypeBrush(Objective o)
     {
-        if (TypeOf(o).Color is not { } color) return Muted;
+        if (_rules.TypeOf(o).Color is not { } color) return Muted;
         if (!_typeBrushes.TryGetValue(color, out var brush))
         {
             try { brush = Brush(color); brush.Freeze(); }
@@ -783,23 +723,23 @@ public partial class MainWindow : Window
         // Money is always owned and its name is part of "Gil Up": leave it out, as FollowItems does.
         var ownedNames = live.Where(id => !_names.IsCurrency(id)).Select(id => _names.Name(id)).OfType<string>().ToList();
         _liveOwnedNames = ownedNames;
-        var itemSteps = _guide.Chapters.SelectMany(c => c.Objectives).Where(o => IsItem(o)).ToList();
+        var itemSteps = _guide.Chapters.SelectMany(c => c.Objectives).Where(o => _rules.IsItem(o)).ToList();
         bool sameStory(Chapter c) => (c.Number >= 21) == (loaded >= 21); // INTERmission is its own story
         foreach (var chapter in _guide.Chapters.Where(sameStory))
-            foreach (var o in chapter.Objectives.Where(o => !IsTrophy(o)))
+            foreach (var o in chapter.Objectives.Where(o => !_rules.IsTrophy(o)))
             {
                 if (chapter.Number > loaded) Untick(o);
-                else if (IsStory(o)) { if (chapter.Number < loaded) Tick(o); }
+                else if (_rules.IsStory(o)) { if (chapter.Number < loaded) Tick(o); }
                 // Earlier chapters: what was once ticked there stays ticked (discoveries, side quests, items that
                 // the inventory cannot vouch for), e.g. after loading an older save and coming back.
                 else if (chapter.Number < loaded && _progress.Ever.Contains(o.Id)) Tick(o);
                 // Only items listed once: owning "an MP Up" says nothing about which of several MP Up spots you
                 // visited. Those are left to the per-quest item monitor (FollowItems).
                 // Optional items are also sold, so a bought copy says nothing about the chest either.
-                else if (IsItem(o) && !o.Optional && itemSteps.Count(s => s.Name == o.Name) == 1)
+                else if (_rules.IsItem(o) && !o.Optional && itemSteps.Count(s => s.Name == o.Name) == 1)
                 {
-                    if (ownedNames.Any(n => Matches(o, n))) Tick(o);
-                    else if (TypeOf(o).NeverLost) Untick(o);
+                    if (ownedNames.Any(n => _rules.Matches(o, n))) Tick(o);
+                    else if (_rules.TypeOf(o).NeverLost) Untick(o);
                 }
             }
         _progress.Chapter = loaded;
@@ -824,7 +764,7 @@ public partial class MainWindow : Window
         if (objective is not null && CurrentChapter is { } guideChapter)
         {
             int Index(GameObjective o) => o.Title is { } t
-                ? Array.FindIndex(guideChapter.Objectives, s => IsStory(s) && NamedAs(s, t))
+                ? Array.FindIndex(guideChapter.Objectives, s => _rules.IsStory(s) && GuideRules.NamedAs(s, t))
                 : -1;
             // One guide step can cover several quests ("A / B"): then the later row in the game's table wins.
             var furthest = _reader.Candidates.MaxBy(o => (Index(o), o.Order));
@@ -847,7 +787,7 @@ public partial class MainWindow : Window
         // sub-objective can be a guide step of its own ("Train Yard Security"), and then it is the one to follow.
         Objective? StepFor(GameObjective? live, Chapter chapter) => live is null ? null
             : _names.ObjectiveStep(live.TitleKey) is { } stepId ? chapter.Objectives.FirstOrDefault(o => o.Id == stepId)
-            : chapter.Objectives.FirstOrDefault(o => IsStory(o) && live.Title is { } title && NamedAs(o, title));
+            : chapter.Objectives.FirstOrDefault(o => _rules.IsStory(o) && live.Title is { } title && GuideRules.NamedAs(o, title));
         if (objective is not null && CurrentChapter is { } chapter && chapter.Number == _detectedChapter
             && (StepFor(sub, chapter) ?? StepFor(objective, chapter)) is { } step)
         {
@@ -856,15 +796,15 @@ public partial class MainWindow : Window
             if (_storyMayGoBack)
             {
                 SetStoryPosition(step);
-                int next = Array.FindIndex(chapter.Objectives, Array.IndexOf(chapter.Objectives, step) + 1, o => IsStory(o));
+                int next = Array.FindIndex(chapter.Objectives, Array.IndexOf(chapter.Objectives, step) + 1, o => _rules.IsStory(o));
                 if (next >= 0)
                 {
                     // An item the loaded save owns is done, wherever the guide lists it (Ch8's Moogle Emporium goods come
                     // after "Battle Intel & VR" in the guide but are bought earlier): only items listed once, as in Reconcile.
                     // Side quests come back from the game's quest page (FollowCompleted).
-                    var itemSteps = _guide!.Chapters.SelectMany(c => c.Objectives).Where(s => IsItem(s)).ToList();
-                    bool Owned(Objective o) => IsItem(o) && itemSteps.Count(s => s.Name == o.Name) == 1 && _liveOwnedNames.Any(n => Matches(o, n));
-                    foreach (var o in chapter.Objectives.Skip(next).Where(o => !IsTrophy(o) && !Owned(o)))
+                    var itemSteps = _guide!.Chapters.SelectMany(c => c.Objectives).Where(s => _rules.IsItem(s)).ToList();
+                    bool Owned(Objective o) => _rules.IsItem(o) && itemSteps.Count(s => s.Name == o.Name) == 1 && _liveOwnedNames.Any(n => _rules.Matches(o, n));
+                    foreach (var o in chapter.Objectives.Skip(next).Where(o => !_rules.IsTrophy(o) && !Owned(o)))
                         if (_progress.Done.Remove(o.Id)) _progress.History.Remove(o.Id);
                 }
                 _storyMayGoBack = false;
@@ -1006,7 +946,7 @@ public partial class MainWindow : Window
     /// </summary>
     Objective? NextStep(Objective[] objectives)
     {
-        int lastStory = Array.FindLastIndex(objectives, o => IsStory(o) && _progress.Done.Contains(o.Id));
+        int lastStory = Array.FindLastIndex(objectives, o => _rules.IsStory(o) && _progress.Done.Contains(o.Id));
         return objectives.Skip(lastStory + 1).FirstOrDefault(o => !_progress.Done.Contains(o.Id))
             ?? objectives.FirstOrDefault(o => !_progress.Done.Contains(o.Id));
     }
@@ -1029,8 +969,8 @@ public partial class MainWindow : Window
         if (!done && _progress.Done.Remove(id)) _progress.History.Remove(id);
         Save();
         var step = CurrentChapter?.Objectives.FirstOrDefault(o => o.Id == id);
-        if (done && step is not null && IsStory(step)) LearnStory();
-        if (done && step is not null && (IsStory(step) || IsQuestOrEvent(step))) LearnFlag(step);
+        if (done && step is not null && _rules.IsStory(step)) LearnStory();
+        if (done && step is not null && (_rules.IsStory(step) || _rules.IsQuestOrEvent(step))) LearnFlag(step);
         else if (done && step is not null) LearnItem(step);
     }
 
@@ -1132,7 +1072,7 @@ public partial class MainWindow : Window
 
         var objectives = chapter?.Objectives ?? [];
         // Trophies are left out everywhere: the goal is collecting everything in one run, not the trophy list.
-        var counted = objectives.Where(o => !IsTrophy(o)).ToList();
+        var counted = objectives.Where(o => !_rules.IsTrophy(o)).ToList();
         int done = counted.Count(o => _progress.Done.Contains(o.Id));
         CountText.Text = $"{done}/{counted.Count}";
         Bar.Width = counted.Count == 0 ? 0 : (ActualWidth > 0 ? ActualWidth - 30 : 370) * done / counted.Count;
@@ -1144,7 +1084,7 @@ public partial class MainWindow : Window
         // Name what is still to get, so the notice shrinks as things are picked up: this chapter's missables before
         // the point of no return, plus the steps the warning itself waits for (possibly from an earlier chapter).
         var steps = _guide?.Chapters.SelectMany(c => c.Objectives).GroupBy(o => o.Id).ToDictionary(g => g.Key, g => g.First()) ?? [];
-        var toGet = openBefore.Where(o => o.Missable && !IsStory(o) && !IsTrophy(o)).Select(o => o.Name)
+        var toGet = openBefore.Where(o => o.Missable && !_rules.IsStory(o) && !_rules.IsTrophy(o)).Select(o => o.Name)
             .Concat((gate?.Needs ?? []).Where(id => !_progress.Done.Contains(id) && steps.ContainsKey(id)).Select(id => steps[id].Name))
             .Distinct().ToList();
         // What closes behind you (guide column closes: the warning's "Setelah ..." sentence).
@@ -1186,10 +1126,10 @@ public partial class MainWindow : Window
         for (int i = 0; i < objectives.Length; i++)
         {
             var o = objectives[i];
-            if (IsStory(o)) phase = i;
+            if (_rules.IsStory(o)) phase = i;
             bool isDone = _progress.Done.Contains(o.Id);
             if (isDone && !_showDone) continue;
-            string? tag = IsStory(o) || isDone ? null : phase == current ? TagNow
+            string? tag = _rules.IsStory(o) || isDone ? null : phase == current ? TagNow
                 : phase < current && (o.Revisit is null || Reached(o.Revisit)) ? TagBehind : null;
             var row = Row(o, isDone, o.Id == nextId, tag);
             List.Children.Add(row);
@@ -1232,14 +1172,14 @@ public partial class MainWindow : Window
         for (int i = 0; i < objectives.Length; i++)
         {
             var o = objectives[i];
-            if (IsStory(o)) { phase = i; continue; }
+            if (_rules.IsStory(o)) { phase = i; continue; }
             // A step with After opens when that step is reached, wherever the guide lists it (Ch8's side quests come after
             // "Battle Intel & VR" in the guide but open with "Requests for the Mercenary").
             if (_progress.Done.Contains(o.Id)) continue;
             // The game's quest page first (Ch8's side quests); else After, wherever the guide lists the step; else the order.
             if (!(SideQuestOpen(o) is { } listed ? listed || IsLiveQuest(o) : o.After is { } opens ? Reached(opens) || IsLiveQuest(o) : phase <= current)) continue;
             // Trophies are not tracked here: the rewards they come with are steps of their own.
-            if (IsTrophy(o)) continue;
+            if (_rules.IsTrophy(o)) continue;
             if (o.Optional && phase < current) continue;
             // Behind you on a stretch you cannot walk back: shown again once you can (Revisit).
             if (phase < current && o.Revisit is { } back && !Reached(back)) continue;
@@ -1284,13 +1224,13 @@ public partial class MainWindow : Window
         if (o.Optional && !done && !compact) title.Inlines.Add(new System.Windows.Documents.Run(Lang.T("OPTIONAL ", "OPSIONAL ")) { Foreground = Muted, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         // Somewhere else than where you are: the guide's area as a label, so a step of this story step that lies ahead is
         // not mistaken for one around you.
-        string? elsewhere = compact && !done && tag != TagHere && AreaOf(o) is var (stepArea, _) ? stepArea : null;
+        string? elsewhere = compact && !done && tag != TagHere && GuideRules.AreaOf(o) is var (stepArea, _) ? stepArea : null;
         if (elsewhere is not null) title.Inlines.Add(new System.Windows.Documents.Run("➜ " + elsewhere.ToUpperInvariant() + " ") { Foreground = Mako, FontWeight = FontWeights.Bold, FontSize = 10.5 });
-        if (RewardTag(o) is { } reward && !done) title.Inlines.Add(new System.Windows.Documents.Run(reward + " ") { Foreground = RewardColor, FontWeight = FontWeights.Bold, FontSize = 10.5 });
+        if (_rules.RewardTag(o) is { } reward && !done) title.Inlines.Add(new System.Windows.Documents.Run(reward + " ") { Foreground = RewardColor, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         // The icon alone is too small to tell a music disc from an item: name the kind unless the name already says it.
-        if (compact && !IsStory(o) && !o.Name.Contains(TypeText(o), StringComparison.OrdinalIgnoreCase))
+        if (compact && !_rules.IsStory(o) && !o.Name.Contains(TypeText(o), StringComparison.OrdinalIgnoreCase))
             title.Inlines.Add(new System.Windows.Documents.Run(TypeText(o).ToUpperInvariant() + " ") { Foreground = TypeBrush(o), FontWeight = FontWeights.Bold, FontSize = 10.5 });
-        title.Inlines.Add(new System.Windows.Documents.Run(o.Name) { Foreground = done ? Done : IsStory(o) || compact ? Brushes.White : TypeBrush(o), TextDecorations = done ? TextDecorations.Strikethrough : null });
+        title.Inlines.Add(new System.Windows.Documents.Run(o.Name) { Foreground = done ? Done : _rules.IsStory(o) || compact ? Brushes.White : TypeBrush(o), TextDecorations = done ? TextDecorations.Strikethrough : null });
         if (!done && StepDistance(o) is { } distance) title.Inlines.Add(new System.Windows.Documents.Run("  " + distance) { Foreground = Mako, FontSize = 11.5, FontWeight = FontWeights.SemiBold });
         if (!compact) title.Inlines.Add(new System.Windows.Documents.Run($"  {TypeText(o)}") { Foreground = TypeBrush(o), FontSize = 10.5, FontWeight = FontWeights.SemiBold });
 
@@ -1310,7 +1250,7 @@ public partial class MainWindow : Window
         {
             Child = row,
             Padding = new Thickness(compact ? 0 : 6, 5, 6, 5),
-            Margin = new Thickness(IsStory(o) || compact ? 0 : 16, IsStory(o) ? 6 : 0, 0, 0),
+            Margin = new Thickness(_rules.IsStory(o) || compact ? 0 : 16, _rules.IsStory(o) ? 6 : 0, 0, 0),
             CornerRadius = new CornerRadius(6),
             Background = isNext ? Current : Brushes.Transparent,
             Opacity = compact && o.Optional ? 0.55 : elsewhere is not null ? 0.75 : 1,
@@ -1327,7 +1267,7 @@ public partial class MainWindow : Window
     void JumpTo(Objective target)
     {
         var objectives = CurrentChapter?.Objectives ?? [];
-        foreach (var o in objectives.TakeWhile(o => o != target).Where(o => IsStory(o)))
+        foreach (var o in objectives.TakeWhile(o => o != target).Where(o => _rules.IsStory(o)))
             if (_progress.Done.Add(o.Id)) _progress.History.Add(o.Id);
         _progress.Done.Remove(target.Id);
         Save();

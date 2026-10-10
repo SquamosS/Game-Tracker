@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tests for the overlay's rules that need neither the game nor a window (overlay\Tracker\). No test framework or
+    NuGet package: a plain console program, exit code = failed checks. Run from the project root:
+      dotnet run (project tools/tracker-tests)
+    It compiles the overlay's own source files (linked below), never the overlay project, so it can run while the
+    overlay is open.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>GameTracker</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\overlay\Models.cs" Link="overlay\Models.cs" />
+    <Compile Include="..\..\overlay\GameReader.cs" Link="overlay\GameReader.cs" />
+    <Compile Include="..\..\overlay\GameModule.cs" Link="overlay\GameModule.cs" />
+    <Compile Include="..\..\overlay\Lang.cs" Link="overlay\Lang.cs" />
+    <Compile Include="..\..\overlay\DataPaths.cs" Link="overlay\DataPaths.cs" />
+    <Compile Include="..\..\overlay\Tracker\**\*.cs" Link="overlay\Tracker\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\..\overlay\games\ff7r\reader\ItemMap.cs" Link="overlay\games\ff7r\ItemMap.cs" />
+    <None Include="..\..\overlay\games\**\*.json" Link="games\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

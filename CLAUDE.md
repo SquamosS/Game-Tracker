@@ -17,7 +17,7 @@ Overlay 100%-completion (C# .NET 8 WPF, Windows), game pertama FINAL FANTASY VII
 ## Peta proyek
 - `overlay/` aplikasi bersama (dashboard + overlay), dipakai semua game.
 - `overlay/games/<id>/` semua file satu game: `game.json` (nama, proses, Steam id, reader), `guide.json` (panduan), `points.json` (titik tujuan per langkah), `assets/` (gambar), data lain. FF7R: `overlay/games/ff7r/` dengan pembaca memori di `reader/` (`Ff7rChapterReader.cs` + partial `Ff7r*.cs`, `ItemMap.cs`). Cara menambah game: `overlay/games/README.md`.
-- `tools/ff7r-scan/` scanner riset memori (output ke `research/scan/`).
+- `tools/ff7r-scan/` scanner riset memori (output ke `research/scan/`). `tools/tracker-tests/` tes aturan overlay. `tools/guide-columns.py` pengisi kolom aturan (sekali pakai, tahap 2).
 - `data/` (di-ignore git): bersama = `settings.json`, `playtime.json`, `logs/` (crash, games, steam-online). Per game `data/<id>/`: progres `<nama game>.json` + `backups/`, `trail.json` (jejak), `area-links.json`, `chests/` (peti termuat + `opened.json`), `points-recorded.tsv` (Ctrl+Shift+Alt+P), `logs/*.log` (state, position, area, items, trail, chest-flag, field-actors, quest-choice, missed; FF7R juga objective-search, objective-titles), FF7R `item-map.json`. File tata letak lama dipindah otomatis sekali (`DataPaths.MoveOld`, tidak menimpa).
 - `research/` riset & hasil walkthrough (di-ignore git).
 
@@ -41,6 +41,7 @@ Overlay 100%-completion (C# .NET 8 WPF, Windows), game pertama FINAL FANTASY VII
 - Teks UI selalu dua bahasa lewat `Lang.T(en, id)`; langkah panduan baru isi `where` (Indonesia, diawali nama area) dan `whereEn`, plus kolom aturan yang berlaku (`rewardOf`, `auto`, `closes`/`closesEn` bila ada warning).
 - Centang tidak boleh salah, juga setelah load/restart: setelah load, item dipertahankan hanya kalau save yang di-load memilikinya, side quest dari halaman quest game; data yang dibaca sebelum load dibuang (`ForgetChestCopy`, `ForgetSideQuests`). Uji restart overlay setelah mengubah aturan centang (progres harus utuh).
 - Render ulang hanya saat ada perubahan; tampilan tidak boleh menebak (lebih baik kosong). Pakai `Notify(...)` untuk umpan balik ke user.
+- Aturan tanpa game/jendela ada di `overlay/Tracker/` (mulai `GuideRules`) dan dites `dotnet run --project tools/tracker-tests` (tanpa NuGet, boleh saat overlay jalan; juga memeriksa data guide.json/game.json): harus 0 failed setelah mengubah aturan atau panduan; tambah cek untuk aturan baru.
 - Setelah perubahan besar: minta satu agent review commit-nya (bug, thread, P/Invoke), lalu perbaiki.
 
 ## Skill proyek
