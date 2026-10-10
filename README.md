@@ -33,4 +33,6 @@ Geser overlay dengan menarik judulnya. Progres disimpan di `%APPDATA%\GameTracke
 
 ## Data panduan
 
+Performa: overlay hanya membaca memori game (read-only) sekali per detik dengan bacaan kecil; pencarian besar berjalan di thread terpisah berprioritas rendah supaya FPS game tidak terganggu.
+
 Satu folder per game di `overlay/games/<id>/` (`game.json`, `guide.json`, `assets/`); lihat `overlay/games/README.md` untuk menambah game. Edit `guide.json` di `bin\Debug\net8.0-windows\games\<id>` saat aplikasi jalan untuk melihat perubahan langsung, lalu salin ke `overlay/games/<id>`. Panduan FF7R mencakup Chapter 1–18 dan INTERmission (Ch 7 ke atas belum diverifikasi di game).

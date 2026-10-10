@@ -19,6 +19,14 @@ Overlay 100%-completion untuk FINAL FANTASY VII REMAKE INTERGRADE (C# .NET 8 WPF
 - `data/` progres & log runtime (di-ignore git): `data/logs/*.log` (crash, state, position, quest-choice, objective-search).
 - `research/` riset & hasil walkthrough (di-ignore git).
 
+## Aturan kode & performa (game harus tetap lancar)
+- Poll overlay 1x/detik di thread UI: hanya baca kecil. Angka tunggal lewat overload `ReadProcessMemory(..., out long/int/byte, ..., out nint)` (tanpa array); `lpNumberOfBytesRead` selalu `nint`.
+- Blok besar: satu kali baca + parse dari `Span` (lihat `ReadRecords`, `ItemsStart`), buffer dari `ArrayPool`; jangan alokasi per record.
+- Scan besar (>1 MB) jangan di thread UI: lewat `Scan(...)` (thread pekerja, prioritas rendah, bisa dibatalkan `Detach`), hasil digabung di thread UI; buffer per scan, bukan dibagi. Scan penuh memori dibatasi (>= 20-30 dtk) atau dipicu perubahan.
+- Cache hasil yang jarang berubah (mis. set flag dipakai ulang kalau byte sama); baca posisi sekali per poll; Regex `static readonly ... Compiled`.
+- Render ulang hanya saat ada perubahan; tampilan tidak boleh menebak (lebih baik kosong). Pakai `Notify(...)` untuk umpan balik ke user.
+- Setelah perubahan besar: minta satu agent review commit-nya (bug, thread, P/Invoke), lalu perbaiki.
+
 ## Skill proyek
 - `/restart-overlay`: build dan jalankan ulang overlay dengan aman.
 - `/memory-research`: alur riset memori FF7R dengan scanner, bersama user di dalam game.

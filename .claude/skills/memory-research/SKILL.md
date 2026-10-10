@@ -26,6 +26,7 @@ Read `research/notes.md` first: it lists every address found (and every dead end
 ## Into the overlay
 - New partial file `overlay/games/ff7r/reader/Ff7r<Thing>.cs` on `Ff7rChapterReader`, gated on `Version == "Steam 1.0.0.7"` (return null otherwise), doc comment stating offsets and how they were found.
 - Heap objects: collect them by vtable in the objective search's second `ForEachChunk` pass (`Ff7rObjective.cs`), swap lists whole (the UI thread reads them), reset in `Detach()`. No extra full scans on a timer; if one is needed, rate-limit it (>= 30 s).
-- Static values: read `_moduleBase + rva` each poll.
+- Static values: read `_moduleBase + rva` each poll with the `out` overloads (no array per read).
+- Keep the 1 s poll light (see CLAUDE.md "Aturan kode & performa"): big reads go through `Scan(...)` on a worker and merge on the UI thread; cache what rarely changes.
 - Log new signals to `data/logs/<name>.log` first when their meaning is not certain, then act on them.
 - Record the result (and failures) in `research/notes.md`, update `docs/HANDOFF-AI.md` section 0 for lasting features, restart with /restart-overlay, commit and push.
