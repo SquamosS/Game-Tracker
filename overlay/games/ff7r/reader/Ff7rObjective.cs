@@ -285,7 +285,9 @@ public sealed partial class Ff7rChapterReader
         _positionObjects = positions.ToList(); // swapped whole: the UI thread reads these
         if (!naviTexts.IsEmpty) _naviTexts = new Dictionary<string, string>(naviTexts);
         _naviVolumes = volumes.ToList(); // a new list: ReadLocation resolves names and bounds again
-        if (!tables.IsEmpty) UpdateChests(tables.ToList(), cancel);
+        // The chests are extra: a failure there must not throw away the objectives found above.
+        try { if (!tables.IsEmpty) UpdateChests(tables.ToList(), cancel); }
+        catch (Exception e) when (e is not OperationCanceledException) { ObjectiveDebug = "chests: " + e.Message; }
         ObjectiveDebug = $"rows {byAddress.Count} ({rowsMs} ms, {stringReads} reads), slots {slots.Count} ({sw.ElapsedMilliseconds - rowsMs} ms), entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}, positions {positions.Count}, volumes {volumes.Count}, chests {Chests.Count}";
         return (byAddress, entries.Count > 0 ? entries : slots);
     }

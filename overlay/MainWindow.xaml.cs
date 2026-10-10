@@ -206,9 +206,12 @@ public partial class MainWindow : Window
         LogPosition(position);
         FollowGameState();
         changed |= FollowLocation(position);
-        // Distances to chests change as you walk: redraw only when a rounded one does.
-        string distances = string.Join("|", (CurrentChapter?.Objectives ?? []).Where(o => !_progress.Done.Contains(o.Id)).Select(ChestDistance));
-        if (distances != _distances) { _distances = distances; changed = true; }
+        // Distances to chests change as you walk: redraw when a rounded one does, at most every 2 s.
+        if (DateTime.Now - _distancesAt >= TimeSpan.FromSeconds(2))
+        {
+            string distances = string.Join("|", (CurrentChapter?.Objectives ?? []).Where(o => !_progress.Done.Contains(o.Id)).Select(ChestDistance));
+            if (distances != _distances) { _distances = distances; _distancesAt = DateTime.Now; changed = true; }
+        }
         // The notice counts down only while you can see it: a chapter's recap must not run out behind a cutscene.
         if (_notice is not null && IsVisible && --_noticeSeconds <= 0) { _notice = null; RenderNotice(); }
 
@@ -259,6 +262,7 @@ public partial class MainWindow : Window
         {
             // Consumables (ids below 100: potions, gil...) are never guide steps, so they are not learned. Neither is
             // anything that came with a loaded save.
+            _obtained.Add(o.Id); // its chest, if any, is empty now: no distance to it any more
             if (_itemMap.Name(o.Id) is not { } name) { if (o.Id >= 100 && changedSlots.Count <= 3) _unknownNew.Add((o.Id, DateTime.Now)); continue; }
             var step = StepFor(name);
             if (step is null || !_progress.Done.Add(step.Id)) continue;
@@ -596,32 +600,46 @@ public partial class MainWindow : Window
     string ShownWhere(Objective o) => _hardMode ? o.ShownWhere : HardNote.Replace(o.ShownWhere, "");
 
     string _distances = "";
+    DateTime _distancesAt;
+    /// <summary>Item ids obtained while the overlay runs: a chest holding one of them has been emptied.</summary>
+    readonly HashSet<int> _obtained = [];
+
+    /// <summary>Item name -> the one chest holding it (null: several do), built again when the chest list changes.</summary>
+    Dictionary<string, Ff7rChapterReader.Chest?> _chestByName = new(StringComparer.OrdinalIgnoreCase);
+    IReadOnlyList<Ff7rChapterReader.Chest>? _chestsIndexed;
+    /// <summary>The area each chest stands in (Ff7rMapArea.cs), once known.</summary>
+    readonly Dictionary<Ff7rChapterReader.Chest, string> _chestArea = [];
 
     /// <summary>
-    /// How far Cloud is from the one chest of the loaded maps holding this step's item ("12 m", rounded to 1 m up close,
-    /// 5 m to 100 m, 10 m beyond), from the game's chest tables (Ff7rTreasure.cs). Null when no chest or more than
-    /// one holds it (which one the guide means would be a guess), or the position is not known.
+    /// How far Cloud is from the chest holding this step's item ("12 m", rounded to 1 m up close, 5 m to 100 m, 10 m
+    /// beyond), from the game's chest tables (Ff7rTreasure.cs). Only when exactly one chest of the loaded maps holds it,
+    /// that chest stands in the area the guide names for the step, and the item was not obtained since the overlay
+    /// started (the chest is empty then). Anything else would be a guess: null.
     /// </summary>
     string? ChestDistance(Objective o)
     {
-        if (!_live || _herePosition is not { } p || !ItemTypes.Contains(o.Type)) return null;
-        Ff7rChapterReader.Chest? only = null;
-        foreach (var chest in _reader.Chests)
-            if (chest.Items.Any(id => _itemMap.Name(id) is { } name && SameItem(o, name)))
-            {
-                if (only is not null) return null;
-                only = chest;
-            }
-        if (only is null) return null;
-        double dx = only.X - p.X, dy = only.Y - p.Y, dz = only.Z - p.Z, metres = Math.Sqrt(dx * dx + dy * dy + dz * dz) / 100;
+        if (!_live || _herePosition is not { } p || !ItemTypes.Contains(o.Type) || AreaOf(o) is not var (stepArea, _)) return null;
+        if (!ReferenceEquals(_chestsIndexed, _reader.Chests))
+        {
+            _chestsIndexed = _reader.Chests;
+            _chestByName = new(StringComparer.OrdinalIgnoreCase);
+            _chestArea.Clear();
+            foreach (var chest in _chestsIndexed)
+                foreach (var name in chest.Items.Select(_itemMap.Name).OfType<string>().Distinct())
+                    foreach (var key in name.EndsWith(" Materia") ? new[] { name, name[..^8] } : [name])
+                        _chestByName[key] = _chestByName.ContainsKey(key) ? null : chest;
+        }
+        if (_chestByName.GetValueOrDefault(o.Name) is not { At: { } at } only || only.Items.Any(_obtained.Contains)) return null;
+        if (!_chestArea.TryGetValue(only, out var area))
+        {
+            if (_reader.ReadLocation(at) is not { } location) return null;
+            _chestArea[only] = area = location.Area;
+        }
+        if (!area.Equals(stepArea, StringComparison.OrdinalIgnoreCase)) return null;
+        double dx = at.X - p.X, dy = at.Y - p.Y, dz = at.Z - p.Z, metres = Math.Sqrt(dx * dx + dy * dy + dz * dz) / 100;
         double round = metres < 20 ? 1 : metres < 100 ? 5 : 10;
         return $"{Math.Round(metres / round) * round:0} m";
     }
-
-    /// <summary>The step is that item: the same name, or "Shiva" for "Shiva Materia" (not "Turbo Ether" for "Ether").</summary>
-    static bool SameItem(Objective step, string name) =>
-        step.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
-        || (name.EndsWith(" Materia") && step.Name.Equals(name[..^8], StringComparison.OrdinalIgnoreCase));
 
     /// <summary>"Discovery: Collapsed Passageway" is the game's "Collapsed Passageway".</summary>
     static bool SameQuest(string guideName, string title) =>

@@ -415,6 +415,20 @@ switch (args[0])
         }
         break;
     }
+    case "savediff": // savediff <old copy> <new copy> <from> <len>: bits that changed between two save copies (offsets relative to the materia list)
+    {
+        long oldCopy = Convert.ToInt64(args[1], 16), newCopy = Convert.ToInt64(args[2], 16);
+        long from = Convert.ToInt64(args[3], 16); int len = Convert.ToInt32(args[4], 16);
+        var o = Read(oldCopy + from, len); var n = Read(newCopy + from, len);
+        int shown = 0;
+        for (int k = 0; k < len; k++)
+        {
+            if (o[k] == n[k]) continue;
+            if (shown++ < 400) Console.WriteLine($"+0x{from + k:X}	{o[k]:X2} -> {n[k]:X2}");
+        }
+        Console.WriteLine($"{shown} byte berubah");
+        break;
+    }
     case "navi": // navi <file>: every "$navi..." localization key with its English text (FString key then FString text)
     {
         var pairs = new SortedDictionary<string, string>();

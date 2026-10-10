@@ -17,13 +17,19 @@ public sealed partial class Ff7rChapterReader
 {
     const long ItemTableRva = 0x4CCCE48, EquipmentTableRva = 0x4CC3438, MateriaTableRva = 0x4CCA208, RewardTableRva = 0x4CE1290, ChestTableRva = 0x4CD6488;
 
-    public sealed record Chest(string Id, float X, float Y, float Z, int[] Items);
+    /// <summary>A chest: its id, where it stands (null when its point was not found or is ambiguous) and the ids it holds.</summary>
+    public sealed record Chest(string Id, Position? At, int[] Items);
 
-    /// <summary>The chests of the loaded maps, swapped whole after a search (the UI thread reads it).</summary>
+    /// <summary>
+    /// Every chest row of the loaded maps, also those without a known position (so "only one chest holds it" counts
+    /// them), swapped whole after a search (the UI thread reads it).
+    /// </summary>
     public IReadOnlyList<Chest> Chests { get; private set; } = [];
 
-    /// <summary>The chest tables the chests were built from, to rebuild only when another map loads.</summary>
-    long[] _chestTablesFrom = [];
+    /// <summary>The tables (addresses and row counts) the chests were built from, and whether that build was complete.</summary>
+    string _chestTablesFrom = "";
+    bool _chestsComplete;
+    DateTime _chestsBuilt;
 
     /// <summary>The table vtables to collect during the objective search (none on another game version).</summary>
     (long Item, long Equipment, long Materia, long Reward, long Chest) TableVtables => Version == "Steam 1.0.0.7"
@@ -47,29 +53,30 @@ public sealed partial class Ff7rChapterReader
     }
 
     /// <summary>
-    /// Builds the chest list from the tables found by the objective search (worker thread), when the chest tables are
-    /// not the ones it was built from. One extra pass over memory finds the points.
+    /// Builds the chest list from the tables found by the objective search (worker thread) when the tables changed (another
+    /// map loaded), or every 2 minutes while the last build missed points or contents. One extra pass finds the points.
     /// </summary>
     void UpdateChests(List<(int Kind, long Table)> tables, CancellationToken cancel)
     {
-        var chestTables = tables.Where(t => t.Kind == 4).Select(t => t.Table).Where(t => TableRows(t, 0xA0) is not null).OrderBy(t => t).ToArray();
-        if (chestTables.SequenceEqual(_chestTablesFrom)) return;
+        int Stride(int kind) => kind switch { 0 => 0x158, 1 => 0x288, 2 => 0x160, 3 => 0x50, _ => 0xA0 };
+        var usable = tables.Where(t => TableRows(t.Table, Stride(t.Kind)) is not null).OrderBy(t => t.Table).ToList();
+        string key = string.Join(",", usable.Select(t => $"{t.Kind}:{t.Table:X}:{ReadInt32(t.Table + 0x40)}"));
+        if (key == _chestTablesFrom && (_chestsComplete || DateTime.Now - _chestsBuilt < TimeSpan.FromMinutes(2))) return;
 
         // Item code -> inventory id, from the three item tables.
         var ids = new Dictionary<string, int>();
-        foreach (var (kind, table) in tables)
+        foreach (var (kind, table) in usable.Where(t => t.Kind <= 2))
         {
-            int stride = kind switch { 0 => 0x158, 1 => 0x288, 2 => 0x160, _ => 0 };
-            if (stride == 0 || TableRows(table, stride) is not var (rows, count)) continue;
+            var (rows, count) = TableRows(table, Stride(kind))!.Value;
             for (int r = 0; r < count; r++)
-                if (FNameAt(rows + (long)r * stride) is { Length: > 0 } code && ReadInt32(rows + (long)r * stride + 0x10) is > 0 and var id)
+                if (FNameAt(rows + (long)r * Stride(kind)) is { Length: > 0 } code && ReadInt32(rows + (long)r * Stride(kind) + 0x10) is > 0 and var id)
                     ids.TryAdd(code, id);
         }
         // Reward key -> item codes.
         var rewards = new Dictionary<string, List<string>>();
-        foreach (var (_, table) in tables.Where(t => t.Kind == 3))
+        foreach (var (_, table) in usable.Where(t => t.Kind == 3))
         {
-            if (TableRows(table, 0x50) is not var (rows, count)) continue;
+            var (rows, count) = TableRows(table, 0x50)!.Value;
             for (int r = 0; r < count; r++)
             {
                 long row = rows + (long)r * 0x50, list = ReadInt64(row + 0x28);
@@ -78,35 +85,42 @@ public sealed partial class Ff7rChapterReader
                 rewards.TryAdd(FNameAt(row), Enumerable.Range(0, n).Select(k => FNameAt(list + k * 0x10)).ToList());
             }
         }
-        // Chest rows: id, point, reward keys.
-        var rowsFound = new List<(string Id, int Point, int[] Items)>();
-        foreach (long table in chestTables)
+        // Chest rows: id, point (FName index and number), reward keys -> ids.
+        bool complete = true;
+        var rowsFound = new List<(string Id, long Point, int[] Items)>();
+        foreach (var (_, table) in usable.Where(t => t.Kind == 4))
         {
-            if (TableRows(table, 0xA0) is not var (rows, count)) continue;
+            var (rows, count) = TableRows(table, 0xA0)!.Value;
             for (int r = 0; r < count; r++)
             {
                 long row = rows + (long)r * 0xA0;
-                var items = Enumerable.Range(0, 8).Select(k => FNameAt(row + 0x38 + k * 8)).Where(k => k.StartsWith("rwr"))
-                    .SelectMany(k => rewards.GetValueOrDefault(k) ?? []).Select(c => ids.GetValueOrDefault(c)).Where(id => id > 0).ToArray();
-                rowsFound.Add((FNameAt(row), ReadInt32(row + 0x30), items));
+                var keys = Enumerable.Range(0, 8).Select(k => FNameAt(row + 0x38 + k * 8)).Where(k => k.StartsWith("rwr")).ToList();
+                var items = keys.SelectMany(k => rewards.GetValueOrDefault(k) ?? []).Select(c => ids.GetValueOrDefault(c)).Where(id => id > 0).ToArray();
+                if (keys.Count > 0 && items.Length == 0) complete = false;
+                rowsFound.Add((FNameAt(row), (uint)ReadInt32(row + 0x30) | (long)ReadInt32(row + 0x34) << 32, items));
             }
         }
-        // Points: rows of FName (number 0), pointer, rotation, X, Y, Z, scale 1, 1, 1.
+        // Points: rows of FName (index, number), pointer, rotation, X, Y, Z, scale 1, 1, 1. A name found at two different
+        // places is ambiguous and left without a position.
         var wanted = rowsFound.Select(r => r.Point).Where(p => p != 0).ToHashSet();
-        var points = new System.Collections.Concurrent.ConcurrentDictionary<int, (float X, float Y, float Z)>();
+        var points = new System.Collections.Concurrent.ConcurrentDictionary<long, Position?>();
         ForEachChunk(cancel, (a, buf, length) =>
         {
             for (int i = 0; i + 0x3C <= length; i += 8)
             {
-                int name = BitConverter.ToInt32(buf, i);
-                if (!wanted.Contains(name) || BitConverter.ToInt32(buf, i + 4) != 0) continue;
+                long name = (uint)BitConverter.ToInt32(buf, i) | (long)BitConverter.ToInt32(buf, i + 4) << 32;
+                if (!wanted.Contains(name)) continue;
                 if (BitConverter.ToSingle(buf, i + 0x30) != 1f || BitConverter.ToSingle(buf, i + 0x34) != 1f || BitConverter.ToSingle(buf, i + 0x38) != 1f) continue;
-                float x = BitConverter.ToSingle(buf, i + 0x20), y = BitConverter.ToSingle(buf, i + 0x24), z = BitConverter.ToSingle(buf, i + 0x28);
-                if (float.IsFinite(x) && float.IsFinite(y) && float.IsFinite(z)) points.TryAdd(name, (x, y, z));
+                var p = new Position(BitConverter.ToSingle(buf, i + 0x20), BitConverter.ToSingle(buf, i + 0x24), BitConverter.ToSingle(buf, i + 0x28));
+                if (!float.IsFinite(p.X) || !float.IsFinite(p.Y) || !float.IsFinite(p.Z)) continue;
+                points.AddOrUpdate(name, p, (_, old) => old == p ? old : null);
             }
         });
-        Chests = rowsFound.Where(r => points.ContainsKey(r.Point))
-            .Select(r => { var p = points[r.Point]; return new Chest(r.Id, p.X, p.Y, p.Z, r.Items); }).ToList();
-        _chestTablesFrom = chestTables;
+        var chests = rowsFound.Select(r => new Chest(r.Id, points.GetValueOrDefault(r.Point), r.Items)).ToList();
+        if (chests.Any(c => c.At is null)) complete = false;
+        // A search cancelled by Detach must not fill the list of a game that closed.
+        cancel.ThrowIfCancellationRequested();
+        Chests = chests;
+        (_chestTablesFrom, _chestsComplete, _chestsBuilt) = (key, complete, DateTime.Now);
     }
 }
