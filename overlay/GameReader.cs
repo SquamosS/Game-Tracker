@@ -65,6 +65,9 @@ public interface IGameNames
 
     /// <summary>Whether an unknown item of this id could be what a guide step of this type gives (learning item names).</summary>
     bool FitsStep(int id, string stepType);
+
+    /// <summary>The shorter name a guide may use for the item ("Shiva" for "Shiva Materia"), null when it has none.</summary>
+    string? ShortName(string itemName);
 }
 
 /// <summary>
@@ -180,6 +183,7 @@ public sealed class NoGameReader : IGameReader
         public bool IsCurrency(int id) => false;
         public bool IsConsumable(int id) => false;
         public bool FitsStep(int id, string stepType) => false;
+        public string? ShortName(string itemName) => null;
     }
 
     public string? Version => null;

@@ -112,6 +112,9 @@ public class ItemMap : IGameNames
     /// <summary>Materia ids are 10000 and up: an unknown one is learned only for a materia step, other ids only for other steps.</summary>
     public bool FitsStep(int id, string stepType) => (id >= 10000) == (stepType == "materia");
 
+    /// <summary>Summons and other materia are often named without " Materia" ("Shiva").</summary>
+    public string? ShortName(string itemName) => itemName.EndsWith(" Materia") ? itemName[..^8] : null;
+
     public static ItemMap Load()
     {
         try { return JsonSerializer.Deserialize<ItemMap>(File.ReadAllText(File_)) ?? new(); }

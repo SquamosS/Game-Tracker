@@ -68,14 +68,20 @@ Folder yang namanya diawali `_` (mis. `_template`) dilewati. Salin `_template` u
   (Target: daftar jenis, ikon dan warna didefinisikan per game di game.json.)
 - `where` diawali **nama area resmi** lalu titik dua (`Area (B5): ...`): overlay memakainya untuk pop-up "DI AREA INI"
   dan petunjuk ruang (hanya untuk game dengan reader yang tahu area pemain).
-- Opsional: `optional: true` (item yang juga dijual: hanya pengingat), `warning` (point of no return; teks "Setelah ..." menjelaskan
+- Opsional: `optional: true` (item yang juga dijual: hanya pengingat), `warning` (point of no return; kalimat "Setelah ..." juga diisi di `closes`, menjelaskan
   apa yang tertutup), `needs` (id langkah yang ditunggu warning), `hard: true` (hanya mode Hard).
 - `after`: id langkah yang membuka langkah ini (side quest Ch8 FF7R terbuka saat "Requests for the Mercenary" dimulai). Sebelum
   tercapai (langkah itu aktif atau selesai) langkah tidak tampil, di mana pun ia tercantum di panduan. Data game (halaman quest,
   objek di peta) tetap didahulukan kalau pembaca bisa membacanya.
 - `revisit`: id langkah yang membuat area langkah ini bisa didatangi lagi; sebelum itu langkah yang terlewat tidak ditandai tertinggal.
 - Tanpa `after`, urutan panduan menentukan: langkah baru tampil saat langkah cerita sebelumnya sedang berjalan.
-- Hadiah quest: sekarang dikenali dari kata "hadiah" + nama quest di `where` (FF7R); target kolom `rewardOf`.
+- `rewardOf`: id side quest/discovery yang hadiahnya langkah ini; langkah tidak tampil di pop-up area sampai quest itu selesai.
+- `auto`: item diberikan sendiri, tidak perlu dicari: `"chapter"` (di akhir chapter; ikut dicentang saat chapter berganti; untuk
+  trofi = trofi tamat chapter), `"boss"` (setelah boss) atau `"yes"`. Tampil sebagai tag REWARD CHAPTER / REWARD BOSS / REWARD.
+- `gameTitle`: nama quest seperti di game kalau nama panduan berbeda (`"Discovery: X"` -> `"X"`), untuk mencocokkan dengan halaman quest.
+- `closes` / `closesEn`: apa yang tertutup setelah point of no return (kalimat "Setelah ..." / "After ..." dari warning), tampil di peringatan.
+- Aturan overlay hanya membaca kolom-kolom ini dan awal `where` (nama area), bukan kata di teks. Mengisi kolom FF7R dari teks lama:
+  `python -I tools/guide-columns.py overlay/games/ff7r/guide.json` (sekali, sudah dijalankan 10 Okt 2026).
 
 ## points.json (opsional)
 

@@ -106,6 +106,7 @@
           "name": "Onetime Gig",
           "where": "Trofi otomatis saat Chapter 1 selesai.",
           "whereEn": "Trophy is awarded automatically when Chapter 1 ends.",
+          "auto": "chapter",
           "missable": false
         }
       ]
@@ -218,6 +219,7 @@
           "name": "Escape Artist",
           "where": "Trofi otomatis saat Chapter 2 selesai.",
           "whereEn": "Trophy is awarded automatically when Chapter 2 ends.",
+          "auto": "chapter",
           "missable": false
         }
       ]
@@ -299,6 +301,7 @@
           "name": "Iron Blade",
           "where": "Beginner's Hall: pemilik toko senjata di lantai 1 memberikannya gratis setelah Scrap Boulevard dibersihkan; Biggs mengenalkan Weapon Upgrade di lantai 2 (otomatis).",
           "whereEn": "Beginner's Hall: the weapon shop owner on floor 1 gives it for free after Scrap Boulevard is cleared; Biggs introduces Weapon Upgrade on floor 2 (automatic).",
+          "auto": "yes",
           "missable": false
         },
         {
@@ -307,6 +310,7 @@
           "name": "Assess Materia",
           "where": "Beginner's Hall: Chadley yang berdiri di depan gedung (dekat Wymer) memberikannya otomatis bersama Combat Analyzer.",
           "whereEn": "Beginner's Hall: Chadley, standing in front of the building (near Wymer), gives it automatically along with the Combat Analyzer.",
+          "auto": "yes",
           "missable": false
         },
         {
@@ -430,7 +434,9 @@
           "whereEn": "Chase Johnny with Tifa (required, cannot be postponed). After Johnny is saved, side quests can still be done (checked 2026-10-08).",
           "missable": false,
           "warning": "SEBELUM masuk Seventh Heaven untuk ambil bayaran: selesaikan semua side quest + Alone at Last, beli Barret's Theme, ambil hadiah Katie 50 kill. Setelah masuk Seventh Heaven, side quest Chapter 3 kemungkinan terkunci.",
-          "warningEn": "BEFORE entering Seventh Heaven to collect the payment: finish all side quests + Alone at Last, buy Barret's Theme, claim Katie's 50-kill reward. After entering Seventh Heaven, the Chapter 3 side quests are likely locked."
+          "warningEn": "BEFORE entering Seventh Heaven to collect the payment: finish all side quests + Alone at Last, buy Barret's Theme, claim Katie's 50-kill reward. After entering Seventh Heaven, the Chapter 3 side quests are likely locked.",
+          "closes": "Setelah masuk Seventh Heaven, side quest Chapter 3 kemungkinan terkunci.",
+          "closesEn": "After entering Seventh Heaven, the Chapter 3 side quests are likely locked."
         },
         {
           "id": "c3-27-talking-strategy",
@@ -462,6 +468,7 @@
           "name": "Ifrit",
           "where": "Residential Area: Jessie memberikannya otomatis sebagai uang muka di Stargazer Heights setelah mengalahkan Hoodlums.",
           "whereEn": "Residential Area: Jessie gives it automatically as an advance payment at Stargazer Heights after you defeat the Hoodlums.",
+          "auto": "yes",
           "missable": false
         },
         {
@@ -472,7 +479,9 @@
           "whereEn": "Talk to Jessie, who waits on the apartment balcony, to close the chapter.",
           "missable": false,
           "warning": "SEBELUM bicara dengan Jessie: pastikan darts (Heavenly Dart Player) sudah beres dan belanja yang perlu. Setelah ini area chapter 3 ditutup.",
-          "warningEn": "BEFORE talking to Jessie: make sure darts (Heavenly Dart Player) is done and do any shopping you need. After this, the Chapter 3 area is closed."
+          "warningEn": "BEFORE talking to Jessie: make sure darts (Heavenly Dart Player) is done and do any shopping you need. After this, the Chapter 3 area is closed.",
+          "closes": "Setelah ini area chapter 3 ditutup.",
+          "closesEn": "After this, the Chapter 3 area is closed."
         },
         {
           "id": "c3-32-trophy",
@@ -480,6 +489,7 @@
           "name": "Mercenary Endeavors",
           "where": "Trofi otomatis saat Chapter 3 selesai.",
           "whereEn": "Trophy is awarded automatically when Chapter 3 ends.",
+          "auto": "chapter",
           "missable": false
         }
       ]
@@ -583,6 +593,7 @@
           "name": "Barrier Materia",
           "where": "Residential Area (slum): Jessie memberikannya otomatis sebagai sisa bayaran saat Remaining Payment. Juga dijual (1500 gil).",
           "whereEn": "Residential Area (slum): Jessie gives it automatically as the remaining payment during Remaining Payment. Also sold (1500 gil).",
+          "auto": "yes",
           "missable": false
         },
         {
@@ -610,6 +621,8 @@
           "missable": false,
           "warning": "SEBELUM LANJUT: klaim MP Up Materia dari Katie (50 kill) dan beli disc Barret's Theme di kios stasiun. Setelah naik kereta, Sektor 7 Slums terkunci.",
           "warningEn": "BEFORE CONTINUING: claim the MP Up Materia from Katie (50 kills) and buy the Barret's Theme disc at the station stall. After boarding the train, Sector 7 Slums is locked.",
+          "closes": "Setelah naik kereta, Sektor 7 Slums terkunci.",
+          "closesEn": "After boarding the train, Sector 7 Slums is locked.",
           "needs": [
             "c3-13-katie-mpup",
             "c3-24-disc-barret"
@@ -629,6 +642,7 @@
           "name": "Night on the Town",
           "where": "Trofi otomatis saat Chapter 4 selesai.",
           "whereEn": "Trophy is awarded automatically when Chapter 4 ends.",
+          "auto": "chapter",
           "missable": false
         }
       ]
@@ -728,6 +742,7 @@
           "name": "Metal Knuckles",
           "where": "Loading Bay: otomatis setelah Crab Warden kalah (turun tangga dari ruang istirahat, boss di tengah area).",
           "whereEn": "Loading Bay: automatic after Crab Warden is defeated (go down the stairs from the rest room, the boss is in the middle of the area).",
+          "auto": "boss",
           "missable": false
         },
         {
@@ -738,7 +753,9 @@
           "whereEn": "Climb the iron ladder after the boss; the chapter ends.",
           "missable": false,
           "warning": "SEBELUM LANJUT: beli disc Stamp di vending machine ruang istirahat sebelum boss Crab Warden. Setelah boss Crab Warden area terowongan tertutup permanen.",
-          "warningEn": "BEFORE CONTINUING: buy the Stamp disc at the rest room vending machine before the Crab Warden boss. After the Crab Warden boss, the tunnel area closes permanently."
+          "warningEn": "BEFORE CONTINUING: buy the Stamp disc at the rest room vending machine before the Crab Warden boss. After the Crab Warden boss, the tunnel area closes permanently.",
+          "closes": "Setelah boss Crab Warden area terowongan tertutup permanen.",
+          "closesEn": "After the Crab Warden boss, the tunnel area closes permanently."
         },
         {
           "id": "c5-13-trophy",
@@ -746,6 +763,7 @@
           "name": "Plan E",
           "where": "Otomatis saat Chapter 5 tamat.",
           "whereEn": "Automatic when Chapter 5 ends.",
+          "auto": "chapter",
           "missable": false
         }
       ]
@@ -785,6 +803,7 @@
           "name": "Discovery: Collapsed Passageway",
           "where": "Section G Utility Access: catwalk kayu di tingkat bawah runtuh waktu didekati materia biru; discovery aktif, materianya baru bisa dijangkau nanti dari Section H (Sun Lamp 3).",
           "whereEn": "Section G Utility Access: the wooden catwalk on the lower level collapses when you approach the blue materia; the discovery is active, and the materia can only be reached later from Section H (Sun Lamp 3).",
+          "gameTitle": "Collapsed Passageway",
           "missable": true
         },
         {
@@ -801,6 +820,7 @@
           "name": "Discovery: Inside the Ventilation Fan",
           "where": "Plate Ventilation Facilities - Interior: Tifa menunjuk materia merah di balik kipas besar saat lewat pipa Section H; matikan kipas di konsol ruang kontrol lalu masuk dan habisi musuh dalam 60 detik.",
           "whereEn": "Plate Ventilation Facilities - Interior: Tifa points out the red materia behind the big fan as you pass through the Section H pipe; turn off the fan at the control room console, then go in and defeat the enemies within 60 seconds.",
+          "gameTitle": "Inside the Ventilation Fan",
           "missable": true
         },
         {
@@ -809,6 +829,7 @@
           "name": "Chocobo & Moogle",
           "where": "Plate Ventilation Facilities - Interior: materia merah di dalam ruang kipas, hadiah Inside the Ventilation Fan (sekaligus trofi Cleanup Crew).",
           "whereEn": "Plate Ventilation Facilities - Interior: red materia inside the fan room, reward for Inside the Ventilation Fan (also the Cleanup Crew trophy).",
+          "rewardOf": "c6-05-vent-fan",
           "missable": true
         },
         {
@@ -845,7 +866,9 @@
           "whereEn": "Destroy 6 turrets, climb the stairs & vents to reach Biggs.",
           "missable": false,
           "warning": "SEBELUM LANJUT: ambil Elemental, Chocobo & Moogle & disc Electric de Chocobo. Setelah ketemu Biggs area ini tertutup.",
-          "warningEn": "BEFORE CONTINUING: get Elemental, Chocobo & Moogle & the Electric de Chocobo disc. After meeting Biggs, this area closes."
+          "warningEn": "BEFORE CONTINUING: get Elemental, Chocobo & Moogle & the Electric de Chocobo disc. After meeting Biggs, this area closes.",
+          "closes": "Setelah ketemu Biggs area ini tertutup.",
+          "closesEn": "After meeting Biggs, this area closes."
         },
         {
           "id": "c6-12-lmg",
@@ -853,6 +876,7 @@
           "name": "Light Machine Gun",
           "where": "Otomatis dari Biggs di ujung jalan setelah Cargo Platform dan tangga Interplate Utility Access; chapter selesai (otomatis, akhir chapter).",
           "whereEn": "Automatic from Biggs at the end of the path after Cargo Platform and the Interplate Utility Access stairs; the chapter ends (automatic, end of chapter).",
+          "auto": "chapter",
           "missable": false
         },
         {
@@ -861,6 +885,7 @@
           "name": "Lights Out",
           "where": "Otomatis saat Chapter 6 tamat.",
           "whereEn": "Automatic when Chapter 6 ends.",
+          "auto": "chapter",
           "missable": false
         }
       ]
@@ -934,6 +959,7 @@
           "name": "Discovery: Waste Recovery",
           "where": "Security Ops: di bagian Storm the Gates, cari tanda discovery ungu dekat pintu terkunci, pakai terminal, lalu sinkronkan tuas 4 kali (trofi In Lockstep). Pintu membuka ruang Waste Storage.",
           "whereEn": "Security Ops: in the Storm the Gates section, find the purple discovery mark near the locked door, use the terminal, then sync the levers 4 times (In Lockstep trophy). The door opens the Waste Storage room.",
+          "gameTitle": "Waste Recovery",
           "missable": true
         },
         {
@@ -961,7 +987,9 @@
           "whereEn": "Use Lightning to stagger it, hit it from behind when it turns around.",
           "missable": false,
           "warning": "SEBELUM LANJUT: ambil Sonic Strikers & disc Bombing Mission. Setelah boss reaktor tertutup.",
-          "warningEn": "BEFORE CONTINUING: get Sonic Strikers & the Bombing Mission disc. After the boss, the reactor closes."
+          "warningEn": "BEFORE CONTINUING: get Sonic Strikers & the Bombing Mission disc. After the boss, the reactor closes.",
+          "closes": "Setelah boss reaktor tertutup.",
+          "closesEn": "After the boss, the reactor closes."
         },
         {
           "id": "c7-12-titanium",
@@ -969,6 +997,7 @@
           "name": "Titanium Bangle",
           "where": "Otomatis setelah boss Airbuster kalah di akhir chapter.",
           "whereEn": "Automatic after the Airbuster boss is defeated at the end of the chapter.",
+          "auto": "chapter",
           "missable": false
         },
         {
@@ -977,6 +1006,7 @@
           "name": "Trapped like Sewer Rats",
           "where": "Otomatis saat Chapter 7 tamat.",
           "whereEn": "Automatic when Chapter 7 ends.",
+          "auto": "chapter",
           "missable": false
         }
       ]
@@ -1049,6 +1079,7 @@
           "name": "Discovery: The Gate Won't Open",
           "where": "Nuts 'n' Bolts Hills: gerbang di Scrapyard tidak terbuka saat saklarnya ditekan (discovery aktif). Lanjut sampai area besar (Smogger), kalahkan musuh, naik tangga di pojok kanan, lalu tekan saklar di sisi lain gerbang. Hadiah: jalan pintas.",
           "whereEn": "Nuts 'n' Bolts Hills: the Scrapyard gate will not open when you flip its switch (the discovery starts). Go on to the large area (Smogger), defeat the enemies, climb the ladder in the right-hand corner, then flip the switch on the other side of the gate. Reward: a shortcut.",
+          "gameTitle": "The Gate Won't Open",
           "missable": true
         },
         {
@@ -1167,6 +1198,7 @@
           "name": "Nail Bat",
           "where": "Center District: hadiah dari anak-anak di Leaf House setelah Kids on Patrol selesai.",
           "whereEn": "Center District: reward from the kids at Leaf House after Kids on Patrol is completed.",
+          "rewardOf": "c8-19-kids-patrol",
           "missable": true
         },
         {
@@ -1251,6 +1283,7 @@
           "name": "Crescent Moon Charm",
           "where": "Children's Secret Hideout: hadiah Whack-a-Box (A Verified Hero) dengan skor 20.000+.",
           "whereEn": "Children's Secret Hideout: Whack-a-Box (A Verified Hero) reward for a score of 20.000+.",
+          "rewardOf": "c8-27-verified-hero",
           "missable": true
         },
         {
@@ -1259,6 +1292,7 @@
           "name": "Spectral Cogwheel",
           "where": "Children's Secret Hideout: hadiah Whack-a-Box (A Verified Hero) dengan skor 30.000+.",
           "whereEn": "Children's Secret Hideout: Whack-a-Box (A Verified Hero) reward for a score of 30.000+.",
+          "rewardOf": "c8-27-verified-hero",
           "missable": true
         },
         {
@@ -1294,6 +1328,7 @@
           "name": "Protective Boots",
           "where": "Station Way: hadiah dari pria ketakutan setelah Weapons on a Rampage.",
           "whereEn": "Station Way: reward from the frightened man after Weapons on a Rampage.",
+          "rewardOf": "c8-31-weapons-rampage",
           "missable": true
         },
         {
@@ -1311,6 +1346,7 @@
           "name": "Studded Bracer",
           "where": "Center District: hadiah dari kakek di depan Weapon Shop setelah Paying Respects.",
           "whereEn": "Center District: reward from the old man in front of the Weapon Shop after Paying Respects.",
+          "rewardOf": "c8-33-paying-respects",
           "missable": true
         },
         {
@@ -1330,7 +1366,9 @@
           "whereEn": "Follow the green marker to Aerith's house; the game will ask for confirmation.",
           "missable": false,
           "warning": "SEBELUM LANJUT: selesaikan 6 side quest (Kids on Patrol, Moogle Merchant, A Verified Hero, Angel of the Slums, Weapons on a Rampage, Paying Respects), ambil Chakra di gereja. Setelah ini side quest Ch8 terkunci. Di jalan ke rumah Aerith ada boss Rude.",
-          "warningEn": "BEFORE CONTINUING: complete the 6 side quests (Kids on Patrol, Moogle Merchant, A Verified Hero, Angel of the Slums, Weapons on a Rampage, Paying Respects), get the Chakra at the church. After this, the Ch8 side quests are locked. On the road to Aerith's house there is a Rude boss fight."
+          "warningEn": "BEFORE CONTINUING: complete the 6 side quests (Kids on Patrol, Moogle Merchant, A Verified Hero, Angel of the Slums, Weapons on a Rampage, Paying Respects), get the Chakra at the church. After this, the Ch8 side quests are locked. On the road to Aerith's house there is a Rude boss fight.",
+          "closes": "Setelah ini side quest Ch8 terkunci.",
+          "closesEn": "After this, the Ch8 side quests are locked."
         },
         {
           "id": "c8-37-rude",
@@ -1346,6 +1384,7 @@
           "name": "Discovery: The Language of Flowers",
           "where": "Aerith's House: setelah fight Rude, Aerith menghentikanmu di halaman (hanya kalau 6 side quest Ch8 selesai); ikuti dia ke belakang taman.",
           "whereEn": "Aerith's House: after the Rude fight, Aerith stops you in the yard (only if all 6 Ch8 side quests are done); follow her to the back of the garden.",
+          "gameTitle": "The Language of Flowers",
           "missable": true
         },
         {
@@ -1370,6 +1409,7 @@
           "name": "Reunited",
           "where": "Otomatis saat Chapter 8 tamat.",
           "whereEn": "Automatic when Chapter 8 ends.",
+          "auto": "chapter",
           "missable": false
         }
       ]
@@ -1482,6 +1522,7 @@
           "name": "Discovery: Vagabond Johnny",
           "where": "Wall Market: Johnny lari lewat setelah kamu masuk kota; ikuti dan jawab dia. 'Yeah' = route Sam, 'No' = route Madam M.",
           "whereEn": "Wall Market: Johnny runs past after you enter town; follow him and answer him. 'Yeah' = Sam route, 'No' = Madam M route.",
+          "gameTitle": "Vagabond Johnny",
           "missable": true
         },
         {
@@ -1673,7 +1714,9 @@
           "whereEn": "Cloud's dress is determined by your route + the number of Ch9 side quests: 3 Sam route quests = blue/black dress, 3 Madam M route quests = white dress, fewer than that = base dress. You are also asked your opinion on Aerith's outfit.",
           "missable": false,
           "warning": "SEBELUM LANJUT: selesaikan Burning Thighs + 2 side quest route kamu, ambil Headband, Star Pendant, 4 disc Wall Market, Clarity Pendant & Aerith vs. Wild Animals. Setelah ini side quest Ch9 terkunci.",
-          "warningEn": "BEFORE CONTINUING: complete Burning Thighs + 2 side quests on your route, get the Headband, Star Pendant, the 4 Wall Market discs, Clarity Pendant & Aerith vs. Wild Animals. After this, the Ch9 side quests are locked."
+          "warningEn": "BEFORE CONTINUING: complete Burning Thighs + 2 side quests on your route, get the Headband, Star Pendant, the 4 Wall Market discs, Clarity Pendant & Aerith vs. Wild Animals. After this, the Ch9 side quests are locked.",
+          "closes": "Setelah ini side quest Ch9 terkunci.",
+          "closesEn": "After this, the Ch9 side quests are locked."
         },
         {
           "id": "c9-37-dress-note",
@@ -1927,6 +1970,7 @@
           "name": "Subversion Materia",
           "where": "Maintenance Facility: hadiah otomatis setelah mengalahkan boss Ghoul di control room.",
           "whereEn": "Maintenance Facility: automatic reward for defeating the Ghoul boss in the control room.",
+          "auto": "boss",
           "missable": false,
           "detect": null
         },
@@ -2203,6 +2247,7 @@
           "name": "Mythril Claws (Tifa)",
           "where": "Underground Test Site (B1, Finding Wedge): otomatis didapat setelah mengalahkan Failed Experiment.",
           "whereEn": "Underground Test Site (B1, Finding Wedge): obtained automatically after defeating the Failed Experiment.",
+          "auto": "yes",
           "missable": false
         },
         {
@@ -2324,6 +2369,7 @@
           "name": "Time Materia",
           "where": "Slum Public Cemetery: hadiah otomatis setelah menyelesaikan Missing Children.",
           "whereEn": "Slum Public Cemetery: automatic reward after completing Missing Children.",
+          "rewardOf": "c14-11-missing-children",
           "missable": false,
           "optional": true
         },
@@ -2496,6 +2542,7 @@
           "name": "Discovery: Johnny's Stolen Wallet",
           "where": "Sector 5 Undercity Station: setelah Tomboy Bandit, kembalikan dompet ke Johnny (penanda Discovery ungu). Untuk trofi The Johnny Experience.",
           "whereEn": "Sector 5 Undercity Station: after Tomboy Bandit, return the wallet to Johnny (purple Discovery marker). For The Johnny Experience trophy.",
+          "gameTitle": "Johnny's Stolen Wallet",
           "missable": true
         },
         {
@@ -2506,7 +2553,9 @@
           "whereEn": "Go upstairs through the double doors, Leslie cutscene.",
           "missable": false,
           "warning": "SEBELUM LANJUT: beresin semua side quest, Colosseum, Moogle Emporium, Chadley. Setelah ikut Leslie ke saluran bawah tanah, slum & Wall Market tertutup.",
-          "warningEn": "BEFORE CONTINUING: finish all side quests, the Colosseum, Moogle Emporium and Chadley. After following Leslie into the underground channel, the slums & Wall Market are closed off."
+          "warningEn": "BEFORE CONTINUING: finish all side quests, the Colosseum, Moogle Emporium and Chadley. After following Leslie into the underground channel, the slums & Wall Market are closed off.",
+          "closes": "Setelah ikut Leslie ke saluran bawah tanah, slum & Wall Market tertutup.",
+          "closesEn": "After following Leslie into the underground channel, the slums & Wall Market are closed off."
         },
         {
           "id": "c14-33-otherworldly-crystal",
@@ -2629,7 +2678,9 @@
           "whereEn": "Leslie confirms before climbing with the Grappling Gun.",
           "missable": false,
           "warning": "SEBELUM LANJUT: beresin 9 Odd Jobs + Johnny's Stolen Wallet, semua Colosseum challenge, disc, Moogle Emporium, Chadley/Bahamut, dan ambil Letter from the Guardian Angel. Setelah manjat, hub Sector 5/6 & Wall Market terkunci.",
-          "warningEn": "BEFORE CONTINUING: finish the 9 Odd Jobs + Johnny's Stolen Wallet, all Colosseum challenges, discs, Moogle Emporium, Chadley/Bahamut, and pick up the Letter from the Guardian Angel. After climbing, the Sector 5/6 hub & Wall Market are locked."
+          "warningEn": "BEFORE CONTINUING: finish the 9 Odd Jobs + Johnny's Stolen Wallet, all Colosseum challenges, discs, Moogle Emporium, Chadley/Bahamut, and pick up the Letter from the Guardian Angel. After climbing, the Sector 5/6 hub & Wall Market are locked.",
+          "closes": "Setelah manjat, hub Sector 5/6 & Wall Market terkunci.",
+          "closesEn": "After climbing, the Sector 5/6 hub & Wall Market are locked."
         }
       ]
     },
@@ -2727,7 +2778,9 @@
           "whereEn": "The boss is weak to lightning and wind; avoid the vertical blue laser. Reward: Cog Bangle.",
           "missable": false,
           "warning": "SEBELUM LANJUT: pastikan sudah ambil Enchanted Ring, Magician's Bracelet, disc Lurking in the Darkness, dan Algid Aura (Cerulean Drake). Setelah ini area chapter 15 tertutup.",
-          "warningEn": "BEFORE CONTINUING: make sure you have taken the Enchanted Ring, Magician's Bracelet, the Lurking in the Darkness disc, and Algid Aura (Cerulean Drake). After this, the chapter 15 area is locked."
+          "warningEn": "BEFORE CONTINUING: make sure you have taken the Enchanted Ring, Magician's Bracelet, the Lurking in the Darkness disc, and Algid Aura (Cerulean Drake). After this, the chapter 15 area is locked.",
+          "closes": "Setelah ini area chapter 15 tertutup.",
+          "closesEn": "After this, the chapter 15 area is locked."
         },
         {
           "id": "c15-12-cog-bangle",
@@ -2735,6 +2788,7 @@
           "name": "Cog Bangle",
           "where": "Collapsed Highway: otomatis didapat setelah mengalahkan The Valkyrie di puncak rute.",
           "whereEn": "Collapsed Highway: obtained automatically after defeating The Valkyrie at the top of the route.",
+          "auto": "yes",
           "missable": false
         },
         {
@@ -2752,6 +2806,7 @@
           "name": "The Pizza in the Sky",
           "where": "Otomatis saat Chapter 15 selesai.",
           "whereEn": "Automatic when Chapter 15 is completed.",
+          "auto": "chapter",
           "missable": false
         }
       ]
@@ -2949,6 +3004,7 @@
           "name": "Talisman",
           "where": "Hojo's Laboratory (lantai 66): otomatis setelah mengalahkan Specimen H0512.",
           "whereEn": "Hojo's Laboratory (floor 66): automatic after defeating Specimen H0512.",
+          "auto": "yes",
           "missable": false
         },
         {
@@ -2966,6 +3022,7 @@
           "name": "No Appointment Needed",
           "where": "Otomatis saat Chapter 16 selesai.",
           "whereEn": "Automatic when Chapter 16 is completed.",
+          "auto": "chapter",
           "missable": false
         }
       ]
@@ -3156,7 +3213,9 @@
           "whereEn": "Everyone meets up again; a bench and vending machine are available. Red XIII says this is the end point.",
           "missable": false,
           "warning": "SEBELUM LANJUT: cek sudah punya Reinforced Staff, Twin Stinger, Poison, Time, Enfeeblement Ring, Force Bracelet, Astral Cuff, Chain Bangle. Setelah naik lift, The Drum terkunci dan cerita lanjut ke boss beruntun.",
-          "warningEn": "BEFORE CONTINUING: check that you have Reinforced Staff, Twin Stinger, Poison, Time, Enfeeblement Ring, Force Bracelet, Astral Cuff, Chain Bangle. After taking the lift, The Drum is locked and the story continues into back-to-back bosses."
+          "warningEn": "BEFORE CONTINUING: check that you have Reinforced Staff, Twin Stinger, Poison, Time, Enfeeblement Ring, Force Bracelet, Astral Cuff, Chain Bangle. After taking the lift, The Drum is locked and the story continues into back-to-back bosses.",
+          "closes": "Setelah naik lift, The Drum terkunci dan cerita lanjut ke boss beruntun.",
+          "closesEn": "After taking the lift, The Drum is locked and the story continues into back-to-back bosses."
         },
         {
           "id": "c17-23-ominous-trail",
@@ -3215,6 +3274,7 @@
           "name": "Emerging from Chaos",
           "where": "Otomatis saat Chapter 17 selesai.",
           "whereEn": "Automatic when Chapter 17 is completed.",
+          "auto": "chapter",
           "missable": false
         }
       ]
@@ -3240,7 +3300,9 @@
           "whereEn": "Restock at the bench + vending machine. Equip Elemental + Ice on your armor to resist Sephiroth's magic, and bring Phoenix Down and Elixir.",
           "missable": false,
           "warning": "SEBELUM LANJUT: ini titik akhir permanen. Isi item, atur materia, dan simpan. Setelah gerbang tol langsung boss beruntun tanpa save point.",
-          "warningEn": "BEFORE CONTINUING: this is the permanent point of no return. Stock up on items, set your materia, and save. After the toll gate, back-to-back bosses follow with no save point."
+          "warningEn": "BEFORE CONTINUING: this is the permanent point of no return. Stock up on items, set your materia, and save. After the toll gate, back-to-back bosses follow with no save point.",
+          "closes": "Setelah gerbang tol langsung boss beruntun tanpa save point.",
+          "closesEn": "After the toll gate, back-to-back bosses follow with no save point."
         },
         {
           "id": "c18-03-turning-point",
@@ -3273,6 +3335,7 @@
           "name": "Destiny's Crossroads",
           "where": "Otomatis saat Chapter 18 selesai (tamat).",
           "whereEn": "Automatic when Chapter 18 is completed (end of the game).",
+          "auto": "chapter",
           "missable": false
         },
         {
@@ -3612,6 +3675,7 @@
           "name": "Gozu Drive",
           "where": "Bagian Double Back setelah adegan jatuh: drop otomatis dari Horned Cripshay pertama di area terbuka.",
           "whereEn": "Double Back section after the fall scene: automatic drop from the first Horned Cripshay in the open area.",
+          "auto": "boss",
           "missable": false,
           "detect": null
         },
@@ -3685,6 +3749,7 @@
           "name": "Mezu Drive",
           "where": "Temporary Storage Area: drop otomatis dari Levrikon pertama (fight wajib), dekat Waste Disposal Plant.",
           "whereEn": "Temporary Storage Area: automatic drop from the first Levrikon (mandatory fight), near the Waste Disposal Plant.",
+          "auto": "boss",
           "missable": false
         },
         {
@@ -3721,7 +3786,9 @@
           "whereEn": "Get the Shinra employee ID; chapter complete.",
           "missable": false,
           "warning": "SEBELUM LANJUT: beresin Fort Condor, Chadley/Ramuh, Happy Turtle flyer & toko di slum. Setelah bicara dengan petugas kereta di stasiun, chapter selesai.",
-          "warningEn": "BEFORE CONTINUING: finish Fort Condor, Chadley/Ramuh, the Happy Turtle flyers and the slum shops. After you talk to the train attendant at the station, the chapter ends."
+          "warningEn": "BEFORE CONTINUING: finish Fort Condor, Chadley/Ramuh, the Happy Turtle flyers and the slum shops. After you talk to the train attendant at the station, the chapter ends.",
+          "closes": "Setelah bicara dengan petugas kereta di stasiun, chapter selesai.",
+          "closesEn": "After you talk to the train attendant at the station, the chapter ends."
         },
         {
           "id": "c21-53-trophy",
@@ -3923,7 +3990,9 @@
           "whereEn": "Go down to the B20 Testing Ground and survive several waves.",
           "missable": false,
           "warning": "SEBELUM LANJUT: ambil Ribbon, Volant Armlet, Djinn Staff, AP Up, Time, Healing Carcanet & beresin Box Buster. Setelah naik lift platform di awal The Invitation, B14, B13 & Secret Vault tertutup.",
-          "warningEn": "BEFORE CONTINUING: get Ribbon, Volant Armlet, Djinn Staff, AP Up, Time, Healing Carcanet and finish Box Buster. After you ride the platform lift at the start of The Invitation, B14, B13 and the Secret Vault are closed."
+          "warningEn": "BEFORE CONTINUING: get Ribbon, Volant Armlet, Djinn Staff, AP Up, Time, Healing Carcanet and finish Box Buster. After you ride the platform lift at the start of The Invitation, B14, B13 and the Secret Vault are closed.",
+          "closes": "Setelah naik lift platform di awal The Invitation, B14, B13 & Secret Vault tertutup.",
+          "closesEn": "After you ride the platform lift at the start of The Invitation, B14, B13 and the Secret Vault are closed."
         },
         {
           "id": "c22-23-iron-maiden",
@@ -3948,6 +4017,7 @@
           "name": "Firebird Armlet",
           "where": "Heavy Weapons Platform Testing: hadiah otomatis setelah mengalahkan Scarlet dan Crimson Mare (A Fateful Confrontation).",
           "whereEn": "Heavy Weapons Platform Testing: automatic reward after defeating Scarlet and Crimson Mare (A Fateful Confrontation).",
+          "auto": "yes",
           "missable": false
         },
         {

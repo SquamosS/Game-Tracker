@@ -24,11 +24,11 @@ Overlay 100%-completion (C# .NET 8 WPF, Windows), game pertama FINAL FANTASY VII
 ## Arsitektur: overlay sebagai canvas (aturan, berlaku untuk semua perubahan)
 - Kode bersama (`overlay/*.cs`) tidak boleh berisi logika khusus satu game: alamat memori, id item (mis. Gil = 20), nama tabel/kunci game (`$str080`, `obt080`), kata kunci bahasa di teks panduan. Hal itu masuk ke `overlay/games/<id>/` (reader atau data).
 - Kode bersama bicara ke pembaca game lewat antarmuka umum (target `IGameReader`): chapter, objektif & halaman quest (judul, tahap, selesai), inventory, posisi & area, state (menu/battle/cutscene), titik penting (peti: posisi, isi, dibuka?, ada di peta?). Pembaca boleh mengisi sebagian; fitur tanpa data mati diam-diam (null = tidak tahu, tidak menebak).
-- Aturan panduan lewat kolom eksplisit di `guide.json` (`after`, `revisit`, `optional`, `missable`, `hard`, target: `rewardOf`, `auto`), bukan mencari kata di teks "where".
+- Aturan panduan lewat kolom eksplisit di `guide.json` (`after`, `revisit`, `optional`, `missable`, `hard`, `rewardOf`, `auto`, `gameTitle`, `closes`), bukan mencari kata di teks "where" (hanya nama area di awalnya).
 - Jenis langkah, ikon, warna: target didefinisikan per game di `game.json` (sekarang masih di kode, daftar FF7R).
 - Data runtime per game (target `data/<id>/`), supaya progres/jejak/log game lain tidak tercampur.
 - Game tanpa reader tetap jalan sebagai checklist manual (hotkey), dengan titik manual dan jejak dari posisi kalau ada.
-- **Status 10 Okt 2026:** tahap 1 selesai: `IGameReader`/`IGameNames` (`overlay/GameReader.cs`), `MainWindow` hanya lewat antarmuka, konvensi kunci FF7R ada di pembaca. Belum: aturan "hadiah"/"otomatis" masih membaca teks (tahap 2), jenis langkah masih di kode (tahap 3), data per game (tahap 4). Rencana 4 tahap (antarmuka pembaca; aturan teks -> kolom; jenis langkah di game.json; data per game) ada di `docs/HANDOFF-AI.md` bagian 0. Fitur baru jangan menambah ketergantungan langsung ke FF7R di kode bersama.
+- **Status 10 Okt 2026:** tahap 1 selesai: `IGameReader`/`IGameNames` (`overlay/GameReader.cs`), `MainWindow` hanya lewat antarmuka, konvensi kunci FF7R ada di pembaca. Tahap 2 selesai: aturan teks jadi kolom guide.json. Belum: jenis langkah masih di kode (tahap 3), data per game (tahap 4). Rencana 4 tahap (antarmuka pembaca; aturan teks -> kolom; jenis langkah di game.json; data per game) ada di `docs/HANDOFF-AI.md` bagian 0. Fitur baru jangan menambah ketergantungan langsung ke FF7R di kode bersama.
 
 ## Aturan kode & performa (game harus tetap lancar)
 - Poll overlay 1x/detik di thread UI: hanya baca kecil. Angka tunggal lewat overload `ReadProcessMemory(..., out long/int/byte, ..., out nint)` (tanpa array); `lpNumberOfBytesRead` selalu `nint`.
@@ -36,7 +36,7 @@ Overlay 100%-completion (C# .NET 8 WPF, Windows), game pertama FINAL FANTASY VII
 - Scan besar (>1 MB) jangan di thread UI: lewat `Scan(...)` (thread pekerja, prioritas rendah, bisa dibatalkan `Detach`), hasil digabung di thread UI; buffer per scan, bukan dibagi. Scan penuh memori dibatasi (>= 20-30 dtk) atau dipicu perubahan.
 - Cache hasil yang jarang berubah (mis. set flag dipakai ulang kalau byte sama); baca posisi sekali per poll; Regex `static readonly ... Compiled`.
 - Hotkey overlay: tabel di `docs/HANDOFF-AI.md` (bagian Hotkey overlay); Ctrl+Shift+L dipakai aplikasi lain di PC user.
-- Teks UI selalu dua bahasa lewat `Lang.T(en, id)`; langkah panduan baru isi `where` (Indonesia, dibaca aturan) dan `whereEn`.
+- Teks UI selalu dua bahasa lewat `Lang.T(en, id)`; langkah panduan baru isi `where` (Indonesia, diawali nama area) dan `whereEn`, plus kolom aturan yang berlaku (`rewardOf`, `auto`, `closes`/`closesEn` bila ada warning).
 - Centang tidak boleh salah, juga setelah load/restart: setelah load, item dipertahankan hanya kalau save yang di-load memilikinya, side quest dari halaman quest game; data yang dibaca sebelum load dibuang (`ForgetChestCopy`, `ForgetSideQuests`). Uji restart overlay setelah mengubah aturan centang (progres harus utuh).
 - Render ulang hanya saat ada perubahan; tampilan tidak boleh menebak (lebih baik kosong). Pakai `Notify(...)` untuk umpan balik ke user.
 - Setelah perubahan besar: minta satu agent review commit-nya (bug, thread, P/Invoke), lalu perbaiki.

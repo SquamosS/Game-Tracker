@@ -345,10 +345,10 @@ public partial class MainWindow
         return area;
     }
 
-    /// <summary>The step is that item: the same name, or "Shiva" for "Shiva Materia" (not "Turbo Ether" for "Ether").</summary>
-    static bool SameItem(Objective step, string name) =>
+    /// <summary>The step is that item: the same name, or its short name ("Shiva" for "Shiva Materia"; not "Turbo Ether" for "Ether").</summary>
+    bool SameItem(Objective step, string name) =>
         step.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
-        || (name.EndsWith(" Materia") && step.Name.Equals(name[..^8], StringComparison.OrdinalIgnoreCase));
+        || (_names.ShortName(name) is { } shortName && step.Name.Equals(shortName, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// A chest opened before it could be watched: it is the only chest holding each of its items, and each of those is a

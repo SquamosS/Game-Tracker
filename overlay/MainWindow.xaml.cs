@@ -365,10 +365,10 @@ public partial class MainWindow : Window
         _seenFlags = null;
     }
 
-    /// <summary>"Shiva Materia" also matches a step called just "Shiva".</summary>
-    static bool Matches(Objective step, string name) =>
+    /// <summary>The item's name, or its short name ("Shiva" for "Shiva Materia", IGameNames.ShortName), is in the step's.</summary>
+    bool Matches(Objective step, string name) =>
         step.Name.Contains(name, StringComparison.OrdinalIgnoreCase)
-        || (name.EndsWith(" Materia") && step.Name.Contains(name[..^8], StringComparison.OrdinalIgnoreCase));
+        || (_names.ShortName(name) is { } shortName && step.Name.Contains(shortName, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The open step this item belongs to: the current one first, then ones left behind.</summary>
     Objective? StepFor(string name)
@@ -472,7 +472,7 @@ public partial class MainWindow : Window
         bool changed = false;
         // Chapter 8's side quests are entries with their own texts (IGameReader.SideQuests).
         foreach (var side in _reader.SideQuests.Where(s => s.Finished))
-            foreach (var step in chapter.Objectives.Where(o => o.Type == "side quest" && SameQuest(o.Name, side.Title)))
+            foreach (var step in chapter.Objectives.Where(o => o.Type == "side quest" && SameQuest(o, side.Title)))
                 if (_progress.Done.Add(step.Id))
                 {
                     _progress.History.Add(step.Id);
@@ -480,7 +480,7 @@ public partial class MainWindow : Window
                     changed = true;
                 }
         foreach (var done in _reader.Candidates.Where(c => c.Title is not null && c.Finished))
-            foreach (var step in chapter.Objectives.Where(o => o.Type is "kejadian" or "side quest" && SameQuest(o.Name, done.Title!)))
+            foreach (var step in chapter.Objectives.Where(o => o.Type is "kejadian" or "side quest" && SameQuest(o, done.Title!)))
                 if (_progress.Done.Add(step.Id))
                 {
                     _progress.History.Add(step.Id);
@@ -575,7 +575,7 @@ public partial class MainWindow : Window
     {
         if (o.Type != "side quest" || CurrentChapter is not { } chapter) return null;
         var sides = _reader.SideQuests;
-        bool Listed(Objective q) => sides.Any(s => SameQuest(q.Name, s.Title));
+        bool Listed(Objective q) => sides.Any(s => SameQuest(q, s.Title));
         if (!chapter.Objectives.Any(q => q.Type == "side quest" && Listed(q))) return null;
         return Listed(o);
     }
@@ -602,18 +602,15 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The side quest or discovery of the chapter whose reward this step is: its "where" says "hadiah" and names that
-    /// quest ("Nail Bat: hadiah dari anak-anak ... setelah Kids on Patrol selesai"). Nothing to find in the area until
-    /// the quest is done, and the quest itself shows there already.
+    /// The side quest or discovery of the chapter whose reward this step is (guide column rewardOf: Nail Bat is the reward
+    /// of Kids on Patrol). Nothing to find in the area until the quest is done, and the quest itself shows there already.
     /// </summary>
     static Objective? RewardOf(Objective o, Chapter chapter) =>
-        o.Type is "side quest" or "kejadian" or "cerita" || !o.Where.Contains("hadiah", StringComparison.OrdinalIgnoreCase) ? null
-        : chapter.Objectives.FirstOrDefault(q => q.Type is "side quest" or "kejadian" && q != o
-            && o.Where.Contains(q.Name.Replace("Discovery:", "").Trim(), StringComparison.OrdinalIgnoreCase));
+        o.RewardOf is { } id ? chapter.Objectives.FirstOrDefault(q => q.Id == id && q != o) : null;
 
     /// <summary>A side quest or discovery that is the game's live objective now.</summary>
     /// Not one left for later (GameObjective.Later): that one shows only in its area.
-    bool IsLiveQuest(Objective o) => o.Type is "side quest" or "kejadian" && _objective?.Title is { Length: >= 3 } title && SameQuest(o.Name, title)
+    bool IsLiveQuest(Objective o) => o.Type is "side quest" or "kejadian" && _objective?.Title is { Length: >= 3 } title && SameQuest(o, title)
         && !_objective.Later;
 
     string _hereShown = "";
@@ -688,30 +685,28 @@ public partial class MainWindow : Window
         _chestArea.Clear();
         foreach (var chest in _chestsIndexed)
             foreach (var name in chest.Items.Select(_names.Name).OfType<string>().Distinct())
-                foreach (var key in name.EndsWith(" Materia") ? new[] { name, name[..^8] } : [name])
+                foreach (var key in _names.ShortName(name) is { } shortName ? new[] { name, shortName } : [name])
                     _chestByName[key] = _chestByName.ContainsKey(key) ? null : chest;
     }
 
-    /// <summary>"Discovery: Collapsed Passageway" is the game's "Collapsed Passageway".</summary>
-    static bool SameQuest(string guideName, string title) =>
-        guideName.Replace("Discovery:", "").Trim().StartsWith(title, StringComparison.OrdinalIgnoreCase);
+    /// <summary>The game's name for the quest is the step's (GameTitle when the guide names it otherwise: "Discovery: X" is "X").</summary>
+    static bool SameQuest(Objective step, string title) =>
+        (step.GameTitle ?? step.Name).Trim().StartsWith(title, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Items handed over automatically need no searching: "REWARD BOSS" (after a boss), "REWARD CHAPTER" (at the
-    /// end of the chapter) or "REWARD" (otherwise automatic). Null for anything you have to find yourself.
+    /// Items handed over automatically need no searching (guide column auto): "REWARD BOSS" (after a boss), "REWARD
+    /// CHAPTER" (at the end of the chapter) or "REWARD" (otherwise automatic). Null for anything you have to find yourself.
     /// </summary>
-    static string? RewardTag(Objective o)
+    static string? RewardTag(Objective o) => o.Type is "cerita" or "trofi" || o.Optional ? null : o.Auto switch
     {
-        if (o.Type is "cerita" or "trofi" || o.Optional || !o.Where.Contains("otomatis", StringComparison.OrdinalIgnoreCase)) return null;
-        string where = o.Where.ToLowerInvariant();
-        if (where.Contains("akhir chapter")) return "REWARD CHAPTER";
-        if (new[] { "boss", "kalah", "drop", "fight" }.Any(where.Contains)) return "REWARD BOSS";
-        return "REWARD";
-    }
+        null => null,
+        "chapter" => "REWARD CHAPTER",
+        "boss" => "REWARD BOSS",
+        _ => "REWARD",
+    };
 
-    /// <summary>The trophy that comes with finishing the chapter ("Otomatis saat Chapter 6 tamat/selesai").</summary>
-    static bool ChapterEndTrophy(Objective o) => o.Where.Contains("otomatis saat chapter", StringComparison.OrdinalIgnoreCase)
-        || o.Where.Contains("Trofi otomatis", StringComparison.OrdinalIgnoreCase);
+    /// <summary>The trophy that comes with finishing the chapter (auto "chapter").</summary>
+    static bool ChapterEndTrophy(Objective o) => o.Auto == "chapter";
 
     /// <summary>What a step is, as shown next to its name.</summary>
     static string TypeLabel(Objective o) => o.Type == "kejadian" && o.Name.StartsWith("Discovery") ? "discovery" : o.Type;
@@ -1153,12 +1148,10 @@ public partial class MainWindow : Window
         var toGet = openBefore.Where(o => o.Missable && o.Type is not ("cerita" or "trofi")).Select(o => o.Name)
             .Concat((gate?.Needs ?? []).Where(id => !_progress.Done.Contains(id) && steps.ContainsKey(id)).Select(id => steps[id].Name))
             .Distinct().ToList();
-        // What closes behind you: the warning's sentence that starts with "Setelah" ("After ..." in English).
-        string? reason = gate?.ShownWarning is { } warning
-            ? System.Text.RegularExpressions.Regex.Split(warning, @"(?<=\.)\s+").FirstOrDefault(s => s.StartsWith(Lang.T("After", "Setelah")))
-            : null;
+        // What closes behind you (guide column closes: the warning's "Setelah ..." sentence).
+        string? reason = gate?.ShownCloses;
         // Amber while the point of no return is still ahead; red once it is the story step you are on. The reason
-        // ("Setelah ...") only shows then, or in the full checklist: a notice that is always loud gets ignored.
+        // (closes) only shows then, or in the full checklist: a notice that is always loud gets ignored.
         bool urgent = gate is not null && gate == CurrentStory;
         WarnBox.Visibility = toGet.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         WarnBox.BorderBrush = WarnText.Foreground = urgent ? Danger : Late;

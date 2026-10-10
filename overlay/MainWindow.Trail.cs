@@ -96,7 +96,7 @@ public partial class MainWindow
     Objective? TrailStepFor(Chapter chapter)
     {
         if (_objective?.Title is not { Length: >= 3 } title) return null;
-        return chapter.Objectives.FirstOrDefault(o => o.Type is "side quest" or "kejadian" && SameQuest(o.Name, title))
+        return chapter.Objectives.FirstOrDefault(o => o.Type is "side quest" or "kejadian" && SameQuest(o, title))
             ?? chapter.Objectives.FirstOrDefault(o => o.Type == "cerita" && NamedAs(o, title));
     }
 
