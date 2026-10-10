@@ -36,7 +36,7 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 - Perlu dicek saat main: notifikasi, rute (muncul setelah berjalan antar ruang), rekap di akhir Ch7.
 
 **Bahasa (10 Okt sore)**
-- Overlay default **English**; saklar **EN | IN** di header (atau Ctrl+Shift+L), disimpan di `data/settings.json` (`Lang.cs`, `Lang.T(en, id)`). Dashboard & tray ikut.
+- Overlay default **English**; saklar **EN | IN** di header (Ctrl+Shift+L, atau Ctrl+Shift+Alt+L kalau L dipakai aplikasi lain), disimpan di `data/settings.json` (`Lang.cs`, `Lang.T(en, id)`). Dashboard & tray ikut.
 - `guide.json`: `where`/`warning` tetap Indonesia (dibaca aturan: "otomatis", "akhir chapter", "Setelah"); `whereEn`/`warningEn` = versi Inggris yang ditampilkan. Langkah baru wajib diberi keduanya; kalimat "Setelah ..." di warning = "After ..." di warningEn, catatan `Hard:` tetap di akhir.
 
 **Masih terbuka**

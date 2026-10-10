@@ -5,7 +5,7 @@ namespace GameTracker;
 
 /// <summary>
 /// The language the tracker speaks: English (the default) or Indonesian, switched with the EN/IN switch on the overlay
-/// (or Ctrl+Shift+L) and kept in data\settings.json for every game.
+/// (or Ctrl+Shift+L / Ctrl+Shift+Alt+L) and kept in data\settings.json for every game.
 /// </summary>
 public static class Lang
 {

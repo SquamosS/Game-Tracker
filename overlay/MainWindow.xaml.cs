@@ -775,7 +775,12 @@ public partial class MainWindow : Window
         Bind(Key.T, "Ctrl+Shift+T", ToggleClickThrough);
         Bind(Key.A, "Ctrl+Shift+A", ToggleArchive);
         Bind(Key.H, "Ctrl+Shift+H", ToggleHard);
-        Bind(Key.L, "Ctrl+Shift+L", () => Lang.Set(!Lang.Indonesian));
+        // Language: Ctrl+Shift+L is often taken by other apps, so Ctrl+Shift+Alt+L stands in; the switch's tooltip names the one in use.
+        void SwitchLanguage() => Lang.Set(!Lang.Indonesian);
+        string? langKey = _native.Hotkey(Key.L, SwitchLanguage) ? "Ctrl+Shift+L"
+            : _native.Hotkey(Key.L, SwitchLanguage, alt: true) ? "Ctrl+Shift+Alt+L" : null;
+        if (langKey is null) failed.Add("Ctrl+Shift+L");
+        LangSwitch.ToolTip = "English / Bahasa Indonesia" + (langKey is null ? "" : $" ({langKey})");
         if (failed.Count > 0) _error = Lang.T($"Hotkeys taken by another app: {string.Join(", ", failed)}", $"Hotkey dipakai aplikasi lain: {string.Join(", ", failed)}");
         Render();
     }

@@ -10,9 +10,9 @@
       <!-- Three levels only: a small chapter label with the count, the live quest, then what is left to get. -->
       <StackPanel DockPanel.Dock="Top" x:Name="Header" Cursor="SizeAll">
         <DockPanel>
-          <!-- Language switch EN | IN (also Ctrl+Shift+L): the lit side is the language shown. -->
+          <!-- Language switch EN | IN (also Ctrl+Shift+L, or Ctrl+Shift+Alt+L when taken): the lit side is the language shown. -->
           <Border x:Name="LangSwitch" DockPanel.Dock="Right" Cursor="Hand" Background="#33FFFFFF" CornerRadius="7" Padding="1"
-                  Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="English / Bahasa Indonesia (Ctrl+Shift+L)">
+                  Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="English / Bahasa Indonesia">
             <StackPanel Orientation="Horizontal">
               <Border x:Name="LangEn" CornerRadius="6" Padding="5,0,5,1">
                 <TextBlock x:Name="LangEnText" Text="EN" FontSize="9.5" FontWeight="Bold" />
