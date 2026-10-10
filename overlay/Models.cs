@@ -10,9 +10,11 @@ public record Detect(string[]? Ocr);
 /// the warning is about: once they are all done, the warning has nothing left to say. Optional: on the way and
 /// also sold in shops, so shown as a reminder only, never as missable. Hard: only in Hard mode (left out otherwise).
 /// Where and Warning are the Indonesian originals the overlay's rules read ("otomatis", "Setelah ..."); WhereEn and
-/// WarningEn are their English versions, shown in English (the original when there is none).</summary>
+/// WarningEn are their English versions, shown in English (the original when there is none). After: the step that
+/// makes this one available (Ch8 side quests open with "Requests for the Mercenary"); until it is done the step stays
+/// out of the "in this area" banner, unless the game shows it as the live quest.</summary>
 public record Objective(string Id, string Type, string Name, string Where, bool Missable, Detect? Detect, string? Warning = null, int? Progress = null, string[]? Needs = null, bool Optional = false, bool Hard = false,
-    string? WhereEn = null, string? WarningEn = null)
+    string? WhereEn = null, string? WarningEn = null, string? After = null)
 {
     public string ShownWhere => !Lang.Indonesian && WhereEn is not null ? WhereEn : Where;
     public string? ShownWarning => !Lang.Indonesian && WarningEn is not null ? WarningEn : Warning;

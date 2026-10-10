@@ -1140,7 +1140,8 @@
           "name": "Battle Intel & VR",
           "where": "Chadley ada dekat Materia Shop. Report 06-08 kebuka; materia hadiahnya (Steadfast Block, Steal, Provoke) dibeli dari dia.",
           "whereEn": "Chadley is near the Materia Shop. Reports 06-08 unlock; the reward materia (Steadfast Block, Steal, Provoke) are bought from him.",
-          "missable": false
+          "missable": false,
+          "after": "c8-16-requests"
         },
         {
           "id": "c8-18-shiva",
@@ -1148,7 +1149,8 @@
           "name": "Shiva",
           "where": "Center District: Chadley (dekat Item Shop/Materia Shop); selesaikan Report 01-04 lalu menang VR Shiva (Report 05).",
           "whereEn": "Center District: Chadley (near the Item Shop/Materia Shop); complete Reports 01-04, then win VR Shiva (Report 05).",
-          "missable": false
+          "missable": false,
+          "after": "c8-17-chadley"
         },
         {
           "id": "c8-19-kids-patrol",
@@ -1156,7 +1158,8 @@
           "name": "Kids on Patrol",
           "where": "Center District: dari Ms. Folia di Leaf House. 5 anak berpedang kayu: celah dua pipa beton di pojok barat daya, kerumunan dekat Item Shop, depan Weapon Shop, depan nenek di bangku dekat ruang jukebox, gerbang ke Station Way. Lalu Hedgehog Pie King di ujung Children's Secret Hideout. Hard: + Telluric Scriptures Vol. VI.",
           "whereEn": "Center District: from Ms. Folia at Leaf House. 5 kids with wooden swords: the gap between two concrete pipes in the southwest corner, the crowd near the Item Shop, in front of the Weapon Shop, in front of the grandma on the bench near the jukebox room, the gate to Station Way. Then Hedgehog Pie King at the end of Children's Secret Hideout. Hard: + Telluric Scriptures Vol. VI.",
-          "missable": true
+          "missable": true,
+          "after": "c8-16-requests"
         },
         {
           "id": "c8-20-nail-bat",
@@ -1172,7 +1175,8 @@
           "name": "The Mysterious Moogle Merchant",
           "where": "Children's Secret Hideout: bicara dengan anak berkostum aneh (Moggie), beli Moogle Membership Card seharga 1 Moogle Medal untuk membuka Moogle Emporium.",
           "whereEn": "Children's Secret Hideout: talk to the kid in the strange costume (Moggie), buy a Moogle Membership Card for 1 Moogle Medal to unlock the Moogle Emporium.",
-          "missable": true
+          "missable": true,
+          "after": "c8-16-requests"
         },
         {
           "id": "c8-22-disc-goldsaucer",
@@ -1180,7 +1184,8 @@
           "name": "Gold Saucer",
           "where": "Children's Secret Hideout: Moogle Emporium, 1 Moogle Medal.",
           "whereEn": "Children's Secret Hideout: Moogle Emporium, 1 Moogle Medal.",
-          "missable": false
+          "missable": false,
+          "after": "c8-21-moogle-merchant"
         },
         {
           "id": "c8-23-silver-staff",
@@ -1188,7 +1193,8 @@
           "name": "Silver Staff",
           "where": "Children's Secret Hideout: Moogle Emporium, 2 Moogle Medal.",
           "whereEn": "Children's Secret Hideout: Moogle Emporium, 2 Moogle Medal.",
-          "missable": false
+          "missable": false,
+          "after": "c8-21-moogle-merchant"
         },
         {
           "id": "c8-24-whistlewind",
@@ -1196,7 +1202,8 @@
           "name": "Whistlewind Scarf",
           "where": "Children's Secret Hideout: Moogle Emporium, 3 Moogle Medal.",
           "whereEn": "Children's Secret Hideout: Moogle Emporium, 3 Moogle Medal.",
-          "missable": false
+          "missable": false,
+          "after": "c8-21-moogle-merchant"
         },
         {
           "id": "c8-25-salvation",
@@ -1204,7 +1211,8 @@
           "name": "Salvation Badge",
           "where": "Children's Secret Hideout: Moogle Emporium, 1 Moogle Medal.",
           "whereEn": "Children's Secret Hideout: Moogle Emporium, 1 Moogle Medal.",
-          "missable": false
+          "missable": false,
+          "after": "c8-21-moogle-merchant"
         },
         {
           "id": "c8-26-manuscripts",
@@ -1212,7 +1220,8 @@
           "name": "The Art of Swordplay / Sharpshooter's Companion / Way of the Fist / Telluric Scriptures Vol. I",
           "where": "Children's Secret Hideout: Moogle Emporium, 5 Moogle Medal per buku; stok masih ada di Ch14.",
           "whereEn": "Children's Secret Hideout: Moogle Emporium, 5 Moogle Medal per book; stock is still available in Ch14.",
-          "missable": false
+          "missable": false,
+          "after": "c8-21-moogle-merchant"
         },
         {
           "id": "c8-27-verified-hero",
@@ -1220,7 +1229,8 @@
           "name": "A Verified Hero",
           "where": "Children's Secret Hideout: muncul setelah Kids on Patrol (terkait Sarah); main Whack-a-Box. 10.000 = Elixir, 20.000 = Crescent Moon Charm, 30.000 = Spectral Cogwheel. Tiap main dapat Moogle Medal.",
           "whereEn": "Children's Secret Hideout: appears after Kids on Patrol (related to Sarah); play Whack-a-Box. 10.000 = Elixir, 20.000 = Crescent Moon Charm, 30.000 = Spectral Cogwheel. Each play earns a Moogle Medal.",
-          "missable": true
+          "missable": true,
+          "after": "c8-19-kids-patrol"
         },
         {
           "id": "c8-28-crescent",
@@ -1253,7 +1263,8 @@
           "name": "The Angel of the Slums",
           "where": "Center District: dari Damon di depan community center; tanya Mireille di dalam, lalu ke Lookout Point (timur laut slums), kalahkan Chromogger, bawa calling card balik. Hadiah 2.000 gil. Hard: + Telluric Scriptures Vol. VII.",
           "whereEn": "Center District: from Damon in front of the community center; ask Mireille inside, then go to Lookout Point (northeast of the slums), defeat Chromogger, and bring the calling card back. Reward 2.000 gil. Hard: + Telluric Scriptures Vol. VII.",
-          "missable": true
+          "missable": true,
+          "after": "c8-16-requests"
         },
         {
           "id": "c8-31-weapons-rampage",
@@ -1261,7 +1272,8 @@
           "name": "Weapons on a Rampage",
           "where": "Station Way: dari pria ketakutan; hancurkan 5 Mark II Monodrive di Scrapyard Back Alley (sebagian guide: grup kedua di Twilight Valley), lalu lapor ke dia (dekat Item Shop Center District). Lemah angin. Hard: + Telluric Scriptures Vol. V.",
           "whereEn": "Station Way: from the frightened man; destroy 5 Mark II Monodrive in Scrapyard Back Alley (some guides: the second group in Twilight Valley), then report back to him (near the Item Shop in Center District). Weak to wind. Hard: + Telluric Scriptures Vol. V.",
-          "missable": true
+          "missable": true,
+          "after": "c8-16-requests"
         },
         {
           "id": "c8-32-protective-boots",
@@ -1277,7 +1289,8 @@
           "name": "Paying Respects",
           "where": "Center District: kakek murung di depan Weapon Shop; beli Graveyard Key di Moogle Emporium (1 medal), lalu kalahkan 3 Venomantis di Slum Public Cemetery (dekat Nuts 'n' Bolts Hills).",
           "whereEn": "Center District: the gloomy old man in front of the Weapon Shop; buy the Graveyard Key at the Moogle Emporium (1 medal), then defeat 3 Venomantis at Slum Public Cemetery (near Nuts 'n' Bolts Hills).",
-          "missable": true
+          "missable": true,
+          "after": "c8-16-requests"
         },
         {
           "id": "c8-34-studded",
@@ -1293,7 +1306,8 @@
           "name": "Chakra Materia",
           "where": "Church: setelah side quest Ch8 terbuka, kembali ke gereja; lewati bunga, masuk ruangan depan lalu pintu kanan di lantai 1; materia kuning di lantai.",
           "whereEn": "Church: after the Ch8 side quests open up, go back to the church; walk past the flowers, enter the front room, then take the right door on floor 1; the yellow materia is on the floor.",
-          "missable": true
+          "missable": true,
+          "after": "c8-16-requests"
         },
         {
           "id": "c8-36-to-aerith",

@@ -562,7 +562,8 @@ public partial class MainWindow : Window
     /// discovery the game has active now wherever you are: once started it stays up until it is ticked.
     /// </summary>
     List<Objective> HereSteps() => CurrentChapter is not { } chapter ? []
-        : chapter.Objectives.Where(o => o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id) && (IsHere(o) || IsLiveQuest(o))
+        : chapter.Objectives.Where(o => o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id)
+            && (IsLiveQuest(o) || (IsHere(o) && (o.After is null || _progress.Done.Contains(o.After))))
             && !(RewardOf(o, chapter) is { } quest && !_progress.Done.Contains(quest.Id))).ToList();
 
     /// <summary>
