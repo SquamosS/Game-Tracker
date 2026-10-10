@@ -1065,8 +1065,8 @@
           "id": "c8-09-mythril",
           "type": "armor",
           "name": "Mythril Armlet",
-          "where": "Sanctuary Way: setelah Requests for the Mercenary, kembali ke jalur samping yang terlewat sebelum masuk Sector 5 Undercity Station; peti di tengah jalur itu.",
-          "whereEn": "Sanctuary Way: after Requests for the Mercenary, go back to the side path you missed before entering Sector 5 Undercity Station; the chest is in the middle of that path.",
+          "where": "Station Way: peti di jalan utara Station Way (selatan tempat gramofon / disc Descendant of Shinobi). Lokasi dari data peti game (treasure0160); bukan di Sanctuary Way.",
+          "whereEn": "Station Way: chest on the north road of Station Way (south of the gramophone / Descendant of Shinobi spot). Location from the game's chest data (treasure0160); not in Sanctuary Way.",
           "missable": false,
           "optional": true
         },
