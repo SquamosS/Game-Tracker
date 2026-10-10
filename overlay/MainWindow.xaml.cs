@@ -206,6 +206,7 @@ public partial class MainWindow : Window
         LogPosition(position);
         FollowGameState();
         changed |= FollowLocation(position);
+        if (_inGame) LogChests();
         // Distances to chests change as you walk: redraw when a rounded one does, at most every 2 s.
         if (DateTime.Now - _distancesAt >= TimeSpan.FromSeconds(2))
         {

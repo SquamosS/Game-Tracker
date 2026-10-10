@@ -48,7 +48,7 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 
 **Peti (10 Okt siang)**
 - Overlay membaca tabel peti/reward/item game (`Ff7rTreasure.cs`) dan menampilkan jarak ke peti bila tepat satu peti berisi item langkah itu, di area yang sama dengan panduan, dan belum diambil sesi ini. Status "sudah dibuka" live BELUM ketemu (notes.md).
-- Audit panduan vs data peti: scanner `chestdump` + `tools/ff7r-scan/audit-chests.py`; 5 koreksi area (Ch9/Ch13/Ch14). Peta lain diaudit saat dimainkan.
+- Overlay menyimpan semua peti yang dimuat ke `data/chests/<tabel>.tsv` (digabung per id; area dilengkapi belakangan). Audit: `python -I tools/ff7r-scan/audit-chests.py [chapter...]` dari root proyek; 5 koreksi area (Ch9/Ch13/Ch14). Peta lain diaudit saat dimainkan.
 
 **Masih terbuka**
 - Deteksi difficulty otomatis (coba saat user main Hard).

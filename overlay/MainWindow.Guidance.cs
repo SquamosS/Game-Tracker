@@ -184,4 +184,55 @@ public partial class MainWindow
             return;
         }
     }
+
+    // ---- Chest log for auditing the guide -------------------------------------------------------------------------
+
+    static readonly System.Text.RegularExpressions.Regex ChestTable = new(@"^[a-z]+\d+", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    IReadOnlyList<Ff7rChapterReader.Chest>? _chestsLogged;
+    DateTime _chestsLoggedAt;
+    bool _chestsLogIncomplete;
+
+    /// <summary>
+    /// Keeps data\chests\&lt;table&gt;.tsv (one file per chest table, "obt080") up to date with every chest the game has
+    /// loaded: id, position, area and floor (as the overlay names them), item ids and names. Rows are merged by id, so the
+    /// files grow over a playthrough into the material for checking the guide's "where" against the game. Written when
+    /// the chest list changes, and again (at most every 30 s) while some chest's area was not known yet.
+    /// </summary>
+    void LogChests()
+    {
+        var chests = _reader.Chests;
+        if (chests.Count == 0) return;
+        bool changed = !ReferenceEquals(chests, _chestsLogged);
+        if (!changed && !(_chestsLogIncomplete && DateTime.Now - _chestsLoggedAt > TimeSpan.FromSeconds(30))) return;
+        _chestsLogged = chests;
+        _chestsLoggedAt = DateTime.Now;
+        _chestsLogIncomplete = false;
+        try
+        {
+            string folder = Directory.CreateDirectory(Path.Combine(DataPaths.Data, "chests")).FullName;
+            foreach (var table in chests.GroupBy(c => ChestTable.Match(c.Id).Value))
+            {
+                string file = Path.Combine(folder, (table.Key.Length > 0 ? table.Key : "other") + ".tsv");
+                var rows = new SortedDictionary<string, string>(StringComparer.Ordinal);
+                if (File.Exists(file))
+                    foreach (var line in File.ReadAllLines(file).Skip(1))
+                        if (line.Split('	') is { Length: > 1 } cells) rows[cells[0]] = line;
+                foreach (var chest in table)
+                {
+                    var location = chest.At is { } at ? _reader.ReadLocation(at) : null;
+                    if (chest.At is not null && location is null) _chestsLogIncomplete = true;
+                    // A row that already knows its area keeps it when the area cannot be read now (another map shown).
+                    if (location is null && rows.TryGetValue(chest.Id, out var known) && known.Split('	') is { Length: > 4 } k && k[4].Length > 0) continue;
+                    string names = string.Join(" + ", chest.Items.Select(id => _itemMap.Name(id) ?? $"#{id}"));
+                    rows[chest.Id] = string.Join('	', chest.Id, chest.At is { } p ? $"{p.X:0}" : "", chest.At is { } q ? $"{q.Y:0}" : "", chest.At is { } r ? $"{r.Z:0}" : "",
+                        location?.Area ?? "", location?.Floor ?? "", string.Join(",", chest.Items), names);
+                }
+                string temp = file + ".tmp";
+                File.WriteAllLines(temp, rows.Values.Prepend("id	x	y	z	area	floor	item ids	items"));
+                File.Move(temp, file, true);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
 }
