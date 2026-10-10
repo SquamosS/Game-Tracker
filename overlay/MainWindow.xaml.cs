@@ -69,11 +69,13 @@ public partial class MainWindow : Window
         LangSwitch.MouseLeftButtonDown += (_, e) => { e.Handled = true; Lang.Set(!Lang.Indonesian); };
         WarnBox.MouseLeftButtonDown += (_, e) => { e.Handled = true; _warnOpen = !_warnOpen; Render(); };
         Lang.Changed += OnLanguageChanged;
+        // The quest pop-up shows with the overlay, whatever hid it (a menu, Ctrl+Shift+G, the tray).
+        IsVisibleChanged += (_, _) => _quest.Allowed = IsVisible;
         Loaded += (_, _) => DockRight();
         SourceInitialized += (_, _) => SetupHotkeys();
         // The poll timer and the guide watcher must stop too: left running, a closed overlay keeps reading the game
         // and saving its own, older progress over the one a reopened overlay saves.
-        Closed += (_, _) => { Lang.Changed -= OnLanguageChanged; _toast.Close(); _poll.Stop(); _watcher?.Dispose(); _native?.Dispose(); _reader.Dispose(); };
+        Closed += (_, _) => { Lang.Changed -= OnLanguageChanged; _toast.Close(); _quest.Close(); _poll.Stop(); _watcher?.Dispose(); _native?.Dispose(); _reader.Dispose(); };
         LoadGuide();
         WatchGuides();
         WatchGame();
@@ -940,16 +942,26 @@ public partial class MainWindow : Window
         }
     }
 
-    static readonly Brush QuestTitle = Brush("#38BDF8"), QuestText = Brush("#BAE6FD"), SubTitle = Brush("#FBBF24"), SubText = Brush("#E2E8F0");
+    static readonly Brush QuestTitle = Brush("#38BDF8"), QuestText = Brush("#BAE6FD");
+
+    /// <summary>The live quest's own pop-up at the top left (QuestWindow), apart from the checklist.</summary>
+    readonly QuestWindow _quest = new();
 
     /// <summary>
-    /// The live quest as the game shows it: the quest (blue) with its description, then the active sub-quest
-    /// (amber, indented) with its own description.
+    /// The live quest as the game shows it goes to the quest pop-up; the overlay keeps only a note while it is being
+    /// looked for. A game without a reader has no live quest: the guide's story step shows on the overlay instead.
     /// </summary>
     void RenderObjective()
     {
         ObjectiveText.Inlines.Clear();
-        ObjectiveText.ToolTip = _subObjective?.Text ?? _objective?.Text;
+        FillObjective();
+        ObjectiveText.Visibility = ObjectiveText.Inlines.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    void FillObjective()
+    {
+        _quest.SetQuest(_live ? _objective?.Title ?? _objective?.TitleKey : null, _objective?.Text,
+            _subObjective is { } s ? s.Title ?? s.TitleKey : null, _subObjective?.Text);
         // Without a reader the guide's own story step is the quest: its name, then where.
         if (!_live)
         {
@@ -959,19 +971,8 @@ public partial class MainWindow : Window
                 ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n" + ShownWhere(step)) { Foreground = QuestText, FontSize = 12 });
             return;
         }
-        if (_objective is not { } live)
-        {
-            if (_inGame) ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(Lang.T("Looking for the active objective...", "Mencari objektif aktif...")) { Foreground = Muted, FontSize = 12 });
-            return;
-        }
-        // The quest is the largest text on the overlay: it is what you are doing right now.
-        ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(live.Title ?? live.TitleKey) { Foreground = QuestTitle, FontSize = 16, FontWeight = FontWeights.SemiBold });
-        if (live.Text is { Length: > 0 } text)
-            ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n" + text) { Foreground = QuestText, FontSize = 12 });
-        if (_subObjective is not { } sub) return;
-        ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n› " + (sub.Title ?? sub.TitleKey)) { Foreground = SubTitle, FontSize = 12.5, FontWeight = FontWeights.SemiBold });
-        if (sub.Text is { Length: > 0 } subText)
-            ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n   " + subText) { Foreground = SubText, FontSize = 11.5, FontStyle = FontStyles.Italic });
+        if (_objective is null && _inGame)
+            ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(Lang.T("Looking for the active objective...", "Mencari objektif aktif...")) { Foreground = Muted, FontSize = 12 });
     }
 
     bool WarningOpen(Objective o) => o.ShownWarning is not null && (o.Needs is not { Length: > 0 } needs || !needs.All(_progress.Done.Contains));
@@ -1008,6 +1009,7 @@ public partial class MainWindow : Window
             ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(_reader.Version is null
                 ? Lang.T("Start FF7R; the overlay follows your chapter on its own.", "Buka FF7R, overlay akan mengikuti chapter kamu otomatis.")
                 : Lang.T("Load a save or start a chapter; the checklist shows up on its own.", "Load save atau mulai chapter, checklist-nya muncul otomatis.")) { Foreground = Muted, FontSize = 12 });
+            ObjectiveText.Visibility = Visibility.Visible;
             Bar.Width = 0;
             WarnBox.Visibility = Visibility.Collapsed;
             return;

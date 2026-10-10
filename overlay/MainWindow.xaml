@@ -7,6 +7,10 @@
         FontFamily="Bahnschrift" FontSize="13" Foreground="#E2E8F0">
   <Border Background="#800F172A" BorderBrush="#03FFFFFF" BorderThickness="1" CornerRadius="12">
     <DockPanel Margin="14">
+      <!-- A thin dark halo around all text (Outline in QuestWindow.cs), readable over bright scenes. -->
+      <DockPanel.Effect>
+        <DropShadowEffect Color="Black" ShadowDepth="0" BlurRadius="4" Opacity="1" />
+      </DockPanel.Effect>
       <!-- Three levels only: a small chapter label with the count, the live quest, then what is left to get. -->
       <StackPanel DockPanel.Dock="Top" x:Name="Header" Cursor="SizeAll">
         <DockPanel>
