@@ -590,7 +590,7 @@ public partial class MainWindow : Window
     /// </summary>
     bool NotYet(Objective o, Chapter chapter)
     {
-        if (o.After is { } after && !Reached(after)) return true;
+        if (o.After is { } after) return !Reached(after); // After decides, wherever the guide lists the step
         int index = Array.IndexOf(chapter.Objectives, o);
         if (index < 0 || CurrentStory is not { } story) return false;
         int current = Array.IndexOf(chapter.Objectives, story);
@@ -1231,15 +1231,15 @@ public partial class MainWindow : Window
         {
             var o = objectives[i];
             if (o.Type == "cerita") { phase = i; continue; }
-            if (phase > current || _progress.Done.Contains(o.Id)) continue;
+            // A step with After opens when that step is reached, wherever the guide lists it (Ch8's side quests come after
+            // "Battle Intel & VR" in the guide but open with "Requests for the Mercenary").
+            if (_progress.Done.Contains(o.Id) || (o.After is { } opens ? !Reached(opens) && !IsLiveQuest(o) : phase > current)) continue;
             // Trophies are not tracked here: the rewards they come with are steps of their own.
             if (o.Type == "trofi") continue;
             if (o.Optional && phase < current) continue;
-            // Not open yet (After), unless the game shows it live.
-            if (o.After is { } after && !Reached(after) && !IsLiveQuest(o)) continue;
             // Behind you on a stretch you cannot walk back: shown again once you can (Revisit).
             if (phase < current && o.Revisit is { } back && !Reached(back)) continue;
-            open.Add((o, IsHere(o) ? TagHere : phase == current ? null : TagBehind));
+            open.Add((o, IsHere(o) ? TagHere : phase < current ? TagBehind : null));
         }
         return open.OrderByDescending(x => x.Tag == TagHere).ThenByDescending(x => x.Step.Missable).ToList();
     }
