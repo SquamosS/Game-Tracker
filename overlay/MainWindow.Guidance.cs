@@ -236,6 +236,27 @@ public partial class MainWindow
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
+    /// <summary>
+    /// Writes data\logs\items.log for items handed over in play (not a loaded save): time, chapter, id, name, count now,
+    /// area, floor, where Cloud stands, the game state (battle, exploring, menu, cutscene) and the live objective. Where an item was
+    /// picked up is a spot for points.json on the next playthrough.
+    /// </summary>
+    void LogItems(IEnumerable<Ff7rChapterReader.Owned> items)
+    {
+        var p = _herePosition;
+        var lines = items.Select(o => string.Join('\t', $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}", _detectedChapter, o.Id, _itemMap.Name(o.Id) ?? $"#{o.Id}", o.Count,
+            _here?.Area ?? "", _here?.Floor ?? "", p is null ? "" : $"{p.X:0}", p is null ? "" : $"{p.Y:0}", p is null ? "" : $"{p.Z:0}",
+            _reader.ReadGameState() switch { { Battle: true } => "battle", { Exploring: true } => "exploring", { Menu: true } => "menu", { Cutscene: true } => "cutscene", { } g => $"state {g.State2}", null => "" }, _objective?.Title ?? "")).ToList();
+        if (lines.Count == 0) return;
+        try
+        {
+            string file = Path.Combine(DataPaths.Logs, "items.log");
+            if (!File.Exists(file)) File.WriteAllText(file, "time\tchapter\tid\tname\tcount\tarea\tfloor\tx\ty\tz\tstate\tobjective" + Environment.NewLine);
+            File.AppendAllLines(file, lines);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
     readonly Dictionary<string, bool> _chestFlagsLogged = [];
 
     /// <summary>

@@ -260,6 +260,7 @@ public partial class MainWindow : Window
         bool handedOver = changedSlots.Count is > 0 and <= 3;
         // Items handed over in front of a chest that holds them: that chest is opened now (ChestOpened).
         if (handedOver) ChestOpened(owned.Where(o => changedSlots.Contains(o.Slot) && o.Id > 0).Select(o => o.Id).ToHashSet());
+        if (handedOver) LogItems(owned.Where(o => changedSlots.Contains(o.Slot) && o.Id > 0));
         if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; ForgetRecent(); _reader.ForgetChestCopy(); } // a save was loaded (or copied)
         bool IsNew(Ff7rChapterReader.Owned o) =>
             (_seenOwned.Add((o.Id, o.Obtained)) && o.Obtained >= _startedAt - 120) | (handedOver && changedSlots.Contains(o.Slot));
