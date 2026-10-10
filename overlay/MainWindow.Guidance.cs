@@ -360,7 +360,7 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Ctrl+Shift+P: notes where Cloud stands (area, floor, X Y Z, the game's live objective) in data\points-recorded.tsv,
+    /// Ctrl+Shift+Alt+P: notes where Cloud stands (area, floor, X Y Z, the game's live objective) in data\points-recorded.tsv,
     /// to be named and moved into points.json for a guide step.
     /// </summary>
     void RecordSpot()
@@ -393,7 +393,8 @@ public partial class MainWindow
     string? PointDistance(Objective o)
     {
         if (!_live || _herePosition is not { } p || !_points.TryGetValue(o.Id, out var point)) return null;
-        if (!_pointArea.TryGetValue(o.Id, out var known) || DateTime.Now - known.When >= TimeSpan.FromSeconds(30))
+        // Asked again after 30 s, or 5 s while unknown (the map's area volumes may still be loading).
+        if (!_pointArea.TryGetValue(o.Id, out var known) || DateTime.Now - known.When >= TimeSpan.FromSeconds(known.Area is null ? 5 : 30))
             _pointArea[o.Id] = known = (_reader.ReadLocation(new Ff7rChapterReader.Position(point.X, point.Y, point.Z))?.Area, DateTime.Now);
         if (known.Area is null || !known.Area.Equals(point.Area, StringComparison.OrdinalIgnoreCase)) return null;
         return Metres(Distance(new Ff7rChapterReader.Position(point.X, point.Y, point.Z), p));

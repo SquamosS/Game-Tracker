@@ -11,7 +11,7 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 - Discovery Ch8 (`$str080_Chapter09_sideNN`) kini terbaca; langkah baru "Discovery: The Gate Won't Open".
 - Pop-up DI AREA INI: hadiah side quest disembunyikan sampai quest selesai (RewardOf); kolom baru `after` di guide.json (langkah baru tampil setelah prasyaratnya; side quest Ch8 setelah c8-16-requests).
 - Objek quest di tabel peti (`_qst`) hanya tampil saat quest itu live (QuestObjectShown; kunci Ch8 belum terverifikasi).
-- Tabel titik `overlay/games/ff7r/points.json` (id langkah -> x,y,z,area) + Ctrl+Shift+P merekam posisi ke `data/points-recorded.tsv`.
+- Tabel titik `overlay/games/ff7r/points.json` (id langkah -> x,y,z,area) + Ctrl+Shift+Alt+P merekam posisi ke `data/points-recorded.tsv`.
 - **Berikutnya (user setuju)**: (1) riset tujuan quest/discovery dari game (penanda minimap aktif, atau titik `oblPoint...qstNN...`) untuk jarak otomatis; (2) beda tinggi di jarak (mis. `25 m ↑6`); (3) ikon jenis di pop-up; (4) cek kunci side quest Ch8 setelah Requests for the Mercenary; (5) navmesh untuk jarak jalan (riset besar, nanti).
 - Progres user: Ch8, sekitar Center District/To Aerith's House, sebelum Requests for the Mercenary. Talisman & Chakra gereja terlewat (belum dibuka).
 
@@ -197,7 +197,7 @@ File utama: `MainWindow.xaml.cs`, `Ff7rChapterReader.cs`, `Ff7rObjective.cs`, `I
 | Ctrl+Shift+T | Mode klik-tembus |
 | Ctrl+Shift+A | Ganti tampilan (Ctrl+Shift+L sudah dipakai aplikasi lain) |
 | Ctrl+Shift+H | Mode Normal / Hard (tampilkan langkah khusus Hard) |
-| Ctrl+Shift+P | Simpan titik penting (area, lantai, XYZ, objektif live) ke `data/points-recorded.tsv`; dipindah manual ke `overlay/games/ff7r/points.json` (id langkah -> x, y, z, area) agar overlay menampilkan jaraknya |
+| Ctrl+Shift+Alt+P | Simpan titik penting (area, lantai, XYZ, objektif live) ke `data/points-recorded.tsv`; dipindah manual ke `overlay/games/ff7r/points.json` (id langkah -> x, y, z, area) agar overlay menampilkan jaraknya |
 | Ctrl+Shift+L, atau Ctrl+Shift+Alt+L | Bahasa EN / IN (sama dengan saklar di header). Di PC user Ctrl+Shift+L dipakai aplikasi lain, jadi yang aktif Ctrl+Shift+Alt+L; tooltip saklar menyebut yang aktif |
 
 Klik kotak peringatan kuning: buka/tutup daftar missable dan alasannya. Hotkey baru: cek dulu tabel ini, karena Ctrl+Shift+L sudah dipakai aplikasi lain.

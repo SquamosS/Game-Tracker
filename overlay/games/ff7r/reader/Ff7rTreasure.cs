@@ -29,8 +29,8 @@ public sealed partial class Ff7rChapterReader
     /// <summary>A chest flag's number + this = its bit in the save data's flag block.</summary>
     const int ChestFlagBit = 0xA80;
 
-    long _chestFlagCopy;
-    DateTime _chestFlagCopyAt, _chestFlagsRead;
+    long _chestFlagCopy, _chestCopyCandidate;
+    DateTime _chestCopyNextTry, _chestFlagsRead;
     readonly byte[] _chestFlagBytes = new byte[FlagBytes];
     bool _chestFlagsOk;
 
@@ -46,16 +46,40 @@ public sealed partial class Ff7rChapterReader
     }
 
     /// <summary>
+    /// A save was loaded (or play started): which copy is live is not known any more. Chests read unknown (the learned
+    /// fallback) until LiveCopy names the new one twice.
+    /// </summary>
+    public void ForgetChestCopy()
+    {
+        (_chestFlagCopy, _chestCopyCandidate, _chestCopyNextTry, _chestFlagsRead, _chestFlagsOk) = (0, 0, DateTime.MinValue, DateTime.MinValue, false);
+        _chestProbe.Data = null;
+    }
+
+    /// <summary>
     /// The flag block of the live save copy, read at most once a second. Which copy is live is asked again every 30 s
-    /// (LiveCopy compares two reads a second apart); the last answer holds meanwhile while that copy still exists.
+    /// (10 s after no answer, e.g. paused): LiveCopy compares two reads a second apart. Another copy is taken only when it
+    /// is named twice in a row, 2 s apart, so the buffer an autosave is writing (it changes most for a moment) is not.
     /// </summary>
     bool ReadChestFlags()
     {
-        if (DateTime.Now - _chestFlagsRead < TimeSpan.FromSeconds(1)) return _chestFlagsOk;
-        _chestFlagsRead = DateTime.Now;
+        var now = DateTime.Now;
+        if (now - _chestFlagsRead < TimeSpan.FromSeconds(1)) return _chestFlagsOk;
+        _chestFlagsRead = now;
         if (!_lists.Any(l => l.Materia == _chestFlagCopy)) _chestFlagCopy = 0;
-        if (_lists.Count > 0 && (_chestFlagCopy == 0 || DateTime.Now - _chestFlagCopyAt > TimeSpan.FromSeconds(30)) && LiveCopy() is { } live)
-            (_chestFlagCopy, _chestFlagCopyAt) = (live.Materia, DateTime.Now);
+        if (_lists.Count > 0 && (_chestProbe.Pending || now >= _chestCopyNextTry))
+        {
+            var live = LiveCopy(_chestProbe);
+            if (!_chestProbe.Pending)
+            {
+                _chestCopyNextTry = now + TimeSpan.FromSeconds(live is null ? 10 : 30);
+                if (live is { } l && l.Materia != _chestFlagCopy)
+                {
+                    if (l.Materia == _chestCopyCandidate) (_chestFlagCopy, _chestCopyCandidate) = (l.Materia, 0);
+                    else (_chestCopyCandidate, _chestCopyNextTry) = (l.Materia, now + TimeSpan.FromSeconds(2));
+                }
+                else if (live is not null) _chestCopyCandidate = 0;
+            }
+        }
         return _chestFlagsOk = _chestFlagCopy != 0
             && ReadProcessMemory(_handle, (IntPtr)(_chestFlagCopy + FlagStart), _chestFlagBytes, FlagBytes, out _);
     }
@@ -137,8 +161,9 @@ public sealed partial class Ff7rChapterReader
                 var keys = Enumerable.Range(0, 8).Select(k => FNameAt(row + 0x38 + k * 8)).Where(k => k.StartsWith("rwr")).ToList();
                 var items = keys.SelectMany(k => rewards.GetValueOrDefault(k) ?? []).Select(c => ids.GetValueOrDefault(c)).Where(id => id > 0).ToArray();
                 if (keys.Count > 0 && items.Length == 0) complete = false;
-                rowsFound.Add((FNameAt(row), (uint)ReadInt32(row + 0x30) | (long)ReadInt32(row + 0x34) << 32,
-                    (uint)ReadInt32(row + 0x18) | (long)ReadInt32(row + 0x1C) << 32, items));
+                // The flag is taken only when it is named like one ("stfTreasure_obt080_treasure0080").
+                long flagName = FName(ReadInt32(row + 0x18)).StartsWith("stfTreasure_") ? (uint)ReadInt32(row + 0x18) | (long)ReadInt32(row + 0x1C) << 32 : 0;
+                rowsFound.Add((FNameAt(row), (uint)ReadInt32(row + 0x30) | (long)ReadInt32(row + 0x34) << 32, flagName, items));
             }
         }
         // Points: rows of FName (index, number), pointer, rotation, X, Y, Z, scale 1, 1, 1. A name found at two different

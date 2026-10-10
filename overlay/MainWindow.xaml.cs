@@ -170,7 +170,7 @@ public partial class MainWindow : Window
         if (!_inGame) { chapter = null; _detectedChapter = null; }
         // Back in game after the title screen or a load (or the overlay just started): the save may be another
         // one, even the same chapter, so check the ticks against it.
-        if (_inGame && !wasInGame) { _reconcile = true; _loadedSlots = []; ForgetRecent(); _inGameSince = DateTime.Now; }
+        if (_inGame && !wasInGame) { _reconcile = true; _loadedSlots = []; ForgetRecent(); _inGameSince = DateTime.Now; _reader.ForgetChestCopy(); }
 
         bool changed = chapter is not null && chapter != _detectedChapter;
         if (chapter is not null) _detectedChapter = chapter;
@@ -182,7 +182,7 @@ public partial class MainWindow : Window
                 // end-of-chapter reward are done (that reward arrives during the chapter change, with a save copy).
                 // Any other jump (an earlier chapter, or several ahead) is another save being loaded: rebuild the
                 // ticks from what that save holds.
-                if (chapter != _progress.Chapter && chapter != _progress.Chapter + 1) { _reconcile = true; ForgetRecent(); }
+                if (chapter != _progress.Chapter && chapter != _progress.Chapter + 1) { _reconcile = true; ForgetRecent(); _reader.ForgetChestCopy(); }
                 else if (chapter > _progress.Chapter && _guide.Chapters.FirstOrDefault(c => c.Number == _progress.Chapter) is { } finished)
                     foreach (var o in finished.Objectives.Where(o => o.Type == "cerita" || RewardTag(o) == "REWARD CHAPTER"
                         || (o.Type == "trofi" && ChapterEndTrophy(o))))
@@ -260,7 +260,7 @@ public partial class MainWindow : Window
         bool handedOver = changedSlots.Count is > 0 and <= 3;
         // Items handed over in front of a chest that holds them: that chest is opened now (ChestOpened).
         if (handedOver) ChestOpened(owned.Where(o => changedSlots.Contains(o.Slot) && o.Id > 0).Select(o => o.Id).ToHashSet());
-        if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; ForgetRecent(); } // a save was loaded (or copied)
+        if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; ForgetRecent(); _reader.ForgetChestCopy(); } // a save was loaded (or copied)
         bool IsNew(Ff7rChapterReader.Owned o) =>
             (_seenOwned.Add((o.Id, o.Obtained)) && o.Obtained >= _startedAt - 120) | (handedOver && changedSlots.Contains(o.Slot));
         foreach (var o in owned.Where(o => o.Id > 0 && o.Id != 20).Where(IsNew).ToList())
@@ -577,7 +577,9 @@ public partial class MainWindow : Window
             && o.Where.Contains(q.Name.Replace("Discovery:", "").Trim(), StringComparison.OrdinalIgnoreCase));
 
     /// <summary>A side quest or discovery that is the game's live objective now.</summary>
-    bool IsLiveQuest(Objective o) => o.Type is "side quest" or "kejadian" && _objective?.Title is { Length: >= 3 } title && SameQuest(o.Name, title);
+    /// Not one left for later ("..._xxx": "take a look the next time you're in the area"): that one shows only in its area.
+    bool IsLiveQuest(Objective o) => o.Type is "side quest" or "kejadian" && _objective?.Title is { Length: >= 3 } title && SameQuest(o.Name, title)
+        && !_objective.DescKey.EndsWith("_xxx");
 
     string _hereShown = "";
     readonly ToastWindow _toast = new();
@@ -852,7 +854,8 @@ public partial class MainWindow : Window
         Bind(Key.T, "Ctrl+Shift+T", ToggleClickThrough);
         Bind(Key.A, "Ctrl+Shift+A", ToggleArchive);
         Bind(Key.H, "Ctrl+Shift+H", ToggleHard);
-        Bind(Key.P, "Ctrl+Shift+P", RecordSpot);
+        // Ctrl+Shift+P is VS Code's command palette (and other apps'): Alt added.
+        if (!_native.Hotkey(Key.P, RecordSpot, alt: true)) failed.Add("Ctrl+Shift+Alt+P");
         // Language: Ctrl+Shift+L is often taken by other apps, so Ctrl+Shift+Alt+L stands in; the switch's tooltip names the one in use.
         void SwitchLanguage() => Lang.Set(!Lang.Indonesian);
         string? langKey = _native.Hotkey(Key.L, SwitchLanguage) ? "Ctrl+Shift+L"

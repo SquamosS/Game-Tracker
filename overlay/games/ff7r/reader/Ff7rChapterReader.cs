@@ -76,7 +76,7 @@ public sealed partial class Ff7rChapterReader : IDisposable
         (long Materia, long Gil) live;
         if (changedSlots.Count > 0 && _lists.Any(l => changedSlots.Any(s => Holds(l, s))))
             live = _lists.MaxBy(l => changedSlots.Count(s => Holds(l, s)));
-        else if (LiveCopy() is { } copy) live = copy;
+        else if (LiveCopy(_ownedProbe) is { } copy) live = copy;
         else return null; // asked again on the next poll
         var (materia, gil) = live;
         var ids = new HashSet<int>();
@@ -91,38 +91,46 @@ public sealed partial class Ff7rChapterReader : IDisposable
         return ids;
     }
 
-    Dictionary<long, byte[]>? _probe;
-    DateTime _probeAt;
+    /// <summary>One caller's first read of every save copy, compared a second later (LiveCopy).</summary>
+    sealed class LiveProbe
+    {
+        public Dictionary<long, byte[]>? Data;
+        public DateTime At;
+        public bool Pending => Data is not null;
+    }
+
+    /// <summary>Each caller keeps its own probe: a shared one would be used up by whichever compared first.</summary>
+    readonly LiveProbe _ownedProbe = new(), _chestProbe = new();
 
     /// <summary>
     /// The copy of the save data the game is playing on: other copies (save buffers) stay still, the live one keeps
-    /// changing (play time, position...). Compares two reads at least a second apart; null until the second read.
+    /// changing (play time, position...). Compares two reads at least a second apart; null until the second read, and
+    /// null when nothing changed (paused in a menu) or two copies changed alike. A copy that cannot be read is left out.
     /// </summary>
-    (long Materia, long Gil)? LiveCopy()
+    (long Materia, long Gil)? LiveCopy(LiveProbe probe)
     {
-        byte[] Read((long Materia, long Gil) l)
+        byte[]? Read((long Materia, long Gil) l)
         {
             var buffer = new byte[(int)(l.Gil - l.Materia + EquipmentBytes + 0x1000)];
-            ReadProcessMemory(_handle, (IntPtr)(l.Materia - EquipmentBytes), buffer, buffer.Length, out _);
-            return buffer;
+            return ReadProcessMemory(_handle, (IntPtr)(l.Materia - EquipmentBytes), buffer, buffer.Length, out _) ? buffer : null;
         }
-        if (_probe is null || _probe.Count != _lists.Count || !_lists.All(l => _probe.ContainsKey(l.Materia)))
+        if (probe.Data is not { } before || before.Count != _lists.Count || !_lists.All(l => before.ContainsKey(l.Materia)))
         {
-            _probe = _lists.ToDictionary(l => l.Materia, Read);
-            _probeAt = DateTime.Now;
+            probe.Data = _lists.ToDictionary(l => l.Materia, l => Read(l) ?? []);
+            probe.At = DateTime.Now;
             return null;
         }
-        if (DateTime.Now - _probeAt < TimeSpan.FromSeconds(1)) return null;
+        if (DateTime.Now - probe.At < TimeSpan.FromMilliseconds(900)) return null;
+        probe.Data = null;
         int Changes((long Materia, long Gil) l)
         {
-            var now = Read(l); var before = _probe[l.Materia]; int n = 0;
-            for (int i = 0; i < Math.Min(now.Length, before.Length); i++) if (now[i] != before[i]) n++;
+            if (Read(l) is not { } now || before[l.Materia] is not { Length: > 0 } then) return -1;
+            int n = 0;
+            for (int i = 0; i < Math.Min(now.Length, then.Length); i++) if (now[i] != then[i]) n++;
             return n;
         }
-        // Paused (a menu) nothing changes: no copy can be told apart then, nor when two changed alike.
         var changes = _lists.Select(l => (List: l, Count: Changes(l))).OrderByDescending(c => c.Count).ToList();
-        _probe = null;
-        if (changes[0].Count == 0 || (changes.Count > 1 && changes[1].Count == changes[0].Count)) return null;
+        if (changes.Count == 0 || changes[0].Count <= 0 || (changes.Count > 1 && changes[1].Count == changes[0].Count)) return null;
         return changes[0].List;
     }
 
@@ -392,6 +400,8 @@ public sealed partial class Ff7rChapterReader : IDisposable
         _chestTablesFrom = "";
         _chestsComplete = false;
         _volumes = new();
+        _ownedProbe.Data = _chestProbe.Data = null;
+        ForgetChestCopy();
     }
 
     public void Dispose() => Detach();
