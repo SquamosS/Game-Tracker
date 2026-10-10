@@ -114,14 +114,19 @@ public sealed partial class Ff7rChapterReader
     {
         ReadFieldActors();
         if (_questClients is not { } clients) return null;
+        // Asked for every step of the chapter: the same answer while the people and the quest page are the same lists.
+        var sides = SideQuests;
+        if (ReferenceEquals(_giversFrom.Clients, clients) && ReferenceEquals(_giversFrom.Sides, sides)) return _giversFrom.Result;
         var givers = new List<QuestGiver>();
-        foreach (var side in SideQuests)
+        foreach (var side in sides)
         {
             if (side.Finished || side.Stage != "00") continue;
             var at = clients.Where(c => side.Quest.StartsWith(c.Map + "_") && side.Quest.EndsWith("_q" + c.Quest)).Select(c => c.At).ToList();
             // Two people named for one quest: which one to walk to is a guess.
             if (at.Count == 1) givers.Add(new QuestGiver(side.Title, at[0]));
         }
+        _giversFrom = (clients, sides, givers);
         return givers;
     }
+    (object? Clients, object? Sides, IReadOnlyList<QuestGiver>? Result) _giversFrom;
 }

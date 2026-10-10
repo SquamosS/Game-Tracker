@@ -477,7 +477,7 @@ public partial class MainWindow : Window, IProgressHost
         _quest.SetQuest(_live ? _tracker.LiveObjective?.Title ?? _tracker.LiveObjective?.TitleKey : null, _tracker.LiveObjective?.Text,
             _tracker.LiveSubObjective is { } s ? s.Title ?? s.TitleKey : null, _tracker.LiveSubObjective?.Text,
             _live && _tracker.InGame ? _status.QuestsUnderWay().Select(q => (q.Step is { } o ? TypeIcon(o) : "•", q.Step is { } step ? TypeBrush(step) : QuestTitle, q.Title,
-                q.Step is { } kind ? TypeText(kind) : Lang.T("side quest", "side quest"), q.Text)).ToList() : []);
+                q.Step is { } kind ? TypeText(kind) : Lang.T("side quest", "side quest"), q.Text, q.Step is { } far ? StepDistance(far) : null)).ToList() : []);
         // Without a reader the guide's own story step is the quest: its name, then where.
         if (!_live)
         {

@@ -406,6 +406,10 @@ public sealed partial class Ff7rChapterReader : IGameReader
         _fieldActors = null;
         _fieldActorsAt = DateTime.MinValue;
         _fieldClassNames.Clear();
+        _markerOwner = 0;
+        _markers = null;
+        _markersAt = DateTime.MinValue;
+        _markerNames.Clear();
         SideQuests = [];
         ForgetChestCopy();
     }

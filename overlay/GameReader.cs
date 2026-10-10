@@ -33,6 +33,12 @@ public sealed record SideQuest(string Title, string Quest, string Stage, bool Fi
 /// <summary>Someone standing in the loaded level who gives a side quest of the quest page not taken yet: its title (SideQuest.Title), where they stand.</summary>
 public sealed record QuestGiver(string Title, GamePosition At);
 
+/// <summary>
+/// A spot the game marks on its map for a side quest under way: the quest's title (SideQuest.Title), what is marked
+/// (a person to find, by the game's own name; null = the quest's own marker) and where.
+/// </summary>
+public sealed record QuestMarker(string Title, string? Target, GamePosition At);
+
 /// <summary>An object standing in the loaded level (chest, pickup...), by its class name.</summary>
 public sealed record FieldActor(string Class, GamePosition At);
 
@@ -109,6 +115,9 @@ public interface IGameReader : IDisposable
 
     /// <summary>Who gives the side quests the quest page lists and that are not taken yet, standing in the level now. Null = not known.</summary>
     IReadOnlyList<QuestGiver>? ReadQuestGivers() => null;
+
+    /// <summary>What the game's map marks for the side quests under way (targets, the quest's own marker). Null = not known.</summary>
+    IReadOnlyList<QuestMarker>? ReadQuestMarkers() => null;
 
     IGameNames Names { get; }
 
@@ -221,6 +230,7 @@ public abstract class GameReaderBase : IGameReader
     public virtual GameLocation? ReadLocation(GamePosition p) => null;
     public virtual IReadOnlyList<FieldActor>? ReadFieldActors() => null;
     public virtual IReadOnlyList<QuestGiver>? ReadQuestGivers() => null;
+    public virtual IReadOnlyList<QuestMarker>? ReadQuestMarkers() => null;
     public virtual IGameNames Names => GameNamesBase.None;
     public virtual List<OwnedItem>? ReadOwned() => null;
     public virtual HashSet<int>? ReadLiveOwnedIds(IReadOnlyCollection<long> changedSlots) => null;

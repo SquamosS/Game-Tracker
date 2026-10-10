@@ -337,6 +337,9 @@ public sealed partial class Ff7rChapterReader
         var vt = TableVtables;
         long[] tableVtables = vt.Item == 0 ? [] : [vt.Item, vt.Equipment, vt.Materia, vt.Reward, vt.Chest];
         var tables = new System.Collections.Concurrent.ConcurrentBag<(int Kind, long Table)>();
+        // And the holder of the map's markers (Ff7rMapMarkers.cs).
+        long markerVtable = MarkerOwnerVtable;
+        var markerOwners = new System.Collections.Concurrent.ConcurrentBag<long>();
         ForEachChunk(cancel, (a, buf, length) =>
         {
             for (int i = 8; i + 16 <= length; i += 8)
@@ -344,6 +347,7 @@ public sealed partial class Ff7rChapterReader
                 long p = BitConverter.ToInt64(buf, i);
                 if (positionVtable != 0 && p == positionVtable) positions.Add(a + i);
                 if (volumeVtable != 0 && p == volumeVtable) volumes.Add(a + i);
+                if (markerVtable != 0 && p == markerVtable) markerOwners.Add(a + i);
                 if (tableVtables.Length > 0 && Array.IndexOf(tableVtables, p) is >= 0 and var kind) tables.Add((kind, a + i));
                 if (!byAddress.ContainsKey(p)) continue;
                 if (byAddress.ContainsKey(BitConverter.ToInt64(buf, i - 8)) || byAddress.ContainsKey(BitConverter.ToInt64(buf, i + 8))) continue;
@@ -357,10 +361,11 @@ public sealed partial class Ff7rChapterReader
         _positionObjects = positions.ToList(); // swapped whole: the UI thread reads these
         if (!naviTexts.IsEmpty) _naviTexts = new Dictionary<string, string>(naviTexts);
         _naviVolumes = volumes.ToList(); // a new list: ReadLocation resolves names and bounds again
+        _markerOwner = markerOwners.Count == 1 ? markerOwners.First() : 0; // two would be a guess
         // The chests are extra: a failure there must not throw away the objectives found above.
         try { if (!tables.IsEmpty) UpdateChests(tables.ToList(), cancel); }
         catch (Exception e) when (e is not OperationCanceledException) { ObjectiveDebug = "chests: " + e.Message; }
-        ObjectiveDebug = $"rows {byAddress.Count} ({rowsMs} ms, {stringReads} reads), slots {slots.Count} ({sw.ElapsedMilliseconds - rowsMs} ms), entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}, positions {positions.Count}, volumes {volumes.Count}, chests {Chests.Count}";
+        ObjectiveDebug = $"rows {byAddress.Count} ({rowsMs} ms, {stringReads} reads), slots {slots.Count} ({sw.ElapsedMilliseconds - rowsMs} ms), entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}, positions {positions.Count}, volumes {volumes.Count}, chests {Chests.Count}, marker holders {markerOwners.Count}";
         // Not from a game that closed meanwhile, nor from before a save was loaded.
         cancel.ThrowIfCancellationRequested();
         if (started > _sideForgotten) SideQuests = sideEntries.Distinct().ToList();

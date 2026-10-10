@@ -117,6 +117,31 @@ static class ModuleTests
         tracker.Progress.Done.Remove("c2-kids");
         reader.Givers = null;
 
+        // ---- TrailRecorder: what the game's map marks for a side quest under way -------------------------------------
+        var markers = typeof(Ff7rChapterReader).GetInterfaceMap(typeof(IGameReader));
+        int markersAt = Array.FindIndex(markers.InterfaceMethods, m => m.Name == nameof(IGameReader.ReadQuestMarkers));
+        check("marker: FF7R's reader answers what the map marks itself (not the interface's 'not known')", markers.TargetMethods[markersAt].DeclaringType == typeof(Ff7rChapterReader));
+        check("marker: a reader without it does not know", new NoGameReader().ReadQuestMarkers() is null);
+        reader.Markers = [new QuestMarker("Kids on Patrol", null, new GamePosition(1200, 2300, 0)),
+            new QuestMarker("Kids on Patrol", "Child01", new GamePosition(1200, 1300, 0)), new QuestMarker("Kids on Patrol", "Child02", new GamePosition(1500, 700, 0))];
+        check("marker: the nearest of the quest's targets", trails.PointDistance(kids) == "5 m");
+        reader.Markers = [.. reader.Markers, new QuestMarker("Kids on Patrol", null, new GamePosition(1200, 400, 0))];
+        check("marker: targets come before the quest's own marker, even a nearer one", trails.PointDistance(kids) == "5 m");
+        reader.Markers = [new QuestMarker("Kids on Patrol", null, new GamePosition(1200, 2300, 0))];
+        check("marker: no targets left: the quest's own marker", trails.PointDistance(kids) == "20 m");
+        reader.Markers = [.. reader.Markers, new QuestMarker("Kids on Patrol", null, new GamePosition(0, 0, 0))];
+        check("marker: two markers of the quest itself is a guess: no distance", trails.PointDistance(kids) is null);
+        reader.Markers = [new QuestMarker("Kids on Patrol", "Child01", new GamePosition(1500, 700, 0))];
+        check("marker: not for another step", trails.PointDistance(Step("c2-bat")) is null);
+        check("marker: only for a side quest step", trails.PointDistance(kids with { Id = "c2-kids-item", Type = "aksesori" }) is null);
+        tracker.Progress.Done.Add("c2-kids");
+        check("marker: a quest done has no distance", trails.PointDistance(kids) is null);
+        tracker.Progress.Done.Remove("c2-kids");
+        reader.Givers = [new QuestGiver("Kids on Patrol", new GamePosition(1200, 400, 0))];
+        check("marker: the giver of a quest not taken comes first", trails.PointDistance(kids) == "1 m");
+        reader.Givers = null;
+        reader.Markers = null;
+
         // ---- Checklist: which steps show, with which tag -------------------------------------------------------------
         var list = new Checklist(tracker, rules, status, area);
         tracker.Guide = ProgressTrackerTests.SmallGuide();
