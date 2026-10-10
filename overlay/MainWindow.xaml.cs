@@ -1172,6 +1172,10 @@ public partial class MainWindow : Window
         if (tag is not null) title.Inlines.Add(new System.Windows.Documents.Run(TagText(tag) + " ") { Foreground = tag is TagNow or TagHere ? Now : Late, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (o.Missable && !done && !compact) title.Inlines.Add(new System.Windows.Documents.Run("! ") { Foreground = Danger, FontWeight = FontWeights.Black, FontSize = 14 });
         if (o.Optional && !done && !compact) title.Inlines.Add(new System.Windows.Documents.Run(Lang.T("OPTIONAL ", "OPSIONAL ")) { Foreground = Muted, FontWeight = FontWeights.Bold, FontSize = 10.5 });
+        // Somewhere else than where you are: the guide's area as a label, so a step of this story step that lies ahead is
+        // not mistaken for one around you.
+        string? elsewhere = compact && !done && tag != TagHere && AreaOf(o) is var (stepArea, _) ? stepArea : null;
+        if (elsewhere is not null) title.Inlines.Add(new System.Windows.Documents.Run("➜ " + elsewhere.ToUpperInvariant() + " ") { Foreground = Mako, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         if (RewardTag(o) is { } reward && !done) title.Inlines.Add(new System.Windows.Documents.Run(reward + " ") { Foreground = TrophyColor, FontWeight = FontWeights.Bold, FontSize = 10.5 });
         // The icon alone is too small to tell a music disc from an item: name the kind unless the name already says it.
         if (compact && o.Type != "cerita" && !o.Name.Contains(TypeText(TypeLabel(o)), StringComparison.OrdinalIgnoreCase))
@@ -1198,7 +1202,7 @@ public partial class MainWindow : Window
             Margin = new Thickness(o.Type == "cerita" || compact ? 0 : 16, o.Type == "cerita" ? 6 : 0, 0, 0),
             CornerRadius = new CornerRadius(6),
             Background = isNext ? Current : Brushes.Transparent,
-            Opacity = compact && o.Optional ? 0.55 : 1,
+            Opacity = compact && o.Optional ? 0.55 : elsewhere is not null ? 0.75 : 1,
             ToolTip = compact ? ShownWhere(o) : Lang.T("Double-click: I am at this step", "Double-click: aku sudah di langkah ini"),
         };
         border.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) JumpTo(o); };
