@@ -210,7 +210,8 @@ public partial class MainWindow : Window
         // Distances to chests change as you walk: redraw when a rounded one does, at most every 2 s.
         if (DateTime.Now - _distancesAt >= TimeSpan.FromSeconds(2))
         {
-            string distances = string.Join("|", (CurrentChapter?.Objectives ?? []).Where(o => !_progress.Done.Contains(o.Id)).Select(ChestDistance));
+            string distances = string.Join("|", (CurrentChapter?.Objectives ?? []).Where(o => !_progress.Done.Contains(o.Id)).Select(ChestDistance))
+                + "#" + string.Join("|", ChestsHere());
             if (distances != _distances) { _distances = distances; _distancesAt = DateTime.Now; changed = true; }
         }
         // The notice counts down only while you can see it: a chapter's recap must not run out behind a cutscene.
@@ -256,6 +257,8 @@ public partial class MainWindow : Window
             .Select(o => o.Slot).ToHashSet();
         foreach (var o in owned) _slotIds[o.Slot] = (o.Id, o.Count);
         bool handedOver = changedSlots.Count is > 0 and <= 3;
+        // Items handed over in front of a chest that holds them: that chest is opened now (ChestOpened).
+        if (handedOver) foreach (var o in owned.Where(o => changedSlots.Contains(o.Slot))) ChestOpened(o.Id);
         if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; ForgetRecent(); } // a save was loaded (or copied)
         bool IsNew(Ff7rChapterReader.Owned o) =>
             (_seenOwned.Add((o.Id, o.Obtained)) && o.Obtained >= _startedAt - 120) | (handedOver && changedSlots.Contains(o.Slot));
@@ -620,26 +623,21 @@ public partial class MainWindow : Window
     string? ChestDistance(Objective o)
     {
         if (!_live || _herePosition is not { } p || !ItemTypes.Contains(o.Type) || AreaOf(o) is not var (stepArea, _)) return null;
-        if (!ReferenceEquals(_chestsIndexed, _reader.Chests))
-        {
-            _chestsIndexed = _reader.Chests;
-            _chestByName = new(StringComparer.OrdinalIgnoreCase);
-            _chestArea.Clear();
-            foreach (var chest in _chestsIndexed)
-                foreach (var name in chest.Items.Select(_itemMap.Name).OfType<string>().Distinct())
-                    foreach (var key in name.EndsWith(" Materia") ? new[] { name, name[..^8] } : [name])
-                        _chestByName[key] = _chestByName.ContainsKey(key) ? null : chest;
-        }
-        if (_chestByName.GetValueOrDefault(o.Name) is not { At: { } at } only || only.Items.Any(_obtained.Contains)) return null;
-        if (!_chestArea.TryGetValue(only, out var area))
-        {
-            if (_reader.ReadLocation(at) is not { } location) return null;
-            _chestArea[only] = area = location.Area;
-        }
-        if (!area.Equals(stepArea, StringComparison.OrdinalIgnoreCase)) return null;
-        double dx = at.X - p.X, dy = at.Y - p.Y, dz = at.Z - p.Z, metres = Math.Sqrt(dx * dx + dy * dy + dz * dz) / 100;
-        double round = metres < 20 ? 1 : metres < 100 ? 5 : 10;
-        return $"{Math.Round(metres / round) * round:0} m";
+        if (!ReferenceEquals(_chestsIndexed, _reader.Chests)) IndexChests();
+        if (_chestByName.GetValueOrDefault(o.Name) is not { At: { } at } only || only.Items.Any(_obtained.Contains) || _opened.Contains(only.Id)) return null;
+        if (ChestArea(only) is not { } area || !area.Equals(stepArea, StringComparison.OrdinalIgnoreCase)) return null;
+        return Metres(Distance(at, p));
+    }
+
+    void IndexChests()
+    {
+        _chestsIndexed = _reader.Chests;
+        _chestByName = new(StringComparer.OrdinalIgnoreCase);
+        _chestArea.Clear();
+        foreach (var chest in _chestsIndexed)
+            foreach (var name in chest.Items.Select(_itemMap.Name).OfType<string>().Distinct())
+                foreach (var key in name.EndsWith(" Materia") ? new[] { name, name[..^8] } : [name])
+                    _chestByName[key] = _chestByName.ContainsKey(key) ? null : chest;
     }
 
     /// <summary>"Discovery: Collapsed Passageway" is the game's "Collapsed Passageway".</summary>
@@ -1049,7 +1047,7 @@ public partial class MainWindow : Window
         var chapter = CurrentChapter;
         RenderObjective();
         // Where you are has its own panel at the top left, above the quest: the area large, the floor small.
-        _location.SetLocation(_inGame ? _here?.Area : null, _here?.Floor);
+        _location.SetLocation(_inGame ? _here?.Area : null, _here?.Floor, _inGame ? ChestsHere() : []);
         RenderRoute(chapter);
         RenderNotice();
         RenderHere();

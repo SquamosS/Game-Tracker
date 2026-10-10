@@ -14,7 +14,7 @@ namespace GameTracker;
 public abstract class CornerWindow : Window
 {
     protected readonly TextBlock Text = new() { TextWrapping = TextWrapping.Wrap, MaxWidth = 460 };
-    string _shown = "";
+    string _shown = "", _faded = "";
     /// <summary>Off until the overlay itself shows (MainWindow.IsVisibleChanged).</summary>
     bool _hasContent, _allowed, _pendingFade, _closed;
 
@@ -47,9 +47,10 @@ public abstract class CornerWindow : Window
 
     /// <summary>
     /// Shows content identified by <paramref name="key"/> (null: nothing, the window hides); <paramref name="draw"/>
-    /// fills Text only when the key changed.
+    /// fills Text only when the key changed. It fades in when <paramref name="fadeKey"/> (default: the key) changed, so
+    /// a detail that changes often (a distance) does not make the panel blink.
     /// </summary>
-    protected void SetContent(string? key, Action draw)
+    protected void SetContent(string? key, Action draw, string? fadeKey = null)
     {
         _hasContent = key is not null;
         bool changed = key is not null && key != _shown;
@@ -58,8 +59,9 @@ public abstract class CornerWindow : Window
         {
             Text.Inlines.Clear();
             draw();
-            _pendingFade = true;
+            if ((fadeKey ?? key) != _faded) _pendingFade = true;
         }
+        _faded = key is null ? "" : fadeKey ?? key;
         Update();
     }
 
@@ -128,15 +130,25 @@ public sealed class QuestWindow() : CornerWindow(QuestTitle, new Thickness(3, 0,
 /// </summary>
 public sealed class LocationWindow() : CornerWindow(Mako, new Thickness(3, 0, 0, 0))
 {
-    static readonly Brush Mako = Brush("#5EEAD4"), Floor = Brush("#CBD5E1");
+    static readonly Brush Mako = Brush("#5EEAD4"), Floor = Brush("#CBD5E1"), Chest = Brush("#FCD34D");
 
-    public void SetLocation(string? area, string? floor) =>
-        SetContent(area is null ? null : $"{area}\n{floor}", () =>
+    /// <summary>
+    /// The area, its floor, then the chests here not known to be opened ("Moogle Medal", "12 m"), nearest first. Fades in
+    /// for a new area only, not when a distance changes.
+    /// </summary>
+    public void SetLocation(string? area, string? floor, IReadOnlyList<(string Contents, string Distance)> chests) =>
+        SetContent(area is null ? null : $"{area}\n{floor}\n{string.Join("\n", chests)}", () =>
         {
             Text.Inlines.Add(new System.Windows.Documents.Run("⌖ ") { Foreground = Mako, FontSize = 18 });
             Text.Inlines.Add(new System.Windows.Documents.Run(area) { Foreground = Brushes.White, FontSize = 18, FontWeight = FontWeights.SemiBold });
             if (floor is { Length: > 0 }) Text.Inlines.Add(new System.Windows.Documents.Run("\n" + floor) { Foreground = Floor, FontSize = 13 });
-        });
+            foreach (var (contents, distance) in chests)
+            {
+                Text.Inlines.Add(new System.Windows.Documents.Run("\n□ ") { Foreground = Chest, FontSize = 13 });
+                Text.Inlines.Add(new System.Windows.Documents.Run(contents) { Foreground = Brushes.White, FontSize = 13 });
+                Text.Inlines.Add(new System.Windows.Documents.Run("  " + distance) { Foreground = Mako, FontSize = 12.5, FontWeight = FontWeights.SemiBold });
+            }
+        }, area is null ? null : $"{area}\n{floor}");
 
     protected override void Place()
     {

@@ -235,4 +235,74 @@ public partial class MainWindow
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
+
+    // ---- Chests opened, learned in front of them ----------------------------------------------------------------
+
+    static readonly string OpenedFile = Path.Combine(DataPaths.Data, "chests", "opened.json");
+
+    /// <summary>
+    /// Chests known to be opened (ids, e.g. "obt080_treasure0030"). The game's own "opened" state is not found yet
+    /// (research\notes.md), so this is learned: an item the chest holds arrived while Cloud stood within 4 m of it.
+    /// Chests opened before that was watched are not in here.
+    /// </summary>
+    readonly HashSet<string> _opened = LoadOpened();
+
+    static HashSet<string> LoadOpened()
+    {
+        try { return File.Exists(OpenedFile) ? JsonSerializer.Deserialize<HashSet<string>>(File.ReadAllText(OpenedFile)) ?? [] : []; }
+        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return []; }
+    }
+
+    /// <summary>An item arrived: the one chest within 4 m holding it (none or several: nothing learned) is opened.</summary>
+    void ChestOpened(int itemId)
+    {
+        if (_herePosition is not { } p) return;
+        var near = _reader.Chests.Where(c => c.At is { } at && c.Items.Contains(itemId) && !_opened.Contains(c.Id) && Distance(at, p) <= 4).ToList();
+        if (near.Count != 1 || !_opened.Add(near[0].Id)) return;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(OpenedFile)!);
+            string temp = OpenedFile + ".tmp";
+            File.WriteAllText(temp, JsonSerializer.Serialize(_opened.OrderBy(id => id, StringComparer.Ordinal)));
+            File.Move(temp, OpenedFile, true);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    static double Distance(Ff7rChapterReader.Position a, Ff7rChapterReader.Position b)
+    {
+        double dx = a.X - b.X, dy = a.Y - b.Y, dz = a.Z - b.Z;
+        return Math.Sqrt(dx * dx + dy * dy + dz * dz) / 100;
+    }
+
+    /// <summary>"12 m": 1 m up close, 5 m to 100 m, 10 m beyond.</summary>
+    static string Metres(double metres)
+    {
+        double round = metres < 20 ? 1 : metres < 100 ? 5 : 10;
+        return $"{Math.Round(metres / round) * round:0} m";
+    }
+
+    /// <summary>The area a chest stands in (Ff7rMapArea.cs), cached once known; null while it cannot be read.</summary>
+    string? ChestArea(Ff7rChapterReader.Chest chest)
+    {
+        if (!ReferenceEquals(_chestsIndexed, _reader.Chests)) IndexChests();
+        if (_chestArea.TryGetValue(chest, out var area)) return area;
+        if (chest.At is not { } at || _reader.ReadLocation(at) is not { } location) return null;
+        return _chestArea[chest] = location.Area;
+    }
+
+    /// <summary>
+    /// The chests of the area you are in that are not known to be opened, nearest first (at most 5): what they hold and
+    /// how far. Chests whose contents are a step of the guide show there too (with their distance), so this is mostly
+    /// what the guide does not list one by one, like Moogle Medals.
+    /// </summary>
+    List<(string Contents, string Distance)> ChestsHere()
+    {
+        if (!_live || _here is not { } here || _herePosition is not { } p) return [];
+        return _reader.Chests
+            .Where(c => c.At is not null && c.Items.Length > 0 && !_opened.Contains(c.Id) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
+            .Select(c => (Chest: c, Metres: Distance(c.At!, p)))
+            .OrderBy(x => x.Metres).Take(5)
+            .Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _itemMap.Name(id) ?? $"#{id}")), Metres(x.Metres))).ToList();
+    }
 }

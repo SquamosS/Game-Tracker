@@ -23,6 +23,8 @@ def same(step, name):
     n = re.sub(r'\s*\(chest\)$', '', step['name']).lower()
     return n == name.lower() or (name.endswith(' Materia') and n == name[:-8].lower())
 
+import os
+opened = set(json.load(open('data/chests/opened.json', encoding='utf-8'))) if os.path.exists('data/chests/opened.json') else set()
 chests = []
 for f in sorted(glob.glob('data/chests/*.tsv')):
     for row in csv.DictReader(open(f, encoding='utf-8'), delimiter='\t'):
@@ -33,9 +35,13 @@ print(f'== {len(chests)} peti dari {len(glob.glob("data/chests/*.tsv"))} tabel =
 matched = set()
 for ch in chests:
     names = [items.get(i, f'#{i}') for i in ch['ids']]
+    # Moogle Medals sit in many chests and the guide does not list them one by one: list the chest, match nothing.
+    if ch['ids'] == [118]:
+        print(f"{ch['id']}	{ch['area'] or '?'}	Moogle Medal	MOOGLE MEDAL{' (dibuka)' if ch['id'] in opened else ''}")
+        continue
     hits = [(n, s, a) for n, s, a in steps for nm in names if same(s, nm)]
     for _, s, _ in hits: matched.add(s['id'])
-    if not [i for i in ch['ids'] if i >= 100 and i != 118] and not hits: continue
+    if not [i for i in ch['ids'] if i >= 100] and not hits: continue
     status = [f"Ch{n} {s['id']} '{a}' {'OK' if a and a.lower() == ch['area'].lower() else 'BEDA'}" for n, s, a in hits]
     print(f"{ch['id']}\t{ch['area'] or '?'}\t{' + '.join(names)}\t" + ('; '.join(status) or 'TIDAK ADA DI GUIDE'))
 
