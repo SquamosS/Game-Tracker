@@ -35,6 +35,10 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 - Performa: baca angka tanpa array, record inventory dari span, awal daftar item satu kali baca (fallback per record), set flag di-cache, scan entri objektif di thread pekerja, posisi dibaca sekali per poll. P/Invoke `lpNumberOfBytesRead` = `nint`.
 - Perlu dicek saat main: notifikasi, rute (muncul setelah berjalan antar ruang), rekap di akhir Ch7.
 
+**Bahasa (10 Okt sore)**
+- Overlay default **English**; saklar **EN | IN** di header (atau Ctrl+Shift+L), disimpan di `data/settings.json` (`Lang.cs`, `Lang.T(en, id)`). Dashboard & tray ikut.
+- `guide.json`: `where`/`warning` tetap Indonesia (dibaca aturan: "otomatis", "akhir chapter", "Setelah"); `whereEn`/`warningEn` = versi Inggris yang ditampilkan. Langkah baru wajib diberi keduanya; kalimat "Setelah ..." di warning = "After ..." di warningEn, catatan `Hard:` tetap di akhir.
+
 **Masih terbuka**
 - Deteksi difficulty otomatis (coba saat user main Hard).
 - Overlay ikut tersembunyi saat dialog ringan (masih bisa jalan) dan TIDAK tersembunyi di layar shop: nilai state sama dengan adegan dialog / main. Riset 10 Okt gagal (lihat notes.md "Dialog ringan vs adegan dialog"); user memilih tidak melanjutkan dulu. Ide: tanda HUD tampil, siklus snapshot penuh dengan shop.
