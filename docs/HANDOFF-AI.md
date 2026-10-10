@@ -46,6 +46,10 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 - Area + lantai pindah dari overlay ke pop-up kiri atas, di atas pop-up quest (quest mengikuti tinggi/tampilnya; awalnya kanan bawah, kurang terbaca menurut user) (`LocationWindow`, kelas dasar `CornerWindow` di `QuestWindow.cs`). Area kini terbaca juga di peta yang volumenya tidak bernama `Navi...` (Sector 5): lewat field +0x3B0/+0x3B4 dan nomor peta dari nama World. Perubahan area dicatat di `data/logs/area.log`.
 - Riset peti & isi (belum di overlay): lihat notes.md "Peti harta & isinya".
 
+**Peti (10 Okt siang)**
+- Overlay membaca tabel peti/reward/item game (`Ff7rTreasure.cs`) dan menampilkan jarak ke peti bila tepat satu peti berisi item langkah itu, di area yang sama dengan panduan, dan belum diambil sesi ini. Status "sudah dibuka" live BELUM ketemu (notes.md).
+- Audit panduan vs data peti: scanner `chestdump` + `tools/ff7r-scan/audit-chests.py`; 5 koreksi area (Ch9/Ch13/Ch14). Peta lain diaudit saat dimainkan.
+
 **Masih terbuka**
 - Deteksi difficulty otomatis (coba saat user main Hard).
 - Overlay ikut tersembunyi saat dialog ringan (masih bisa jalan) dan TIDAK tersembunyi di layar shop: nilai state sama dengan adegan dialog / main. Riset 10 Okt gagal (lihat notes.md "Dialog ringan vs adegan dialog"); user memilih tidak melanjutkan dulu. Ide: tanda HUD tampil, siklus snapshot penuh dengan shop.
