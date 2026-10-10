@@ -28,7 +28,7 @@ Overlay 100%-completion (C# .NET 8 WPF, Windows), game pertama FINAL FANTASY VII
 - Jenis langkah, ikon, warna: target didefinisikan per game di `game.json` (sekarang masih di kode, daftar FF7R).
 - Data runtime per game (target `data/<id>/`), supaya progres/jejak/log game lain tidak tercampur.
 - Game tanpa reader tetap jalan sebagai checklist manual (hotkey), dengan titik manual dan jejak dari posisi kalau ada.
-- **Status 10 Okt 2026: belum dirombak.** `MainWindow` masih memakai `Ff7rChapterReader` langsung (±50 pemanggilan) dan aturan "hadiah"/"otomatis" masih membaca teks. Rencana 4 tahap (antarmuka pembaca; aturan teks -> kolom; jenis langkah di game.json; data per game) ada di `docs/HANDOFF-AI.md` bagian 0. Fitur baru jangan menambah ketergantungan langsung ke FF7R di kode bersama.
+- **Status 10 Okt 2026:** tahap 1 sebagian: `IGameReader` ada (`overlay/GameReader.cs`), `MainWindow` hanya lewat antarmuka, tapi masih memakai konvensi kunci FF7R (`_Parent`, `Q:`, Gil 20...) di logika objektif/item; aturan "hadiah"/"otomatis" masih membaca teks. Rencana 4 tahap (antarmuka pembaca; aturan teks -> kolom; jenis langkah di game.json; data per game) ada di `docs/HANDOFF-AI.md` bagian 0. Fitur baru jangan menambah ketergantungan langsung ke FF7R di kode bersama.
 
 ## Aturan kode & performa (game harus tetap lancar)
 - Poll overlay 1x/detik di thread UI: hanya baca kecil. Angka tunggal lewat overload `ReadProcessMemory(..., out long/int/byte, ..., out nint)` (tanpa array); `lpNumberOfBytesRead` selalu `nint`.

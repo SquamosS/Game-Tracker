@@ -20,10 +20,10 @@ public sealed partial class Ff7rChapterReader
     public List<GameObjective> Candidates { get; } = new();
 
     /// <summary>
-    /// A side quest entry of the kind Chapter 8 uses: no "$str" row, the entry holds its texts itself (title, description,
+    /// The side quest entries seen at the last objective search, swapped whole (the UI thread reads them).
+    /// Each is an entry of the kind Chapter 8 uses: no "$str" row, the entry holds its texts itself (title, description,
     /// then a billboard sprite "U_Com_Billboard_080_SLU5B_q03_99_Sprite" naming the quest q03 and its stage; 99 = cleared),
     /// after an FName "080_SLU5B_q03" numbered by stage. Found 10 Oct 2026 when The Mysterious Moogle Merchant was cleared.
-    /// The entries seen at the last objective search, swapped whole (the UI thread reads them).
     /// </summary>
     public IReadOnlyList<SideQuest> SideQuests { get; private set; } = [];
 
