@@ -6,6 +6,15 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 
 ## 0. Pembaruan 10 Oktober 2026 (sesi Claude, baca dulu)
 
+**Sesi 10 Okt sore (17:00-18:00)**
+- **Flag peti "sudah dibuka" KETEMU** dan terpasang: bit = nomor flag + 0xA80 di blok flag salinan save live (`Ff7rTreasure.cs` ChestOpened; log `data/logs/chest-flag.log`). Logika "dipelajari" (opened.json/Collected) tinggal cadangan. Detail di notes.md.
+- Discovery Ch8 (`$str080_Chapter09_sideNN`) kini terbaca; langkah baru "Discovery: The Gate Won't Open".
+- Pop-up DI AREA INI: hadiah side quest disembunyikan sampai quest selesai (RewardOf); kolom baru `after` di guide.json (langkah baru tampil setelah prasyaratnya; side quest Ch8 setelah c8-16-requests).
+- Objek quest di tabel peti (`_qst`) hanya tampil saat quest itu live (QuestObjectShown; kunci Ch8 belum terverifikasi).
+- Tabel titik `overlay/games/ff7r/points.json` (id langkah -> x,y,z,area) + Ctrl+Shift+P merekam posisi ke `data/points-recorded.tsv`.
+- **Berikutnya (user setuju)**: (1) riset tujuan quest/discovery dari game (penanda minimap aktif, atau titik `oblPoint...qstNN...`) untuk jarak otomatis; (2) beda tinggi di jarak (mis. `25 m ↑6`); (3) ikon jenis di pop-up; (4) cek kunci side quest Ch8 setelah Requests for the Mercenary; (5) navmesh untuk jarak jalan (riset besar, nanti).
+- Progres user: Ch8, sekitar Center District/To Aerith's House, sebelum Requests for the Mercenary. Talisman & Chakra gereja terlewat (belum dibuka).
+
 **>>> LANJUTKAN DI SINI (akhir sesi 10 Okt ~14:10; chat ditutup karena terlalu panjang) <<<**
 - **Progres user**: Ch8 "Budding Bodyguard", langkah cerita *Through the Backstreets / Around the Gate*, sekitar Twilight Valley menuju Station Way. Sudah: Talisman, Chakra (Church), Cait Sith's Theme, Caliginous Bracelet. Peti dibuka di sesi ini: Ether (Rooftops, obt080_treasure0040), 500 gil (obt080_treasure0050), Caliginous (obt080_treasure0060).
 - **Tugas berikutnya (user sudah setuju): cari flag peti "sudah dibuka" yang live** dengan snapshot penuh (skill `/memory-research`, bagian "Chest opened flag"). Target: peti **Mythril Armlet** `obt080_treasure0160` di **Station Way** (-23928, 7821, 849), BELUM dibuka. Alur: user berdiri di depan peti tanpa membuka -> `snap C0` -> user buka -> `snap C1` -> `bdiff C0 C1` + `same` -> uji kandidat di peti berikutnya (peti lain di Station Way/Center District, lihat `data/chests/obt080.tsv`). D: punya ~60 GB kosong (snapshot ~8,5 GB; hapus setelah selesai; snapshot lama `research/scan/M0.snap` juga boleh dihapus kalau perlu ruang, tanya user dulu).
