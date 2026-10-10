@@ -175,6 +175,233 @@ switch (args[0])
         Console.WriteLine($"{copies.Count} salinan data save; terbaru di 0x{mat:X}: {lines.Count} baris -> {args[1]}");
         break;
     }
+    case "flagbits": // flagbits <bit...>: those bits of the save-data flag block (materia list + 0x40E00, as the overlay reads it) in every save copy, newest last
+    {
+        var copies = new List<(long Materia, uint Time)>();
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 0x20 * 6 <= len; i += 0x20)
+                {
+                    bool run = true;
+                    for (int k = 0; k < 6 && run; k++)
+                    {
+                        int p = i + k * 0x20;
+                        run = BitConverter.ToInt32(buf, p + 4) == 0 && BitConverter.ToInt32(buf, p + 8) == k && BitConverter.ToInt32(buf, p + 12) == 0
+                            && BitConverter.ToInt32(buf, p + 20) is >= 10000 and < 20000 && buf[p + 16] is >= 1 and <= 5;
+                    }
+                    long gil = a + i + 0x33630;
+                    if (run && BitConverter.ToInt32(Read(gil + 8, 4)) == 20) copies.Add((a + i, BitConverter.ToUInt32(Read(gil, 4))));
+                }
+            }
+        foreach (var (mat, time) in copies.OrderBy(c => c.Time))
+        {
+            var flags = Read(mat + 0x40E00, 0x1000);
+            Console.WriteLine($"salinan 0x{mat:X} waktu {time}: " + string.Join(" ", args[1..].Select(x => { int bit = Convert.ToInt32(x, 16); return $"{x}={(flags[bit >> 3] >> (bit & 7)) & 1}"; })));
+        }
+        break;
+    }
+    case "flaglive": // flaglive <bit> [save copy]: memory holding the save flag block's bytes around <bit> but with <bit> set (a live copy ahead of the save)
+    {
+        int bit = Convert.ToInt32(args[1], 16);
+        long mat = 0; uint best = 0;
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 0x20 * 6 <= len; i += 0x20)
+                {
+                    bool run = true;
+                    for (int k = 0; k < 6 && run; k++)
+                    {
+                        int p = i + k * 0x20;
+                        run = BitConverter.ToInt32(buf, p + 4) == 0 && BitConverter.ToInt32(buf, p + 8) == k && BitConverter.ToInt32(buf, p + 12) == 0
+                            && BitConverter.ToInt32(buf, p + 20) is >= 10000 and < 20000 && buf[p + 16] is >= 1 and <= 5;
+                    }
+                    long gil = a + i + 0x33630;
+                    if (run && BitConverter.ToInt32(Read(gil + 8, 4)) == 20 && BitConverter.ToUInt32(Read(gil, 4)) >= best) { best = BitConverter.ToUInt32(Read(gil, 4)); mat = a + i; }
+                }
+            }
+        if (args.Length > 2) mat = Convert.ToInt64(args[2], 16); // a chosen save copy
+        int at = bit >> 3, from = Math.Max(0, at - 24);
+        var want = Read(mat + 0x40E00 + from, 48);
+        want[at - from] |= (byte)(1 << (bit & 7));
+        Console.WriteLine($"save 0x{mat:X}, mencari {Convert.ToHexString(want)}");
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min((1 << 22) + 64, b + s - a);
+                var buf = Read(a, len);
+                for (int i = buf.AsSpan(0, Math.Min(len, 1 << 22)).IndexOf(want); i >= 0;)
+                {
+                    long hit = a + i - from;
+                    Console.WriteLine($"cocok: blok di 0x{hit:X} (save+0x{hit - mat:X}) {FName(BitConverter.ToInt32(Read(hit - 0x40, 4)))}");
+                    int next = buf.AsSpan(i + 1, Math.Min(len, 1 << 22) - i - 1).IndexOf(want);
+                    i = next < 0 ? -1 : i + 1 + next;
+                }
+            }
+        break;
+    }
+    case "hex": // hex <pattern> [max]: every place memory holds these bytes
+    {
+        var want = Convert.FromHexString(args[1]);
+        int max = args.Length > 2 ? int.Parse(args[2]) : 40, hits = 0;
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min((1 << 22) + want.Length, b + s - a);
+                var buf = Read(a, len);
+                for (int i = buf.AsSpan(0, Math.Min(len, 1 << 22)).IndexOf(want); i >= 0;)
+                {
+                    if (hits++ < max) Console.WriteLine($"0x{a + i:X}");
+                    int next = buf.AsSpan(i + 1, Math.Min(len, 1 << 22) - i - 1).IndexOf(want);
+                    i = next < 0 ? -1 : i + 1 + next;
+                }
+            }
+        Console.WriteLine($"{hits} temuan");
+        break;
+    }
+    case "chests": // chests <x> <y> <z>: every chest of the loaded maps: point position and distance, rewards (item code, id, name), save flag bit and state
+    {
+        float px = float.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), py = float.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture), pz = float.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture);
+        long vtTreasure = modBase + 0x4CD6488, vtReward = modBase + 0x4CE1290, vtItem = modBase + 0x4CCCE48;
+        var treasures = new List<long>(); long reward = 0, item = 0;
+        var saves = new List<(long Mat, uint Time)>();
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 0x20 * 6 <= len; i += 8)
+                {
+                    long q = BitConverter.ToInt64(buf, i);
+                    if (q == vtTreasure && !FName(BitConverter.ToInt32(buf, i + 0x18)).StartsWith("Default__")) treasures.Add(a + i);
+                    else if (q == vtReward && !FName(BitConverter.ToInt32(buf, i + 0x18)).StartsWith("Default__")) reward = a + i;
+                    else if (q == vtItem && !FName(BitConverter.ToInt32(buf, i + 0x18)).StartsWith("Default__")) item = a + i;
+                    if (i % 0x20 != 0) continue;
+                    bool run = true;
+                    for (int k = 0; k < 6 && run; k++)
+                    {
+                        int p = i + k * 0x20;
+                        run = BitConverter.ToInt32(buf, p + 4) == 0 && BitConverter.ToInt32(buf, p + 8) == k && BitConverter.ToInt32(buf, p + 12) == 0
+                            && BitConverter.ToInt32(buf, p + 20) is >= 10000 and < 20000 && buf[p + 16] is >= 1 and <= 5;
+                    }
+                    long gil = a + i + 0x33630;
+                    if (run && BitConverter.ToInt32(Read(gil + 8, 4)) == 20) saves.Add((a + i, BitConverter.ToUInt32(Read(gil, 4))));
+                }
+            }
+        // Item code -> inventory id (Item rows 0x158: FName, +0x10 id), reward key -> item codes (Reward rows 0x50, items at +0x28).
+        var ids = new Dictionary<string, int>();
+        { long rows = BitConverter.ToInt64(Read(item + 0x38, 8)); int n = BitConverter.ToInt32(Read(item + 0x40, 4)); var d = Read(rows, n * 0x158); for (int r = 0; r < n; r++) ids[FName(BitConverter.ToInt32(d, r * 0x158))] = BitConverter.ToInt32(d, r * 0x158 + 0x10); }
+        var rewards = new Dictionary<int, List<string>>();
+        { long rows = BitConverter.ToInt64(Read(reward + 0x38, 8)); int n = BitConverter.ToInt32(Read(reward + 0x40, 4)); var d = Read(rows, n * 0x50);
+          for (int r = 0; r < n; r++) { long p = BitConverter.ToInt64(d, r * 0x50 + 0x28); int c = BitConverter.ToInt32(d, r * 0x50 + 0x30); var list = new List<string>(); if (p != 0 && c is > 0 and < 16) { var e = Read(p, c * 0x10); for (int k = 0; k < c; k++) list.Add(FName(BitConverter.ToInt32(e, k * 0x10))); } rewards[BitConverter.ToInt32(d, r * 0x50)] = list; } }
+        var names = new Dictionary<int, string>();
+        string itemsJson = Path.Combine(Dir, "..", "..", "overlay", "games", "ff7r", "items.json");
+        if (File.Exists(itemsJson)) foreach (var m in Regex.Matches(File.ReadAllText(itemsJson), @"""(\d+)"":\s*""([^""]+)""").Cast<Match>()) names[int.Parse(m.Groups[1].Value)] = m.Groups[2].Value;
+        // The save copy that knows most: newest time, then most flags set.
+        var save = saves.OrderBy(c => c.Time).ThenBy(c => Read(c.Mat + 0x40E00, 0x1000).Sum(x => System.Numerics.BitOperations.PopCount(x))).Last().Mat;
+        var flags = Read(save + 0x40E00, 0x1000);
+        // Point rows (FName, 0, ptr, quat, xyz at +0x20, scale 1,1,1 at +0x30) and flag rows (FName, 0, module ptr, bit at +0x10): found by their FNames.
+        var rowsAll = new List<(string Id, int Flag, int Point, int[] Rewards)>();
+        foreach (var t in treasures)
+        {
+            long rows = BitConverter.ToInt64(Read(t + 0x38, 8)); int n = BitConverter.ToInt32(Read(t + 0x40, 4));
+            if (rows == 0 || n is <= 0 or > 1000) continue;
+            var d = Read(rows, n * 0xA0);
+            for (int r = 0; r < n; r++)
+            {
+                int o = r * 0xA0;
+                var rw = Enumerable.Range(0, 8).Select(k => BitConverter.ToInt32(d, o + 0x38 + k * 8)).Where(v => v != 0 && FName(v).StartsWith("rwr")).ToArray();
+                rowsAll.Add((FName(BitConverter.ToInt32(d, o)), BitConverter.ToInt32(d, o + 0x18), BitConverter.ToInt32(d, o + 0x30), rw));
+            }
+        }
+        var pointSet = rowsAll.Select(r => r.Point).ToHashSet(); var flagSet = rowsAll.Select(r => r.Flag).ToHashSet();
+        var points = new Dictionary<int, (float X, float Y, float Z)>(); var bits = new Dictionary<int, int>();
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 0x40 <= len; i += 8)
+                {
+                    int v = BitConverter.ToInt32(buf, i);
+                    if (BitConverter.ToInt32(buf, i + 4) != 0) continue;
+                    if (pointSet.Contains(v) && BitConverter.ToSingle(buf, i + 0x30) == 1f && BitConverter.ToSingle(buf, i + 0x34) == 1f && BitConverter.ToSingle(buf, i + 0x38) == 1f)
+                        points[v] = (BitConverter.ToSingle(buf, i + 0x20), BitConverter.ToSingle(buf, i + 0x24), BitConverter.ToSingle(buf, i + 0x28));
+                    else if (flagSet.Contains(v) && BitConverter.ToInt64(buf, i + 8) is var mp && mp >= modBase && mp < modEnd && BitConverter.ToInt32(buf, i + 0x10) is > 0 and < 0x8000 and var bit)
+                        bits[v] = bit;
+                }
+            }
+        Console.WriteLine($"{treasures.Count} tabel peti, {rowsAll.Count} peti, save 0x{save:X}");
+        foreach (var r in rowsAll.OrderBy(r => points.TryGetValue(r.Point, out var q) ? Math.Sqrt((q.X - px) * (q.X - px) + (q.Y - py) * (q.Y - py) + (q.Z - pz) * (q.Z - pz)) : 1e9))
+        {
+            string where = points.TryGetValue(r.Point, out var q) ? $"{q.X:0},{q.Y:0},{q.Z:0} {Math.Sqrt((q.X - px) * (q.X - px) + (q.Y - py) * (q.Y - py) + (q.Z - pz) * (q.Z - pz)) / 100:0} m dz {(q.Z - pz) / 100:0} m" : "posisi ?";
+            string contents = string.Join(" + ", r.Rewards.SelectMany(k => rewards.GetValueOrDefault(k) ?? []).Select(c => ids.TryGetValue(c, out int id) ? $"{c}#{id} {names.GetValueOrDefault(id, "?")}" : c));
+            string state = bits.TryGetValue(r.Flag, out int bit) ? $"bit 0x{bit:X}={(flags[bit >> 3] >> (bit & 7)) & 1}" : "bit ?";
+            Console.WriteLine($"{r.Id}	{state}	{where}	{contents}");
+        }
+        break;
+    }
+    case "chestrec": // chestrec <minutes>: chest actors (classes named FA####_00_Treasurebox*_C), found every 20 s, read 4x a second; every changed int of the actor (0x600) and its mesh component (0x1000) to chestrec.log
+    {
+        var end = DateTime.Now.AddMinutes(double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+        string stop = Path.Combine(Dir, "stop"); File.Delete(stop);
+        using var log = new StreamWriter(new FileStream(Path.Combine(Dir, "chestrec.log"), FileMode.Create, FileAccess.Write, FileShare.Read)) { AutoFlush = true };
+        var last = new Dictionary<(long, int), int>();
+        var chests = new List<(long Actor, long Comp)>();
+        DateTime found = DateTime.MinValue;
+        while (DateTime.Now < end && !File.Exists(stop))
+        {
+            if (DateTime.Now - found > TimeSpan.FromSeconds(20))
+            {
+                found = DateTime.Now;
+                // Chest classes load with the maps that use them: look for their names again each time.
+                var classNames = FNames().Where(n => Regex.IsMatch(n.Text, @"^FA\d{4}_\d{2}_Treasurebox.*_C$", RegexOptions.IgnoreCase)).Select(n => n.Index).ToHashSet();
+                var classes = new HashSet<long>();
+                var objs = new List<(long, long)>();
+                foreach (var (b, s) in Regions())
+                    for (long a = b; a < b + s; a += 1 << 22)
+                    {
+                        int len = (int)Math.Min(1 << 22, b + s - a);
+                        var buf = Read(a, len);
+                        for (int i = 0; i + 0x20 <= len; i += 8)
+                        {
+                            long vt = BitConverter.ToInt64(buf, i);
+                            if (vt < modBase || vt >= modEnd) continue;
+                            if (classNames.Contains(BitConverter.ToInt32(buf, i + 0x18))) { classes.Add(a + i); objs.Add((a + i, BitConverter.ToInt64(buf, i + 0x10))); }
+                        }
+                    }
+                var now = objs.Where(o => classes.Contains(o.Item2)).Select(o => (o.Item1, BitConverter.ToInt64(Read(o.Item1 + 0x160, 8)))).Where(o => o.Item2 != 0).ToList();
+                if (!now.SequenceEqual(chests))
+                {
+                    chests = now;
+                    foreach (var (actor, comp) in chests)
+                    {
+                        var f = Read(comp + 0x1B0, 12);
+                        log.WriteLine($"{DateTime.Now:HH:mm:ss.f}	peti 0x{actor:X} komp 0x{comp:X} di {BitConverter.ToSingle(f, 0):0},{BitConverter.ToSingle(f, 4):0},{BitConverter.ToSingle(f, 8):0}");
+                    }
+                }
+            }
+            foreach (var (actor, comp) in chests)
+                foreach (var (at, size, tag) in new[] { (actor, 0x600, "A"), (comp, 0x1000, "K") })
+                {
+                    var m = Read(at, size);
+                    for (int k = 0; k < size; k += 4)
+                    {
+                        int v = BitConverter.ToInt32(m, k);
+                        if (last.TryGetValue((at, k), out int old) && old != v)
+                            log.WriteLine($"{DateTime.Now:HH:mm:ss.f}	0x{actor:X}	{tag}+0x{k:X}	{old}	{v}");
+                        last[(at, k)] = v;
+                    }
+                }
+            Thread.Sleep(250);
+        }
+        break;
+    }
     case "navi": // navi <file>: every "$navi..." localization key with its English text (FString key then FString text)
     {
         var pairs = new SortedDictionary<string, string>();
