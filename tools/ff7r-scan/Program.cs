@@ -335,6 +335,30 @@ switch (args[0])
         }
         break;
     }
+    case "volumes": // volumes <x> <y> <z>: EndNaviMapVolume actors (vtable module+0x4C1C358): world name, layer +0x3B0, part +0x3B4, bounds, whether the point is inside
+    {
+        float px = float.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), py = float.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture), pz = float.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture);
+        long vtable = modBase + 0x4C1C358;
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 8 <= len; i += 8)
+                {
+                    if (BitConverter.ToInt64(buf, i) != vtable) continue;
+                    long o = a + i;
+                    long level = BitConverter.ToInt64(Read(o + 0x20, 8)), world = BitConverter.ToInt64(Read(level + 0x20, 8));
+                    long brush = BitConverter.ToInt64(Read(o + 0x160, 8));
+                    var f = Read(brush + 0x160, 24);
+                    float cx = BitConverter.ToSingle(f, 0), cy = BitConverter.ToSingle(f, 4), cz = BitConverter.ToSingle(f, 8), ex = BitConverter.ToSingle(f, 12), ey = BitConverter.ToSingle(f, 16), ez = BitConverter.ToSingle(f, 20);
+                    bool inside = Math.Abs(px - cx) <= ex && Math.Abs(py - cy) <= ey && Math.Abs(pz - cz) <= ez;
+                    if (!inside && args.Length < 5) continue;
+                    Console.WriteLine($"{(inside ? "DI DALAM" : "        ")} 0x{o:X} {FName(BitConverter.ToInt32(Read(o + 0x18, 4)))} | {FName(BitConverter.ToInt32(Read(world + 0x18, 4)))} | layer {BitConverter.ToInt32(Read(o + 0x3B0, 4))} part {BitConverter.ToInt32(Read(o + 0x3B4, 4))} | {cx:0},{cy:0},{cz:0} ± {ex:0},{ey:0},{ez:0}");
+                }
+            }
+        break;
+    }
     case "obj": // obj <addr...>: a UObject's name and its class's name (FNamePool blocks at module+0x5981310, Steam 1.0.0.7)
         foreach (var arg in args[1..])
         {

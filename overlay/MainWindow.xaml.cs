@@ -70,12 +70,12 @@ public partial class MainWindow : Window
         WarnBox.MouseLeftButtonDown += (_, e) => { e.Handled = true; _warnOpen = !_warnOpen; Render(); };
         Lang.Changed += OnLanguageChanged;
         // The quest pop-up shows with the overlay, whatever hid it (a menu, Ctrl+Shift+G, the tray).
-        IsVisibleChanged += (_, _) => _quest.Allowed = IsVisible;
+        IsVisibleChanged += (_, _) => _quest.Allowed = _location.Allowed = IsVisible;
         Loaded += (_, _) => DockRight();
         SourceInitialized += (_, _) => SetupHotkeys();
         // The poll timer and the guide watcher must stop too: left running, a closed overlay keeps reading the game
         // and saving its own, older progress over the one a reopened overlay saves.
-        Closed += (_, _) => { Lang.Changed -= OnLanguageChanged; _toast.Close(); _quest.Close(); _poll.Stop(); _watcher?.Dispose(); _native?.Dispose(); _reader.Dispose(); };
+        Closed += (_, _) => { Lang.Changed -= OnLanguageChanged; _toast.Close(); _quest.Close(); _location.Close(); _poll.Stop(); _watcher?.Dispose(); _native?.Dispose(); _reader.Dispose(); };
         LoadGuide();
         WatchGuides();
         WatchGame();
@@ -487,6 +487,13 @@ public partial class MainWindow : Window
         if (here == _here) return false;
         LearnLink(lastHere, lastPosition, here, p);
         _here = here;
+        // Every change of area, with the position, in data\logs\area.log: to check maps whose areas read differently.
+        try
+        {
+            File.AppendAllText(Path.Combine(DataPaths.Logs, "area.log"),
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\tch {_detectedChapter}\t{here?.Area ?? "-"}\t{here?.Floor}\t{p?.X:F0}\t{p?.Y:F0}\t{p?.Z:F0}{Environment.NewLine}");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         return true;
     }
 
@@ -947,6 +954,9 @@ public partial class MainWindow : Window
     /// <summary>The live quest's own pop-up at the top left (QuestWindow), apart from the checklist.</summary>
     readonly QuestWindow _quest = new();
 
+    /// <summary>Where Cloud is, at the bottom right (LocationWindow).</summary>
+    readonly LocationWindow _location = new();
+
     /// <summary>
     /// The live quest as the game shows it goes to the quest pop-up; the overlay keeps only a note while it is being
     /// looked for. A game without a reader has no live quest: the guide's story step shows on the overlay instead.
@@ -983,15 +993,8 @@ public partial class MainWindow : Window
         RenderLanguageSwitch();
         var chapter = CurrentChapter;
         RenderObjective();
-        // The area first and large (the guide names areas), the floor after it, small: readable at a glance.
-        LocationText.Inlines.Clear();
-        if (_here is { } at)
-        {
-            LocationText.Inlines.Add(new System.Windows.Documents.Run("⌖ ") { Foreground = Mako, FontSize = 14 });
-            LocationText.Inlines.Add(new System.Windows.Documents.Run(at.Area) { Foreground = Brushes.White, FontSize = 14, FontWeight = FontWeights.SemiBold });
-            if (at.Floor is { } floor) LocationText.Inlines.Add(new System.Windows.Documents.Run("   " + floor) { Foreground = Muted, FontSize = 11.5 });
-        }
-        LocationText.Visibility = _here is null ? Visibility.Collapsed : Visibility.Visible;
+        // Where you are has its own panel at the bottom right: the area large, the floor small.
+        _location.SetLocation(_inGame ? _here?.Area : null, _here?.Floor);
         RenderRoute(chapter);
         RenderNotice();
         RenderHere();

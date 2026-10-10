@@ -13,6 +13,11 @@ namespace GameTracker;
 /// FNamePool (blocks at module+0x5981310; index = block &lt;&lt; 16 | offset / 2; entries start with a 2-byte header,
 /// length &lt;&lt; 6 | wide). The volumes are picked up by their vtable during the objective search. Found on Steam 1.0.0.7
 /// (research\notes.md, "Database batas area").
+///
+/// Not every map names its volumes that way (Sector 5 Slums, map 080: "EndNaviMapVolume9"). The same numbers are in
+/// the actor too: layer at +0x3B0, part / 10 at +0x3B4, and the map is the first three digits of the name of the
+/// World that owns the volume's level (actor +0x20 = Level, Level +0x20 = World,
+/// "080-SLU5B_State__SLU5B_10_Level_NaviMap_Layer01"). Checked in Ch8: layer 1, part 3 = "Rooftops".
 /// </summary>
 public sealed partial class Ff7rChapterReader
 {
@@ -36,7 +41,8 @@ public sealed partial class Ff7rChapterReader
 
     public record Location(string Area, string? Floor);
 
-    static readonly Regex VolumeName = new(@"^Navi(\d{3})_Layer(\d{2})_(\d{3})_\d{3}_\d{3}$");
+    static readonly Regex VolumeName = new(@"^Navi(\d{3})_Layer(\d{2})_(\d{3})_\d{3}_\d{3}$", RegexOptions.Compiled),
+        WorldMap = new(@"^(\d{3})-", RegexOptions.Compiled);
 
     /// <summary>
     /// The area whose volume holds the position (the smallest when volumes overlap), or null outside every volume, on
@@ -64,19 +70,35 @@ public sealed partial class Ff7rChapterReader
         var volumes = new List<Volume>();
         foreach (long actor in _naviVolumes)
         {
-            if (ReadInt64(actor) != NaviVolumeVtable || VolumeName.Match(FName(ReadInt32(actor + 0x18))) is not { Success: true } m) continue;
-            string map = m.Groups[1].Value, layer = "0" + m.Groups[2].Value;
-            int part = int.Parse(m.Groups[3].Value) * 10;
+            if (ReadInt64(actor) != NaviVolumeVtable || AreaNumbers(actor) is not var (map, layer, part)) continue;
             if (_naviTexts.GetValueOrDefault($"$navi{map}_name_part{layer}_{part:000}") is not { } area) continue;
             long brush = ReadInt64(actor + 0x160);
             var b = new byte[24];
             if (brush == 0 || !ReadProcessMemory(_handle, (IntPtr)(brush + 0x160), b, b.Length, out _)) continue;
             var f = Enumerable.Range(0, 6).Select(i => BitConverter.ToSingle(b, i * 4)).ToArray();
             if (!f.All(float.IsFinite) || f[3] <= 0 || f[4] <= 0 || f[5] <= 0) continue;
-            volumes.Add(new Volume(actor, area, _naviTexts.GetValueOrDefault($"$navi{map}_name_layer{layer}"), f[0], f[1], f[2], f[3], f[4], f[5]));
+            // Some maps have no floor names (an empty or unreadable text): then the area stands alone.
+            string? floor = _naviTexts.GetValueOrDefault($"$navi{map}_name_layer{layer}");
+            if (floor is not null && (floor.Trim().Length == 0 || floor.Any(c => c < ' ' || c > '\u024F'))) floor = null;
+            volumes.Add(new Volume(actor, area, floor, f[0], f[1], f[2], f[3], f[4], f[5]));
         }
         _volumes = volumes;
         _resolvedFrom = _naviVolumes;
+    }
+
+    /// <summary>
+    /// A volume's map ("080"), layer ("001") and part key number (30 for part 3): from its name when it is
+    /// "Navi070_Layer07_060_...", otherwise from its fields and the map number in its World's name.
+    /// </summary>
+    (string Map, string Layer, int Part)? AreaNumbers(long actor)
+    {
+        if (VolumeName.Match(FName(ReadInt32(actor + 0x18))) is { Success: true } m)
+            return (m.Groups[1].Value, "0" + m.Groups[2].Value, int.Parse(m.Groups[3].Value) * 10);
+        long level = ReadInt64(actor + 0x20), world = level == 0 ? 0 : ReadInt64(level + 0x20);
+        if (world == 0 || WorldMap.Match(FName(ReadInt32(world + 0x18))) is not { Success: true } w) return null;
+        int layer = ReadInt32(actor + 0x3B0), part = ReadInt32(actor + 0x3B4);
+        if (layer is <= 0 or > 99 || part is <= 0 or > 99) return null;
+        return (w.Groups[1].Value, layer.ToString("000"), part * 10);
     }
 
     /// <summary>An FName's text from the game's FNamePool, or "" when it cannot be read.</summary>
