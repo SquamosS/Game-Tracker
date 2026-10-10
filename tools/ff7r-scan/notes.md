@@ -1,5 +1,8 @@
 # FF7R story-progress scan (Steam 1.0.0.7)
 
+> **Catatan lama (8 Okt 2026).** Catatan riset terkini dan lengkap ada di `research/notes.md` (tidak masuk git). Banyak hal di bawah sudah
+> dikoreksi atau dipakai di pembaca (`overlay/games/ff7r/reader/`); kalimat "overlay sekarang memakai..." di sini tidak berlaku lagi.
+
 Kandidat angka progres cerita (int32), ditemukan 2026-10-08:
 - Chapter 3, save slot 3 = "bangun di kamar" (BUKAN awal Chapter 3) -> nilai 12
 - setelah bicara Marle + ketemu Tifa (mulai ikuti Tifa) -> 14

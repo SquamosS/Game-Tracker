@@ -2,6 +2,9 @@
 
 _7 Oktober 2026 · menggantikan rencana Steam achievement_
 
+> **Dokumen sejarah.** Arah ini sudah dijalankan (deteksi lewat memori, cara B), lalu berkembang jadi overlay multi-game.
+> Kondisi dan aturan terkini: `CLAUDE.md`, `docs/HANDOFF-AI.md` (bagian 0), `README.md`. Path folder dan pilihan OCR di bawah tidak berlaku lagi.
+
 ## Tujuan
 
 Overlay seperti tracker objective di WoW/Overwolf atau tracker progres di LiveSplit, tapi untuk 100% completion:

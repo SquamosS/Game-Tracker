@@ -2,6 +2,9 @@
 
 _Draft 1 · 7 Oktober 2026_
 
+> **Usang.** Digantikan `docs/RENCANA.md` (7 Okt 2026), lalu oleh kondisi di `CLAUDE.md` dan `docs/HANDOFF-AI.md`. Tauri/SQLite/Steam
+> achievement tidak dipakai; aplikasi sekarang C# WPF yang membaca memori game. Disimpan hanya sebagai catatan sejarah.
+
 ## 1. Tujuan
 
 Overlay yang muncul di atas game (tekan hotkey) dan langsung memberi tahu:

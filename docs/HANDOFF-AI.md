@@ -1,10 +1,18 @@
 # Handoff: Game Tracker — FF VII Remake Intergrade
 
-Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0. Ditulis untuk AI berikutnya yang melanjutkan proyek ini. Baca seluruhnya sebelum mengubah apa pun.
+Status per **9 Oktober 2026**, dengan pembaruan **10-11 Oktober 2026** di bagian 0 (kondisi terbaru selalu di bagian 0; bagian 1-9 = latar belakang, sudah disesuaikan 11 Okt). Ditulis untuk AI berikutnya yang melanjutkan proyek ini. Baca seluruhnya sebelum mengubah apa pun.
 
 ---
 
-## 0. Pembaruan 10 Oktober 2026 (sesi Claude, baca dulu)
+## 0. Pembaruan 10-11 Oktober 2026 (sesi Claude, baca dulu)
+
+> Blok bertanggal di bawah = riwayat, terbaru di atas. Nama file/fungsi di blok lama bisa sudah pindah (mis. `MainWindow.Trail.cs` -> `Modules/Trail/TrailRecorder.cs`, `QuestObjectShown` -> `IGameReader.ChestShown`); letak terkini: CLAUDE.md "Peta proyek".
+
+**11 Okt 00:30-01:00: kode bersama netral (commit d50ae96)** — kondisi terbaru
+- `Modules/Guide/Checklist` (langkah yang tampil di checklist ringkas + tag NOW/HERE/BEHIND, tag daftar lengkap) dan `Modules/Progress/ProgressTracker.Manual` (langkah berikutnya, centang/batal, undo, lompat ke langkah, ganti chapter) keluar dari `MainWindow`.
+- Aturan FF7R "chapter >= 21 = INTERmission" diganti kolom chapter `"story"` di guide.json (21 dan 22 = `"INTERmission"`): save cerita utama tidak menyentuh centang INTERmission dan sebaliknya; label chapter cerita lain = judul saja.
+- Jarak dalam meter dari `IGameReader.UnitsPerMetre` (bawaan 1; FF7R 100 karena Unreal = cm). Anggota antarmuka pertama yang ditambah dengan isi bawaan.
+- Tes 645 cek (data panduan, aturan, pencentang dengan pembaca palsu, modul, unit FF7R, rekonsiliasi dua cerita); tiap aturan baru dicek bisa gagal (dirusak sebentar). Semua dokumen .md disesuaikan (README, CLAUDE.md, games/README.md, HANDOFF bagian 1-9, skill, catatan lama ditandai usang).
 
 **Sesi 10 Okt malam (18:00-23:00)** — kondisi terbaru
 - **Progres user**: Ch8, langkah cerita *Requests for the Mercenary* (side quest Ch8 terbuka). Selesai: Moogle Merchant, disc Costa del Sol/Tango of Tears/Gold Saucer, Shiva, Silver Staff, Whistlewind, Salvation, Graveyard Key. Belum: Kids on Patrol, Weapons on a Rampage (tersedia), Angel & Paying Respects (masih ??? di game), Chakra, Descendant of Shinobi, Talisman/Mythril (opsional). PC sempat mati: save terakhir sebelum free roam Leaf House, disc diambil ulang.
@@ -98,10 +106,10 @@ Hal khusus FF7R yang sekarang di kode bersama dan harus pindah: Gil id 20, Recon
 - Deteksi difficulty otomatis (coba saat user main Hard).
 - Overlay ikut tersembunyi saat dialog ringan (masih bisa jalan) dan TIDAK tersembunyi di layar shop: nilai state sama dengan adegan dialog / main. Riset 10 Okt gagal (lihat notes.md "Dialog ringan vs adegan dialog"); user memilih tidak melanjutkan dulu. Ide: tanda HUD tampil, siklus snapshot penuh dengan shop.
 - Batas area masih kotak (bisa meleset di ruangan miring); bentuk persis ada di Model/BodySetup volume.
-- Flag peti "sudah dibuka" dari game: belum ketemu (tugas berikutnya, lihat blok LANJUTKAN DI SINI).
+- (Flag peti "sudah dibuka" dari game: KETEMU 10 Okt sore, lihat di atas.)
 - Penanda di atas peti dalam game (butuh posisi peti + kamera): belum; user memilih jarak + daftar peti dulu.
 - Data panduan Ch11 & Ch15-18: sebagian area null (peta tak termuat saat ekspor nama).
-- README masih usang.
+- (README diperbarui 11 Okt.)
 
 ---
 
@@ -122,11 +130,13 @@ Aplikasi Windows (C# WPF, .NET 8) yang terdiri dari:
 |---|---|
 | Proyek | `D:\Claude Project\GameTracker` |
 | Kode | `overlay\` (proyek `GameTracker.csproj`) |
-| Folder per game | `overlay\games\<id>\` (game.json, guide.json, assets\, data); cara menambah game di `overlay\games\README.md` |
+| Folder per game | `overlay\games\<id>\` (game.json, guide.json, points.json, assets\, reader\); cara menambah game di `overlay\games\README.md` |
+| Modul bersama | `overlay\Modules\<fitur>\` (Guide, Progress, Area, Chests, Trail; tanpa WPF) |
+| Tes | `tools\tracker-tests\` (`dotnet run --project tools/tracker-tests`) |
 | Guide FF7R | `overlay\games\ff7r\guide.json` |
 | Peta item | `overlay\games\ff7r\items.json`; pembaca memori `overlay\games\ff7r\reader\` |
-| Gambar | `overlay\assets\games\ff7r\` (background 1920×1080, cover 600×900, icon 256), `overlay\assets\app\` (logo GP: `logo.png`, `app.ico`) |
-| Data runtime (gitignored) | `data\` — progres `FINAL FANTASY VII REMAKE INTERGRADE.json`, `backups\`, `playtime.json`, `logs\` |
+| Gambar | `overlay\games\ff7r\assets\` (background 1920×1080, cover 600×900, icon 256), `overlay\assets\app\` (logo GP: `logo.png`, `app.ico`) |
+| Data runtime (gitignored) | `data\ff7r\` — progres `FINAL FANTASY VII REMAKE INTERGRADE.json`, `backups\`, trail, chests, `logs\`; bersama di `data\`: `settings.json`, `playtime.json`, `logs\` (crash, games, steam-online) |
 | Riset memori (gitignored) | `research\notes.md` + dump scan (besar, jangan di-commit) |
 | Tool scanner | `tools\ff7r-scan\` |
 | Repo GitHub | `SquamosS/Game-Tracker`, branch kerja **`backup/local-2026-10-08`** |
@@ -164,10 +174,9 @@ Game harus mode **Borderless/Windowed** agar overlay terlihat.
 
 ## 4. Progres main user (FF7R)
 
-- Tracker sekarang di **Chapter 7 (A Trap Is Sprung)**.
-- **96 item tercentang**, semua Chapter 1–6 (terakhir: `c6-10-mp-up`, `c6-11-cargo`, `c6-12-lmg`). Chapter 7 belum ada yang dicentang.
-- Play time Steam: ±17 jam 17 menit. Achievement 17/63 (tidak dipedulikan).
-- User sempat load save Ch3 ↔ Ch7 untuk tes; reconcile mengembalikan centang dengan benar.
+- Progres terbaru selalu di bagian 0. Per 11 Okt: **Chapter 8**, langkah cerita *Requests for the Mercenary*, **132 langkah tercentang**.
+- Ch 1–7 sudah dimainkan dan diverifikasi bersama overlay. Achievement tidak dipedulikan.
+- User sempat load save Ch3 ↔ Ch7 untuk tes; reconcile mengembalikan centang dengan benar (sekarang ada tesnya di `tools/tracker-tests`).
 
 ## 5. Status guide (`games/ff7r/guide.json`, status: draft)
 
@@ -196,23 +205,23 @@ Semua chapter sudah terisi: **Ch 1–18 + INTERmission (nomor 21 & 22)**.
 | 21 | INTERmission 1: Wutai's Finest | 53 | 31 |
 | 22 | INTERmission 2: Covert Ops | 30 | 13 |
 
-- **Ch 1–6 sudah terverifikasi saat dimainkan.** Ch 7 ke atas disusun dari beberapa walkthrough (PowerPyx, Game8, Fextralife, GamerGuides) dan dicek ulang missable-nya, **tapi belum diverifikasi di game** — koreksi saat user sampai di sana.
-- Format satu objektif: `{ "id": "c3-05-...", "type": "cerita|side quest|materia|senjata|music disc|aksesori|armor|summon|manuskrip|kejadian|trofi", "name": "...", "where": "...", "missable": bool, "optional"?: bool, ... }`, plus `pointOfNoReturn` per chapter.
+- **Ch 1–7 sudah terverifikasi saat dimainkan.** Ch 8 ke atas disusun dari beberapa walkthrough (PowerPyx, Game8, Fextralife, GamerGuides) dan dicek ulang missable-nya, **tapi belum semua diverifikasi di game** — koreksi saat user sampai di sana.
+- Format lengkap (jenis langkah dari `game.json` `stepTypes`, kolom aturan `after`/`revisit`/`rewardOf`/`auto`/`gameTitle`/`closes`, chapter `story`): `overlay/games/README.md`. Jenis FF7R: `cerita`, `side quest`, `discovery`, `kejadian`, `materia`, `senjata`, `armor`, `aksesori`, `summon`, `music disc`, `manuskrip`, `item kunci`, `trofi`. `tools/tracker-tests` memeriksa konsistensi data panduan.
 - Koreksi yang sudah dibuat user: Bulletproof Vest = **aksesori** (bukan armor); disc tetap missable; Lightning cukup opsional, bukan missable; MP Up opsional.
 
 ---
 
 ## 6. Cara kerja overlay (penting sebelum mengubah kode)
 
-File utama: `MainWindow.xaml.cs`, `Ff7rChapterReader.cs`, `Ff7rObjective.cs`, `ItemMap.cs`, `ProgressStore.cs`, `Native.cs`.
+File utama: `MainWindow.xaml.cs` (tampilan, hotkey), `GameReader.cs` (antarmuka ke game), `Modules/` (semua aturan: lihat CLAUDE.md "Peta proyek"), pembaca FF7R `games/ff7r/reader/` (`Ff7rChapterReader.cs`, `Ff7rObjective.cs`, `ItemMap.cs`...), `ProgressStore.cs`, `Native.cs`.
 
 - **Chapter**: dibaca dari memori seperti autosplitter LiveSplit (offset dari Mysterion06/FF7RSplitter). 255 = menu/loading.
-- **Quest aktif**: scan signature (ReadProcessMemory, paralel di setengah core, cache blok 64 KB; scan awal ±13 detik). Baris tabel objektif: title key +0x58, desc key +0x68, sprite +0x78. Entry dibuat berjarak 0x188; **quest sekarang = entry terakhir dari deretan terpanjang**. Sub-objektif: key `_(s|S|sub)\d+`. Selesai = desc `_990_d`, `_Done`, atau key `_Mate_` yang desc-nya ≠ title+"_d". Nomor chapter di key **bergeser mulai Ch8** (`_Chapter09_` = Ch8; `_Chapter14_` = Ch13+14) → lihat `ChapterOf`.
+- **Quest aktif**: scan signature (ReadProcessMemory, paralel di setengah core, cache blok 64 KB; scan awal ±13 detik). Baris tabel objektif: title key +0x58, desc key +0x68, sprite +0x78. Entry dibuat berjarak 0x188; **quest sekarang = entry terakhir dari deretan terpanjang** (`NewestObjective` di pembaca; pilihan akhir di `ProgressTracker.Story`). Sub-objektif: key `_(s|S|sub)\d+`. Selesai = desc `_990_d`, `_Done`, atau key `_Mate_` yang desc-nya ≠ title+"_d". Nomor chapter di key **bergeser mulai Ch8** (`_Chapter09_` = Ch8; `_Chapter14_` = Ch13+14) → lihat `ChapterOf`.
 - **Inventory**: list di memori adalah salinan save; salinan "live" dipilih dengan `LiveCopy()` (yang berubah antara dua baca berjarak 1 detik). Peralatan: record 0x10 byte `{kind 1/2, id}` di materia − 0x2000. Tumpukan yang bertambah dihitung sebagai pickup.
-- **Reconcile saat load save** (dipicu saat kembali ke game, lompat chapter, atau >3 slot berubah): chapter setelahnya di-uncentang; chapter sebelumnya mempertahankan langkah cerita + set `Ever`; item unik non-opsional dicentang dari kepemilikan; setelah `_storyMayGoBack`, semua setelah langkah cerita sekarang di-uncentang.
-- **ProgressStore**: simpan atomik (file temp + move), backup di `data\backups`, fallback ke backup terbaru kalau file rusak (`Recovered` → muncul di footer).
+- **Reconcile saat load save** (`Modules/Progress/ProgressTracker.Load.cs`; dipicu saat kembali ke game, lompat chapter, atau >3 slot berubah): chapter setelahnya di-uncentang; chapter sebelumnya mempertahankan langkah cerita + set `Ever`; item unik non-opsional dicentang dari kepemilikan; setelah `_storyMayGoBack`, semua setelah langkah cerita sekarang di-uncentang.
+- **ProgressStore**: simpan atomik (file temp + move), backup di `data\<id>\backups`, fallback ke backup terbaru kalau file rusak (`Recovered` → muncul di footer).
 - Tampilan: quest utama biru, sub-quest kuning; warna per tipe; tag REWARD; background 50%, outline tipis; footer hanya untuk error.
-- Log diagnosa: `data\logs\objective-search.log`, `quest-choice.log` (tanda [RAGU]/[BEDA]), `steam-online.log`.
+- Log diagnosa: `data\ff7r\logs\objective-search.log`, `quest-choice.log` (tanda [RAGU]/[BEDA]); bersama: `data\logs\steam-online.log`, `crash.log`, `games.log`.
 
 ### Hotkey overlay
 
@@ -247,8 +256,8 @@ File: `App.xaml.cs` (tray, single instance `Local\GameTracker.Single`, argumen `
 ## 8. Yang perlu dilakukan AI berikutnya
 
 **Prioritas (saat user main):**
-1. Dampingi user di **Chapter 7 dan seterusnya**: pastikan centang otomatis benar, perbaiki guide (urutan, nama, missable/opsional, lokasi) berdasarkan apa yang user lihat di game. Ch 7+ belum terverifikasi.
-2. Kalau ada salah centang: cek `quest-choice.log` / `objective-search.log` dulu sebelum mengubah logika reconcile.
+1. Dampingi user di **Chapter 8 dan seterusnya**: pastikan centang otomatis benar, perbaiki guide (urutan, nama, missable/opsional, lokasi) berdasarkan apa yang user lihat di game. Ch 8+ belum semua terverifikasi.
+2. Kalau ada salah centang: cek `data/ff7r/logs/quest-choice.log` / `objective-search.log` dulu, tulis kasusnya sebagai cek di `tools/tracker-tests`, baru ubah aturannya.
 3. Perhatikan pergeseran key chapter mulai Ch8 (`ChapterOf`) — paling rawan salah di Ch8–14.
 
 **Menunggu keputusan user:**
@@ -258,8 +267,7 @@ File: `App.xaml.cs` (tray, single instance `Local\GameTracker.Single`, argumen `
 
 **Tertunda / opsional:**
 7. Riset penanda cutscene (lihat `research\notes.md`, bagian "Cutscene marker", dijeda).
-8. `README.md` sudah usang (masih menyebut guide Ch 1–3, path lama, `%APPDATA%`) — perbarui kalau user mau.
-9. Log suhu GPU (`data\logs\gpu-temp.csv`): PC user pernah mati mendadak 2× (Kernel-Power 41, tanpa BSOD; puncak GPU 79 °C ±165 W). Belum ada kesimpulan; bisa dinyalakan lagi saat user main.
+8. Log suhu GPU (`data\logs\gpu-temp.csv`): PC user pernah mati mendadak 2× (Kernel-Power 41, tanpa BSOD; puncak GPU 79 °C ±165 W). Belum ada kesimpulan; bisa dinyalakan lagi saat user main.
 
 ## 9. Jebakan yang sudah pernah terjadi
 

@@ -7,6 +7,9 @@ description: Build GameTracker and restart the FF7R overlay so a change takes ef
 
 The user allowed restarting the overlay for fixes at any time; say in one line that it was restarted.
 
+0. After a change to `overlay/Modules/`, the guide or game.json: `dotnet run --project tools/tracker-tests` from the project root must end
+   "0 failed" (it compiles the overlay's sources itself, so it runs while the overlay is open). Back up `data\ff7r\<game>.json` before a
+   restart that follows a change to the ticking rules.
 1. Stop the running app (its exe locks the build output):
    `Stop-Process -Name GameTracker -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1`
 2. Build (must be 0 warnings, 0 errors; the repo keeps it clean):

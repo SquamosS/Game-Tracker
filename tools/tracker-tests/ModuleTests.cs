@@ -114,9 +114,13 @@ static class ModuleTests
         check("manual: the next step is the first open one after the last finished story step", manual.NextStep(c1)?.Id == "c1-sword");
         manual.SetDone("c1-sword", true);
         check("manual: a tick is saved and kept for undo", manual.Progress.Done.Contains("c1-sword") && manual.Progress.History[^1] == "c1-sword" && host.Saves == 1);
+        int saves = host.Saves;
         check("manual: undo unticks the last tick", manual.Undo() == "c1-sword" && !manual.Progress.Done.Contains("c1-sword"));
+        check("manual: undo leaves saving to the window (it tells what it undid first)", host.Saves == saves);
         check("manual: nothing to undo twice over the start", manual.Undo() == "c1-start" && manual.Undo() is null);
+        saves = host.Saves;
         manual.JumpTo(c1[5]); // "I am at the Ice Materia": the story before it is done
+        check("manual: jumping to a step is saved", host.Saves == saves + 1);
         check("manual: jumping to a step finishes the story before it", manual.Progress.Done.Contains("c1-start") && manual.Progress.Done.Contains("c1-boss") && !manual.Progress.Done.Contains("c1-ice"));
         check("manual: next chapter", manual.ChangeChapter(+1) && manual.Progress.Chapter == 2);
         check("manual: no chapter after the last", !manual.ChangeChapter(+1) && manual.Progress.Chapter == 2);
@@ -134,6 +138,18 @@ static class ModuleTests
         stories.Poll(out _); // a main-story save of chapter 1 is loaded after playing the INTERmission
         check("stories: a main-story save does not untick the INTERmission (chapter 21 is not its future)", stories.Progress.Done.Contains("c21-start"));
         check("stories: the main story's later chapter is unticked as usual", !stories.Progress.Done.Contains("c2-next") && stories.Progress.Chapter == 1);
+
+        var interReader = new FakeReader { Chapter = 21, LiveIds = [20, 9001] };
+        interReader.Slots = new() { [1] = (20, 1), [2] = (9001, 1) };
+        interReader.FakeNames.Items[9001] = "Nail Bat";
+        var inter = new ProgressTracker(interReader, new GuideRules(types, interReader.Names), DataPaths.Game("test"), DataPaths.GameLogs("test"), new FakeHost())
+        {
+            Guide = twoStories,
+            Progress = new Progress { Chapter = 2, Done = ["c1-start"], Ever = ["c1-start"] },
+        };
+        inter.Poll(out _); // an INTERmission save holding a Nail Bat is loaded
+        check("stories: an INTERmission save's inventory ticks nothing of the main story", !inter.Progress.Done.Contains("c2-bat"));
+        check("stories: and leaves the main story's ticks", inter.Progress.Done.Contains("c1-start") && inter.Progress.Chapter == 21);
 
         // ---- The chapter recap: the missables never ticked, once the inventory had time to catch up -------------------
         var missable = ProgressTrackerTests.SmallGuide();

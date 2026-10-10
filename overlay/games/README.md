@@ -73,6 +73,9 @@ Folder yang namanya diawali `_` (mis. `_template`) dilewati, juga `logs` dan `ba
 }
 ```
 
+- Chapter: `number`, `title`, `pointOfNoReturn`, `objectives`, dan opsional `story`: nama cerita kalau game punya lebih dari satu
+  (FF7R: `"INTERmission"` di chapter 21 dan 22). Chapter cerita lain bukan masa lalu atau masa depan chapter ini saat save di-load
+  (centangnya tidak disentuh), dan labelnya hanya judul. Tanpa `story` = cerita utama.
 - `id` unik di seluruh panduan; progres disimpan dengan id ini, jadi jangan diganti setelah dipakai.
 - `type`: salah satu kunci `stepTypes` di game.json. FF7R: `cerita`, `side quest`, `discovery`, `kejadian`, `materia`, `senjata`,
   `armor`, `aksesori`, `summon`, `music disc`, `manuskrip`, `item kunci`, `trofi`.
@@ -95,7 +98,8 @@ Folder yang namanya diawali `_` (mis. `_template`) dilewati, juga `logs` dan `ba
 
 ## points.json (opsional)
 
-Titik tujuan per langkah, untuk jarak dari pemain (hanya game dengan reader yang tahu posisi dan area):
+Titik tujuan per langkah, untuk jarak dari pemain (hanya game dengan reader yang tahu posisi dan area). Koordinat dalam satuan
+game itu sendiri (FF7R/Unreal: sentimeter; lihat `UnitsPerMetre` di bawah):
 
 ```json
 { "c8-13-disc-costa": { "x": -6670, "y": 8590, "z": 349, "area": "Center District", "note": "depan Materia Shop" } }
@@ -113,4 +117,10 @@ tahu", cukup `override` yang bisa dibaca (posisi, chapter, inventory...); compil
 turunan `GameNamesBase`. Yang tidak diketahui tetap `null` (atau daftar kosong), fitur yang memerlukannya mati diam-diam. Hanya baca
 memori game, jangan menulis. Contoh lengkap: `games/ff7r/reader/Ff7rChapterReader.cs`.
 
-Setelah menambah folder: build ulang (`dotnet build` di `overlay/`) supaya file JSON tersalin ke folder exe.
+- `UnitsPerMetre`: berapa satuan posisi game = 1 meter. Bawaan 1 (meter, umum di Unity); Unreal = 100 (sentimeter, FF7R). Semua jarak
+  overlay (peti, titik, rute, "lompat lebih dari 15 m bukan jalan kaki") dihitung dalam meter dari angka ini.
+- Pertanyaan baru yang dibutuhkan fitur baru ditambah ke `IGameReader` dengan isi bawaan "tidak tahu", jadi pembaca lain tidak perlu diubah.
+- Tes tanpa game: `tools/tracker-tests` (lihat pembaca palsu `FakeReader` di sana).
+
+Setelah menambah folder: jalankan `dotnet run --project tools/tracker-tests` (memeriksa guide.json/game.json FF7R; tambah cek untuk
+game baru kalau perlu), lalu build ulang (`dotnet build` di `overlay/`) supaya file JSON tersalin ke folder exe.
