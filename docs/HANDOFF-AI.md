@@ -43,7 +43,7 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 - Quest + subquest dari game tampil di pop-up sendiri kiri atas (`QuestWindow.cs`): selalu tampil saat menjelajah, fade in saat berganti, ikut tersembunyi bersama overlay. Overlay kanan hanya checklist + petunjuk langkah cerita. Keterbacaan: latar panel ~90% gelap, TextFormattingMode=Display, teks keterangan 13 px #CBD5E1; outline blur (DropShadowEffect) dihapus karena membuat teks kabur. Coba dulu tanpa mengecil/redup (permintaan user); cek posisi kiri atas tidak menutupi HUD game.
 
 **Pop-up lokasi (10 Okt siang)**
-- Area + lantai pindah dari overlay ke pop-up kanan bawah (`LocationWindow`, kelas dasar `CornerWindow` di `QuestWindow.cs`). Area kini terbaca juga di peta yang volumenya tidak bernama `Navi...` (Sector 5): lewat field +0x3B0/+0x3B4 dan nomor peta dari nama World. Perubahan area dicatat di `data/logs/area.log`.
+- Area + lantai pindah dari overlay ke pop-up kiri atas, di atas pop-up quest (quest mengikuti tinggi/tampilnya; awalnya kanan bawah, kurang terbaca menurut user) (`LocationWindow`, kelas dasar `CornerWindow` di `QuestWindow.cs`). Area kini terbaca juga di peta yang volumenya tidak bernama `Navi...` (Sector 5): lewat field +0x3B0/+0x3B4 dan nomor peta dari nama World. Perubahan area dicatat di `data/logs/area.log`.
 - Riset peti & isi (belum di overlay): lihat notes.md "Peti harta & isinya".
 
 **Masih terbuka**

@@ -86,15 +86,21 @@ public abstract class CornerWindow : Window
     /// <summary>Sets Left and Top in the work area (ActualWidth/Height may still be 0 before the first layout).</summary>
     protected abstract void Place();
 
+    /// <summary>Places the window again (another panel above it changed size or showed).</summary>
+    public void Reposition() => Place();
+
     protected static SolidColorBrush Brush(string hex) => (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
 }
 
 /// <summary>
-/// The live quest at the top left of the screen: the quest (blue) with its description, then the active sub-quest
-/// (amber) with its own.
+/// The live quest at the top left of the screen, under the location panel when that shows: the quest (blue) with its
+/// description, then the active sub-quest (amber) with its own.
 /// </summary>
 public sealed class QuestWindow() : CornerWindow(QuestTitle, new Thickness(3, 0, 0, 0))
 {
+    /// <summary>The panel above this one (the location), set by the overlay.</summary>
+    public CornerWindow? Below { get; set; }
+
     static readonly Brush QuestTitle = Brush("#38BDF8"), QuestText = Brush("#BAE6FD"), SubTitle = Brush("#FBBF24"), SubText = Brush("#E2E8F0");
 
     /// <summary>The quest to show (null: none known, the window hides).</summary>
@@ -112,22 +118,21 @@ public sealed class QuestWindow() : CornerWindow(QuestTitle, new Thickness(3, 0,
     {
         var area = SystemParameters.WorkArea;
         Left = area.Left + 24;
-        Top = area.Top + area.Height * 0.08;
+        Top = Below is { IsVisible: true, ActualHeight: > 0 } above ? above.Top + above.ActualHeight + 6 : area.Top + area.Height * 0.08;
     }
 }
 
 /// <summary>
-/// Where Cloud is, at the bottom right of the screen: the area as the game's map names it (large) and its floor or
-/// district (small), from the game's area volumes (Ff7rMapArea.cs). Hidden when the area is not known.
+/// Where Cloud is, at the top left of the screen above the quest: the area as the game's map names it (large) and its
+/// floor or district (small), from the game's area volumes (Ff7rMapArea.cs). Hidden when the area is not known.
 /// </summary>
-public sealed class LocationWindow() : CornerWindow(Mako, new Thickness(0, 0, 3, 0))
+public sealed class LocationWindow() : CornerWindow(Mako, new Thickness(3, 0, 0, 0))
 {
     static readonly Brush Mako = Brush("#5EEAD4"), Floor = Brush("#CBD5E1");
 
     public void SetLocation(string? area, string? floor) =>
         SetContent(area is null ? null : $"{area}\n{floor}", () =>
         {
-            Text.TextAlignment = TextAlignment.Right;
             Text.Inlines.Add(new System.Windows.Documents.Run("⌖ ") { Foreground = Mako, FontSize = 18 });
             Text.Inlines.Add(new System.Windows.Documents.Run(area) { Foreground = Brushes.White, FontSize = 18, FontWeight = FontWeights.SemiBold });
             if (floor is { Length: > 0 }) Text.Inlines.Add(new System.Windows.Documents.Run("\n" + floor) { Foreground = Floor, FontSize = 13 });
@@ -136,9 +141,7 @@ public sealed class LocationWindow() : CornerWindow(Mako, new Thickness(0, 0, 3,
     protected override void Place()
     {
         var area = SystemParameters.WorkArea;
-        double width = ActualWidth > 0 ? ActualWidth : 260, height = ActualHeight > 0 ? ActualHeight : 60;
-        Left = area.Right - width - 24;
-        // Above the bottom edge, clear of the game's own corner prompts.
-        Top = area.Bottom - height - area.Height * 0.2;
+        Left = area.Left + 24;
+        Top = area.Top + area.Height * 0.08;
     }
 }

@@ -71,6 +71,10 @@ public partial class MainWindow : Window
         Lang.Changed += OnLanguageChanged;
         // The quest pop-up shows with the overlay, whatever hid it (a menu, Ctrl+Shift+G, the tray).
         IsVisibleChanged += (_, _) => _quest.Allowed = _location.Allowed = IsVisible;
+        // The quest sits under the location panel: follow its size and whether it shows.
+        _quest.Below = _location;
+        _location.SizeChanged += (_, _) => _quest.Reposition();
+        _location.IsVisibleChanged += (_, _) => _quest.Reposition();
         Loaded += (_, _) => DockRight();
         SourceInitialized += (_, _) => SetupHotkeys();
         // The poll timer and the guide watcher must stop too: left running, a closed overlay keeps reading the game
@@ -954,7 +958,7 @@ public partial class MainWindow : Window
     /// <summary>The live quest's own pop-up at the top left (QuestWindow), apart from the checklist.</summary>
     readonly QuestWindow _quest = new();
 
-    /// <summary>Where Cloud is, at the bottom right (LocationWindow).</summary>
+    /// <summary>Where Cloud is, at the top left above the quest (LocationWindow).</summary>
     readonly LocationWindow _location = new();
 
     /// <summary>
@@ -993,7 +997,7 @@ public partial class MainWindow : Window
         RenderLanguageSwitch();
         var chapter = CurrentChapter;
         RenderObjective();
-        // Where you are has its own panel at the bottom right: the area large, the floor small.
+        // Where you are has its own panel at the top left, above the quest: the area large, the floor small.
         _location.SetLocation(_inGame ? _here?.Area : null, _here?.Floor);
         RenderRoute(chapter);
         RenderNotice();
