@@ -35,11 +35,10 @@ public sealed partial class Ff7rChapterReader
 
     sealed record Volume(long Actor, string Area, string? Floor, float CX, float CY, float CZ, float EX, float EY, float EZ)
     {
-        public bool Contains(Position p) => Math.Abs(p.X - CX) <= EX && Math.Abs(p.Y - CY) <= EY && Math.Abs(p.Z - CZ) <= EZ;
+        public bool Contains(GamePosition p) => Math.Abs(p.X - CX) <= EX && Math.Abs(p.Y - CY) <= EY && Math.Abs(p.Z - CZ) <= EZ;
         public float Size => EX * EY * EZ;
     }
 
-    public record Location(string Area, string? Floor);
 
     static readonly Regex VolumeName = new(@"^Navi(\d{3})_Layer(\d{2})_(\d{3})_\d{3}_\d{3}$", RegexOptions.Compiled),
         WorldMap = new(@"^(\d{3})-", RegexOptions.Compiled);
@@ -48,7 +47,7 @@ public sealed partial class Ff7rChapterReader
     /// The area whose volume holds the position (the smallest when volumes overlap), or null outside every volume, on
     /// another game version, or before the volumes and names were read.
     /// </summary>
-    public Location? ReadLocation(Position p)
+    public GameLocation? ReadLocation(GamePosition p)
     {
         if (!Attach() || NaviVolumeVtable == 0) return null;
         if (!ReferenceEquals(_resolvedFrom, _naviVolumes) && _naviTexts.Count > 0) ResolveVolumes();
@@ -62,7 +61,7 @@ public sealed partial class Ff7rChapterReader
             }
             return null;
         }
-        return _volumes.Where(v => v.Contains(p)).OrderBy(v => v.Size).Select(v => new Location(v.Area, v.Floor)).FirstOrDefault();
+        return _volumes.Where(v => v.Contains(p)).OrderBy(v => v.Size).Select(v => new GameLocation(v.Area, v.Floor)).FirstOrDefault();
     }
 
     void ResolveVolumes()

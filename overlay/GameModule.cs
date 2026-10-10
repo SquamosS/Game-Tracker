@@ -7,12 +7,15 @@ namespace GameTracker;
 /// <summary>
 /// A game the tracker knows, from its folder overlay\games\&lt;id&gt;\ (see games\README.md): game.json (name, process,
 /// Steam id, screenshot folder, live reader), guide.json (the checklist) and assets\ (background, cover, icon; all
-/// optional, Steam's own artwork is used when they are missing). Reader: "ff7r" reads the game's memory and ticks
+/// optional, Steam's own artwork is used when they are missing). Reader: the id of a live reader ([GameReader], e.g. "ff7r") that reads the game's memory and ticks
 /// steps on its own; none (null) gives the same overlay with manual ticking and chapter changes (hotkeys).
 /// </summary>
 public sealed record GameModule(string Id, string DisplayName, string ProcessName, int? SteamAppId,
-    string? ScreenshotGlob = null, string? Reader = null)
+    string? ScreenshotGlob = null, string? Reader = null, string? Short = null)
 {
+    /// <summary>The name in short status lines ("FF7R"): game.json "shortName", else the full name.</summary>
+    public string ShortName => Short ?? DisplayName;
+
     /// <summary>The game's folder as built (guide.json and other data files are copied next to the exe).</summary>
     public string Folder => Path.Combine(AppContext.BaseDirectory, "games", Id);
 
@@ -53,7 +56,7 @@ public sealed record GameModule(string Id, string DisplayName, string ProcessNam
 /// </summary>
 public static class GameRegistry
 {
-    record Info(string DisplayName, string ProcessName, int? SteamAppId, string? ScreenshotGlob, string? Reader);
+    record Info(string DisplayName, string ProcessName, int? SteamAppId, string? ScreenshotGlob, string? Reader, string? ShortName);
 
     static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true, ReadCommentHandling = JsonCommentHandling.Skip };
 
@@ -71,7 +74,7 @@ public static class GameRegistry
             try
             {
                 if (JsonSerializer.Deserialize<Info>(File.ReadAllText(file), Options) is { DisplayName.Length: > 0, ProcessName.Length: > 0 } info)
-                    games.Add(new GameModule(id, info.DisplayName, info.ProcessName, info.SteamAppId, info.ScreenshotGlob, info.Reader));
+                    games.Add(new GameModule(id, info.DisplayName, info.ProcessName, info.SteamAppId, info.ScreenshotGlob, info.Reader, info.ShortName));
             }
             catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { } // a broken game.json leaves that game out
         }

@@ -104,7 +104,7 @@ public partial class MainWindow
         return neighbours;
     }
 
-    static string Room(Ff7rChapterReader.Location l) => $"{l.Floor}|{l.Area}";
+    static string Room(GameLocation l) => $"{l.Floor}|{l.Area}";
 
     static string LinkKey(string a, string b) => string.CompareOrdinal(a, b) < 0 ? $"{a}\n{b}" : $"{b}\n{a}";
 
@@ -112,7 +112,7 @@ public partial class MainWindow
     /// Remembers a walk from one room into another between two polls (a second apart). A jump of more than 15 m in
     /// that second is not a walk (a load, a cutscene moving you), so it teaches nothing.
     /// </summary>
-    void LearnLink(Ff7rChapterReader.Location? from, Ff7rChapterReader.Position? fromAt, Ff7rChapterReader.Location? to, Ff7rChapterReader.Position? toAt)
+    void LearnLink(GameLocation? from, GamePosition? fromAt, GameLocation? to, GamePosition? toAt)
     {
         if (from is null || to is null || fromAt is null || toAt is null || from == to) return;
         float dx = toAt.X - fromAt.X, dy = toAt.Y - fromAt.Y, dz = toAt.Z - fromAt.Z;
@@ -132,7 +132,7 @@ public partial class MainWindow
     /// The rooms to walk through from here to a room called <paramref name="area"/> (on floor hint
     /// <paramref name="floor"/> when given), the target included; null when no walked route is known.
     /// </summary>
-    List<string>? RouteTo(Ff7rChapterReader.Location here, string area, string? floor)
+    List<string>? RouteTo(GameLocation here, string area, string? floor)
     {
         var neighbours = _neighbours ??= Neighbours();
         bool IsTarget(string room)
@@ -189,7 +189,7 @@ public partial class MainWindow
 
     static readonly System.Text.RegularExpressions.Regex ChestTable = new(@"^[a-z]+\d+", System.Text.RegularExpressions.RegexOptions.Compiled);
 
-    IReadOnlyList<Ff7rChapterReader.Chest>? _chestsLogged;
+    IReadOnlyList<GameChest>? _chestsLogged;
     DateTime _chestsLoggedAt;
     bool _chestsLogIncomplete;
 
@@ -224,7 +224,7 @@ public partial class MainWindow
                     if (chest.At is not null && location is null) _chestsLogIncomplete = true;
                     // A row that already knows its area keeps it when the area cannot be read now (another map shown).
                     if (location is null && rows.TryGetValue(chest.Id, out var known) && known.Split('	') is { Length: > 4 } k && k[4].Length > 0) continue;
-                    string names = string.Join(" + ", chest.Items.Select(id => _itemMap.Name(id) ?? $"#{id}"));
+                    string names = string.Join(" + ", chest.Items.Select(id => _names.Name(id) ?? $"#{id}"));
                     rows[chest.Id] = string.Join('	', chest.Id, chest.At is { } p ? $"{p.X:0}" : "", chest.At is { } q ? $"{q.Y:0}" : "", chest.At is { } r ? $"{r.Z:0}" : "",
                         location?.Area ?? "", location?.Floor ?? "", string.Join(",", chest.Items), names);
                 }
@@ -241,12 +241,12 @@ public partial class MainWindow
     /// area, floor, where Cloud stands, the game state (battle, exploring, menu, cutscene) and the live objective. Where an item was
     /// picked up is a spot for points.json on the next playthrough.
     /// </summary>
-    void LogItems(IEnumerable<Ff7rChapterReader.Owned> items)
+    void LogItems(IEnumerable<OwnedItem> items)
     {
         var p = _herePosition;
-        var lines = items.Select(o => string.Join('\t', $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}", _detectedChapter, o.Id, _itemMap.Name(o.Id) ?? $"#{o.Id}", o.Count,
+        var lines = items.Select(o => string.Join('\t', $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}", _detectedChapter, o.Id, _names.Name(o.Id) ?? $"#{o.Id}", o.Count,
             _here?.Area ?? "", _here?.Floor ?? "", p is null ? "" : $"{p.X:0}", p is null ? "" : $"{p.Y:0}", p is null ? "" : $"{p.Z:0}",
-            _reader.ReadGameState() switch { { Battle: true } => "battle", { Exploring: true } => "exploring", { Menu: true } => "menu", { Cutscene: true } => "cutscene", { } g => $"state {g.State2}", null => "" }, _objective?.Title ?? "")).ToList();
+            _reader.ReadGameState() switch { { Battle: true } => "battle", { Exploring: true } => "exploring", { Menu: true } => "menu", { Cutscene: true } => "cutscene", { } g => $"state {g.Code}", null => "" }, _objective?.Title ?? "")).ToList();
         if (lines.Count == 0) return;
         try
         {
@@ -271,7 +271,7 @@ public partial class MainWindow
             // Unknown for a moment (the live copy not told apart yet) is not a change worth a line.
             if (_reader.ChestOpened(chest) is not { } open || (_chestFlagsLogged.TryGetValue(chest.Id, out var was) && was == open)) continue;
             _chestFlagsLogged[chest.Id] = open;
-            string names = string.Join(" + ", chest.Items.Select(id => _itemMap.Name(id) ?? $"#{id}"));
+            string names = string.Join(" + ", chest.Items.Select(id => _names.Name(id) ?? $"#{id}"));
             string distance = chest.At is { } at && _herePosition is { } p ? Metres(Distance(at, p)) : "";
             lines.Add($"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{chest.Id}\tflag {(chest.Flag is { } f ? $"0x{f:X}" : "?")}\t{(open ? "opened" : "closed")}\t{distance}\t{names}");
         }
@@ -286,7 +286,7 @@ public partial class MainWindow
 
     /// <summary>
     /// Chests learned to be opened (ids, e.g. "obt080_treasure0030"): an item the chest holds arrived while Cloud stood
-    /// within 4 m of it. Only a fallback now: the game's own flag (Ff7rChapterReader.ChestOpened) wins when it is known.
+    /// within 4 m of it. Only a fallback now: the game's own flag (IGameReader.ChestOpened) wins when it is known.
     /// </summary>
     readonly HashSet<string> _opened = LoadOpened();
 
@@ -319,7 +319,7 @@ public partial class MainWindow
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
-    static double Distance(Ff7rChapterReader.Position a, Ff7rChapterReader.Position b)
+    static double Distance(GamePosition a, GamePosition b)
     {
         double dx = a.X - b.X, dy = a.Y - b.Y, dz = a.Z - b.Z;
         return Math.Sqrt(dx * dx + dy * dy + dz * dz) / 100;
@@ -336,7 +336,7 @@ public partial class MainWindow
     /// The area a chest stands in (Ff7rMapArea.cs), cached once known; null while it cannot be read (asked again after
     /// 30 s, when the area volumes may have loaded).
     /// </summary>
-    string? ChestArea(Ff7rChapterReader.Chest chest)
+    string? ChestArea(GameChest chest)
     {
         if (!ReferenceEquals(_chestsIndexed, _reader.Chests)) IndexChests();
         if (_chestArea.TryGetValue(chest, out var known) && (known.Area is not null || DateTime.Now - known.When < TimeSpan.FromSeconds(30))) return known.Area;
@@ -354,10 +354,10 @@ public partial class MainWindow
     /// A chest opened before it could be watched: it is the only chest holding each of its items, and each of those is a
     /// guide step already ticked (ticked from the inventory or by you).
     /// </summary>
-    bool Collected(Ff7rChapterReader.Chest chest)
+    bool Collected(GameChest chest)
     {
         if (_guide is null) return false;
-        var names = chest.Items.Distinct().Select(_itemMap.Name).ToList();
+        var names = chest.Items.Distinct().Select(_names.Name).ToList();
         return names.All(name => name is not null && ReferenceEquals(_chestByName.GetValueOrDefault(name), chest)
             && _guide.Chapters.SelectMany(c => c.Objectives).Any(o => _progress.Done.Contains(o.Id) && SameItem(o, name)));
     }
@@ -418,9 +418,9 @@ public partial class MainWindow
         if ((TrailSpot(o) ?? (_points.TryGetValue(o.Id, out var fixedPoint) ? (o.Id, fixedPoint) : null)) is not var (key, point)) return null;
         // Asked again after 30 s, or 5 s while unknown (the map's area volumes may still be loading).
         if (!_pointArea.TryGetValue(key, out var known) || DateTime.Now - known.When >= TimeSpan.FromSeconds(known.Area is null ? 5 : 30))
-            _pointArea[key] = known = (_reader.ReadLocation(new Ff7rChapterReader.Position(point.X, point.Y, point.Z))?.Area, DateTime.Now);
+            _pointArea[key] = known = (_reader.ReadLocation(new GamePosition(point.X, point.Y, point.Z))?.Area, DateTime.Now);
         if (known.Area is null || !known.Area.Equals(point.Area, StringComparison.OrdinalIgnoreCase)) return null;
-        return Metres(Distance(new Ff7rChapterReader.Position(point.X, point.Y, point.Z), p));
+        return Metres(Distance(new GamePosition(point.X, point.Y, point.Z), p));
     }
 
     /// <summary>
@@ -429,7 +429,7 @@ public partial class MainWindow
     /// Ch13 Mythical Amulet chest during Ch8, locked): it only hides, the guide's order still decides. Null when the level
     /// cannot be read.
     /// </summary>
-    bool? Placed(Ff7rChapterReader.Chest chest)
+    bool? Placed(GameChest chest)
     {
         if (chest.At is not { } at || _reader.ReadFieldActors() is not { } actors) return null;
         return actors.Any(a => Distance(a.At, at) <= 1.5);
@@ -443,7 +443,7 @@ public partial class MainWindow
         return _chestByName.GetValueOrDefault(o.Name) is { } chest ? Placed(chest) : null;
     }
 
-    readonly List<Ff7rChapterReader.FieldActor> _fieldLogged = [];
+    readonly List<FieldActor> _fieldLogged = [];
 
     /// <summary>
     /// Writes data\logs\field-actors.log when a field object appears where none of its class was seen before this
@@ -466,13 +466,13 @@ public partial class MainWindow
     /// The chest holds a step of this chapter that is not open yet (MP Up in Aerith's garden comes with The Language of
     /// Flowers, after the Rude fight): not listed before its time.
     /// </summary>
-    bool ForLater(Ff7rChapterReader.Chest chest) => CurrentChapter is { } chapter && chest.Items.Select(_itemMap.Name).OfType<string>()
+    bool ForLater(GameChest chest) => CurrentChapter is { } chapter && chest.Items.Select(_names.Name).OfType<string>()
         .Any(name => chapter.Objectives.Any(o => SameItem(o, name) && !_progress.Done.Contains(o.Id) && NotYet(o, chapter)));
 
     /// <summary>
     /// Opened: the game's own flag when it can be read; else learned (opened.json) or inferred from ticked steps (Collected).
     /// </summary>
-    bool Opened(Ff7rChapterReader.Chest chest) => _reader.ChestOpened(chest) ?? (_opened.Contains(chest.Id) || Collected(chest));
+    bool Opened(GameChest chest) => _reader.ChestOpened(chest) ?? (_opened.Contains(chest.Id) || Collected(chest));
 
     /// <summary>
     /// A quest pick-up kept in the chest table (obt080_qst05_SlumAngelCard = the Guardian Angel's calling cards) is
@@ -480,7 +480,7 @@ public partial class MainWindow
     /// number in its key (Ch. 3 keys look like "$str030_SLUM7_qst055", objects "oba030_qst055_Betty"; Ch. 14 keys "$str110_SLU5A_Quest070"). Plain chests
     /// always show.
     /// </summary>
-    bool QuestObjectShown(Ff7rChapterReader.Chest chest)
+    bool QuestObjectShown(GameChest chest)
     {
         var pickUp = QuestPickUp.Match(chest.Id);
         if (!pickUp.Success) return true;
@@ -510,6 +510,6 @@ public partial class MainWindow
             .Where(c => c.At is not null && c.Items.Length > 0 && QuestObjectShown(c) && !Opened(c) && Placed(c) != false && !ForLater(c) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
             .Select(c => (Chest: c, Metres: Distance(c.At!, p)))
             .OrderBy(x => x.Metres).Take(5)
-            .Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _itemMap.Name(id) ?? $"#{id}")), Metres(x.Metres))).ToList();
+            .Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _names.Name(id) ?? $"#{id}")), Metres(x.Metres))).ToList();
     }
 }

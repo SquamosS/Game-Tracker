@@ -8,7 +8,8 @@ namespace GameTracker;
 /// Reads the current chapter number from FF7 Remake's memory (read-only), the same way LiveSplit's
 /// autosplitter does. Offsets come from https://github.com/Mysterion06/FF7RSplitter (FF7R.asl).
 /// </summary>
-public sealed partial class Ff7rChapterReader : IDisposable
+[GameReader("ff7r")]
+public sealed partial class Ff7rChapterReader : IGameReader
 {
     const string ProcessName = "ff7remake_";
     const uint PROCESS_VM_READ = 0x10, PROCESS_QUERY_INFORMATION = 0x400;
@@ -60,8 +61,6 @@ public sealed partial class Ff7rChapterReader : IDisposable
     /// <summary>Look for new copies right away (the objective changed: rewards often come with it).</summary>
     public void RefreshListsSoon() => _listsFound = DateTime.MinValue;
 
-    /// <summary>One inventory record; Slot is its address, which keeps holding the same id unless something new is put there.</summary>
-    public record Owned(int Id, int Count, uint Obtained, long Slot = 0);
 
     /// <summary>Everything in the item and materia lists, or null while they are still being looked for.</summary>
     /// <summary>
@@ -81,12 +80,12 @@ public sealed partial class Ff7rChapterReader : IDisposable
         var (materia, gil) = live;
         var ids = new HashSet<int>();
         long items = ItemsStart(gil);
-        foreach (var o in ReadRecords(items, 0x18, 600, (b, slot) => new Owned(BitConverter.ToInt32(b[8..]), BitConverter.ToInt32(b[12..]), 0, slot)))
+        foreach (var o in ReadRecords(items, 0x18, 600, (b, slot) => new OwnedItem(BitConverter.ToInt32(b[8..]), BitConverter.ToInt32(b[12..]), 0, slot)))
             if (o.Id > 0 && o.Count > 0) ids.Add(o.Id);
-        foreach (var o in ReadRecords(materia, 0x20, 600, (b, slot) => new Owned(BitConverter.ToInt32(b[20..]), 1, 0, slot)))
+        foreach (var o in ReadRecords(materia, 0x20, 600, (b, slot) => new OwnedItem(BitConverter.ToInt32(b[20..]), 1, 0, slot)))
             if (o.Id > 0) ids.Add(o.Id);
         foreach (var o in ReadRecords(materia - EquipmentBytes, 0x10, EquipmentBytes / 0x10, (b, slot) =>
-                     (BitConverter.ToInt32(b[0..]) & 0xFF) is 1 or 2 ? new Owned(BitConverter.ToInt32(b[4..]), 1, 0, slot) : new Owned(0, 0, 0, slot)))
+                     (BitConverter.ToInt32(b[0..]) & 0xFF) is 1 or 2 ? new OwnedItem(BitConverter.ToInt32(b[4..]), 1, 0, slot) : new OwnedItem(0, 0, 0, slot)))
             if (o.Id is >= 1000 and < 10000) ids.Add(o.Id);
         return ids;
     }
@@ -134,7 +133,7 @@ public sealed partial class Ff7rChapterReader : IDisposable
         return changes[0].List;
     }
 
-    public List<Owned>? ReadOwned()
+    public List<OwnedItem>? ReadOwned()
     {
         if (!Attach()) return null;
         // A failed search counts as finding nothing (looked for again below); its Result would throw on every poll.
@@ -147,18 +146,18 @@ public sealed partial class Ff7rChapterReader : IDisposable
             _search ??= Scan(FindLists);
             return null;
         }
-        var owned = new List<Owned>();
+        var owned = new List<OwnedItem>();
         foreach (var (materia, gil) in _lists)
         {
             long items = ItemsStart(gil);
-            owned.AddRange(ReadRecords(items, 0x18, 600, (b, slot) => new Owned(BitConverter.ToInt32(b[8..]), BitConverter.ToInt32(b[12..]), BitConverter.ToUInt32(b[0..]), slot)));
-            owned.AddRange(ReadRecords(materia, 0x20, 600, (b, slot) => new Owned(BitConverter.ToInt32(b[20..]), 1, BitConverter.ToUInt32(b[0..]), slot)));
+            owned.AddRange(ReadRecords(items, 0x18, 600, (b, slot) => new OwnedItem(BitConverter.ToInt32(b[8..]), BitConverter.ToInt32(b[12..]), BitConverter.ToUInt32(b[0..]), slot)));
+            owned.AddRange(ReadRecords(materia, 0x20, 600, (b, slot) => new OwnedItem(BitConverter.ToInt32(b[20..]), 1, BitConverter.ToUInt32(b[0..]), slot)));
             // Weapons (and other equipment) sit in a list of 0x10-byte records {kind 1/2, id} just before the
             // materia list (Metal Knuckles 3002 at materia - 0xF50); new ones are appended into empty records.
             owned.AddRange(ReadRecords(materia - EquipmentBytes, 0x10, EquipmentBytes / 0x10, (b, slot) =>
                 BitConverter.ToInt32(b[0..]) is var kind && (kind & 0xFF) is 1 or 2 && kind >> 16 == 0
                     && BitConverter.ToInt32(b[4..]) is var id && id is >= 1000 and < 10000
-                    ? new Owned(id, 1, 0, slot) : new Owned(0, 0, 0, slot)));
+                    ? new OwnedItem(id, 1, 0, slot) : new OwnedItem(0, 0, 0, slot)));
         }
         return owned;
     }
@@ -272,13 +271,13 @@ public sealed partial class Ff7rChapterReader : IDisposable
 
     int ReadInt32(long address) => ReadProcessMemory(_handle, (IntPtr)address, out int value, 4, out _) ? value : 0;
 
-    delegate Owned RecordParser(ReadOnlySpan<byte> record, long slot);
+    delegate OwnedItem RecordParser(ReadOnlySpan<byte> record, long slot);
 
     /// <summary>Records parsed straight from one read (no copy per record: this runs for every save copy every second).</summary>
-    List<Owned> ReadRecords(long address, int size, int max, RecordParser parse)
+    List<OwnedItem> ReadRecords(long address, int size, int max, RecordParser parse)
     {
         var buffer = ArrayPool<byte>.Shared.Rent(size * max);
-        var list = new List<Owned>(max);
+        var list = new List<OwnedItem>(max);
         try
         {
             if (!ReadProcessMemory(_handle, (IntPtr)address, buffer, size * max, out _)) return list;
@@ -407,6 +406,12 @@ public sealed partial class Ff7rChapterReader : IDisposable
         SideQuests = [];
         ForgetChestCopy();
     }
+
+    /// <summary>Item and flag names: seeded, the game folder's items.json, and learned ones (dataf7r-item-map.json).</summary>
+    public IGameNames Names { get; } = ItemMap.Load();
+
+    IReadOnlyList<GameObjective> IGameReader.Candidates => Candidates;
+    IReadOnlyList<(GameObjective Objective, long Slot, long Parent)> IGameReader.CandidateSlots => CandidateSlots;
 
     public void Dispose() => Detach();
 }

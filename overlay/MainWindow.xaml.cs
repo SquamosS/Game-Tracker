@@ -24,11 +24,12 @@ public partial class MainWindow : Window
     bool _showDone;
     /// <summary>Full checklist instead of the compact quest tracker (Ctrl+Shift+A).</summary>
     bool _full;
-    readonly Ff7rChapterReader _reader = new();
+    /// <summary>The game's live reader (game.json "reader"); without one nothing is known (NoGameReader).</summary>
+    readonly IGameReader _reader;
     int? _detectedChapter;
     bool _inGame;
     int _menuTicks;
-    readonly ItemMap _itemMap = ItemMap.Load();
+    IGameNames _names => _reader.Names;
     HashSet<(int, uint)>? _seenOwned;
     /// <summary>Last id seen in each inventory slot.</summary>
     readonly Dictionary<long, (int Id, int Count)> _slotIds = new();
@@ -40,9 +41,9 @@ public partial class MainWindow : Window
     bool _noticeAlert;
     int _noticeSeconds;
     HashSet<string>? _seenFlags;
-    Ff7rChapterReader.Objective? _objective;
+    GameObjective? _objective;
     /// <summary>The live sub-objective of _objective ("Find Stamp" › "Train Yard Security"), if any.</summary>
-    Ff7rChapterReader.Objective? _subObjective;
+    GameObjective? _subObjective;
     readonly List<(string Flag, DateTime When)> _newFlags = new();
     (Objective Step, DateTime When)? _pendingStory;
     string _detectStatus = "";
@@ -52,7 +53,7 @@ public partial class MainWindow : Window
     readonly GameModule? _game;
 
     /// <summary>
-    /// The game has a live reader (FF7R): steps tick themselves and the overlay follows the game. Without one the
+    /// The game has a live reader: steps tick themselves and the overlay follows the game. Without one the
     /// same checklist is ticked and paged by hotkey, always shown.
     /// </summary>
     readonly bool _live;
@@ -62,7 +63,9 @@ public partial class MainWindow : Window
     public MainWindow(GameModule? game)
     {
         _game = game ?? GameRegistry.All.FirstOrDefault();
-        _live = _game?.Reader == "ff7r";
+        var reader = GameReaders.Create(_game?.Reader);
+        _live = reader is not null;
+        _reader = reader ?? new NoGameReader();
         InitializeComponent();
         Header.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) DragMove(); };
         // Handled, so a click on the switch does not start dragging the overlay.
@@ -219,10 +222,11 @@ public partial class MainWindow : Window
         // The notice counts down only while you can see it: a chapter's recap must not run out behind a cutscene.
         if (_notice is not null && IsVisible && --_noticeSeconds <= 0) { _notice = null; RenderNotice(); }
 
+        string game = _game?.ShortName ?? "";
         string status = _reader.Problem
-            ?? (_reader.Version is null ? Lang.T("FF7R is not running", "FF7R belum jalan")
-                : !_inGame ? Lang.T($"FF7R {_reader.Version} detected, waiting for a save to load", $"FF7R {_reader.Version} terdeteksi, menunggu save di-load")
-                : Lang.T($"FF7R {_reader.Version}: Chapter {_detectedChapter} detected", $"FF7R {_reader.Version}: Chapter {_detectedChapter} terdeteksi")
+            ?? (_reader.Version is null ? Lang.T($"{game} is not running", $"{game} belum jalan")
+                : !_inGame ? Lang.T($"{game} {_reader.Version} detected, waiting for a save to load", $"{game} {_reader.Version} terdeteksi, menunggu save di-load")
+                : Lang.T($"{game} {_reader.Version}: Chapter {_detectedChapter} detected", $"{game} {_reader.Version}: Chapter {_detectedChapter} terdeteksi")
                     + (_seenOwned is null ? "" : Lang.T(", inventory read", ", inventory terbaca")) + (_itemStatus is null ? "" : $"\n{_itemStatus}"));
         if (changed || status != _detectStatus || wasInGame != _inGame) { _detectStatus = status; Render(); }
     }
@@ -243,7 +247,7 @@ public partial class MainWindow : Window
             _seenOwned = owned.Select(o => (o.Id, o.Obtained)).ToHashSet();
             foreach (var o in owned) _slotIds[o.Slot] = (o.Id, o.Count);
             foreach (var o in owned)
-                if (_itemMap.Name(o.Id) is { } disc)
+                if (_names.Name(o.Id) is { } disc)
                     foreach (var step in _guide.Chapters.SelectMany(c => c.Objectives))
                         if (step.Type == "music disc" && Matches(step, disc) && _progress.Done.Add(step.Id)) changed = true;
             if (changed) Save();
@@ -262,7 +266,7 @@ public partial class MainWindow : Window
         // Items handed over in front of a chest that holds them: that chest is opened now (ChestOpened).
         if (handedOver) ChestOpened(owned.Where(o => changedSlots.Contains(o.Slot) && o.Id > 0).Select(o => o.Id).ToHashSet());
         if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; ForgetRecent(); _reader.ForgetChestCopy(); _reader.ForgetSideQuests(); } // a save was loaded (or copied)
-        bool IsNew(Ff7rChapterReader.Owned o) =>
+        bool IsNew(OwnedItem o) =>
             (_seenOwned.Add((o.Id, o.Obtained)) && o.Obtained >= _startedAt - 120) | (handedOver && changedSlots.Contains(o.Slot));
         var newItems = owned.Where(o => o.Id > 0 && o.Id != 20).Where(IsNew).ToList();
         // A new item may sit in a slot that was empty (the end of the list: key items, the Graveyard Key), so not in
@@ -273,7 +277,7 @@ public partial class MainWindow : Window
             // Consumables (ids below 100: potions, gil...) are never guide steps, so they are not learned. Neither is
             // anything that came with a loaded save.
             _obtained.Add(o.Id); // its chest, if any, is empty now: no distance to it any more
-            if (_itemMap.Name(o.Id) is not { } name) { if (o.Id >= 100 && changedSlots.Count <= 3) _unknownNew.Add((o.Id, DateTime.Now)); continue; }
+            if (_names.Name(o.Id) is not { } name) { if (o.Id >= 100 && changedSlots.Count <= 3) _unknownNew.Add((o.Id, DateTime.Now)); continue; }
             var step = StepFor(name);
             if (step is null || !_progress.Done.Add(step.Id)) continue;
             _progress.History.Add(step.Id);
@@ -301,10 +305,10 @@ public partial class MainWindow : Window
         // Only when that autosave set exactly one unknown flag; with several, any of them could be the step's.
         if (_pendingStory is var (pending, since) && DateTime.Now - since < TimeSpan.FromMinutes(15))
         {
-            var late = _newFlags.Where(f => f.When > since && _itemMap.FlagName(f.Flag) is null).Select(f => f.Flag).Distinct().ToList();
+            var late = _newFlags.Where(f => f.When > since && _names.FlagName(f.Flag) is null).Select(f => f.Flag).Distinct().ToList();
             if (late.Count == 1)
             {
-                _itemMap.LearnFlag(late[0], pending.Id);
+                _names.LearnFlag(late[0], pending.Id);
                 Notify(Lang.T($"Learned: flag {late[0]} = {pending.Name}", $"Dipelajari: flag {late[0]} = {pending.Name}"));
                 _pendingStory = null;
                 _newFlags.Clear();
@@ -318,7 +322,7 @@ public partial class MainWindow : Window
         _seenFlags = flags;
         bool changed = false;
         foreach (var flag in flags)
-            if (_itemMap.FlagName(flag) is { } name
+            if (_names.FlagName(flag) is { } name
                 && chapter.Objectives.FirstOrDefault(o => !_progress.Done.Contains(o.Id) && (o.Id == name || Matches(o, name))) is { } step)
             {
                 _progress.Done.Add(step.Id);
@@ -336,7 +340,7 @@ public partial class MainWindow : Window
     /// </summary>
     void LearnFlag(Objective step)
     {
-        _newFlags.RemoveAll(f => DateTime.Now - f.When > TimeSpan.FromMinutes(3) || _itemMap.FlagName(f.Flag) is not null);
+        _newFlags.RemoveAll(f => DateTime.Now - f.When > TimeSpan.FromMinutes(3) || _names.FlagName(f.Flag) is not null);
         if (_newFlags.Count == 0)
         {
             if (step.Type == "cerita") _pendingStory = (step, DateTime.Now);
@@ -345,7 +349,7 @@ public partial class MainWindow : Window
         var flags = _newFlags.Select(f => f.Flag).Distinct().ToList();
         if (flags.Count > 1) { Notify(Lang.T("Not learned: more than one new flag", "Tidak dipelajari: lebih dari satu flag baru")); return; }
         _newFlags.Clear();
-        _itemMap.LearnFlag(flags[0], step.Id);
+        _names.LearnFlag(flags[0], step.Id);
         Notify(Lang.T($"Learned: flag {flags[0]} = {step.Name}", $"Dipelajari: flag {flags[0]} = {step.Name}"));
     }
 
@@ -392,7 +396,7 @@ public partial class MainWindow : Window
         if (ids.Count > 1) { Notify(Lang.T("Not learned: more than one new item", "Tidak dipelajari: lebih dari satu item baru")); return; }
         int id = ids[0];
         _unknownNew.RemoveAll(u => u.Id == id);
-        _itemMap.Learn(id, step.Name);
+        _names.Learn(id, step.Name);
         Notify(Lang.T($"Learned: item {id} = {step.Name}", $"Dipelajari: item {id} = {step.Name}"));
     }
 
@@ -425,7 +429,7 @@ public partial class MainWindow : Window
         // You marked where you are: remember that the game's current objective belongs to that story step.
         if (_objective is { } objective && CurrentStory is { } current && CurrentChapter?.Number == _detectedChapter)
         {
-            _itemMap.LearnFlag("Q:" + objective.TitleKey, current.Id);
+            _names.LearnFlag("Q:" + objective.TitleKey, current.Id);
             Notify(Lang.T($"Learned: objective {objective.TitleKey} = {current.Name}", $"Dipelajari: objektif {objective.TitleKey} = {current.Name}"));
         }
     }
@@ -440,12 +444,12 @@ public partial class MainWindow : Window
     static bool IsSub(string key) => SubPattern.IsMatch(key);
 
     /// <summary>The objective of the last entry in the longest run of adjacent entries, ignoring chapter titles.</summary>
-    Ff7rChapterReader.Objective? NewestEntry()
+    GameObjective? NewestEntry()
     {
         var slots = _reader.CandidateSlots
             .Where(c => !c.Objective.TitleKey.Contains("_Parent") && !c.Objective.TitleKey.EndsWith("_End") && !IsSub(c.Objective.TitleKey))
             .OrderBy(c => c.Slot).ToList();
-        List<(Ff7rChapterReader.Objective Objective, long Slot, long Parent)> best = [], run = [];
+        List<(GameObjective Objective, long Slot, long Parent)> best = [], run = [];
         foreach (var c in slots)
         {
             if (run.Count > 0 && c.Slot - run[^1].Slot > 0x400) run = [];
@@ -459,7 +463,7 @@ public partial class MainWindow : Window
     /// Writes the candidates and the pick to data\logs\quest-choice.log whenever either changes, marking ties
     /// (two candidates on the same guide step), so wrong picks can be traced without a screenshot.
     /// </summary>
-    void LogChoice(Ff7rChapterReader.Objective chosen, Func<Ff7rChapterReader.Objective, int> index, Ff7rChapterReader.Objective? guidePick = null)
+    void LogChoice(GameObjective chosen, Func<GameObjective, int> index, GameObjective? guidePick = null)
     {
         var lines = _reader.CandidateSlots
             .Select(c => $"   {(c.Objective == chosen ? "*" : " ")} {c.Objective.Title ?? "?"} | {c.Objective.TitleKey} | order {c.Objective.Order}{(c.Objective.Finished ? " finished" : "")} | guide {index(c.Objective)} | slot {c.Slot:X} parent {c.Parent:X}")
@@ -479,13 +483,13 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Ticks discoveries and side quests the game shows as done: a finished objective's entry points at its
-    /// finishing row (see Ff7rChapterReader.Objective.Finished).
+    /// finishing row (see GameObjective.Finished).
     /// </summary>
     bool FollowCompleted()
     {
         if (CurrentChapter is not { } chapter || chapter.Number != _detectedChapter) return false;
         bool changed = false;
-        // Chapter 8's side quests are entries with their own texts (Ff7rChapterReader.SideEntry), stage 99 = cleared.
+        // Chapter 8's side quests are entries with their own texts (IGameReader.SideQuests).
         foreach (var side in _reader.SideQuests.Where(s => s.Finished))
             foreach (var step in chapter.Objectives.Where(o => o.Type == "side quest" && SameQuest(o.Name, side.Title)))
                 if (_progress.Done.Add(step.Id))
@@ -506,10 +510,10 @@ public partial class MainWindow : Window
         return changed;
     }
 
-    Ff7rChapterReader.Location? _here;
+    GameLocation? _here;
 
     /// <summary>Names the area you are in from the game's own area volumes (Ff7rMapArea.cs).</summary>
-    bool FollowLocation(Ff7rChapterReader.Position? p)
+    bool FollowLocation(GamePosition? p)
     {
         var here = p is not null ? _reader.ReadLocation(p) : null;
         var (lastHere, lastPosition) = (_here, _herePosition);
@@ -527,15 +531,15 @@ public partial class MainWindow : Window
         return true;
     }
 
-    Ff7rChapterReader.Position? _herePosition;
+    GamePosition? _herePosition;
 
-    Ff7rChapterReader.Position? _loggedPosition;
+    GamePosition? _loggedPosition;
 
     /// <summary>
     /// Appends the controlled character's position to data\logs\position.log whenever it moved 2 m or more, with the
     /// chapter and the live objective: samples for naming the location later (not shown on the overlay yet).
     /// </summary>
-    void LogPosition(Ff7rChapterReader.Position? position)
+    void LogPosition(GamePosition? position)
     {
         if (position is not { } p) return;
         if (_loggedPosition is { } last
@@ -583,7 +587,7 @@ public partial class MainWindow : Window
             && !(RewardOf(o, chapter) is { } quest && !_progress.Done.Contains(quest.Id))).ToList();
 
     /// <summary>
-    /// Whether the game's quest page shows this side quest (an entry of its own, Ff7rChapterReader.SideEntry): "???" quests
+    /// Whether the game's quest page shows this side quest (IGameReader.SideQuests): "???" quests
     /// have none yet. Null when the page cannot tell: not a side quest, or none of this chapter's side quests has an entry
     /// (another chapter, or the objective search has not run yet).
     /// </summary>
@@ -675,10 +679,10 @@ public partial class MainWindow : Window
     readonly HashSet<int> _obtained = [];
 
     /// <summary>Item name -> the one chest holding it (null: several do), built again when the chest list changes.</summary>
-    Dictionary<string, Ff7rChapterReader.Chest?> _chestByName = new(StringComparer.OrdinalIgnoreCase);
-    IReadOnlyList<Ff7rChapterReader.Chest>? _chestsIndexed;
+    Dictionary<string, GameChest?> _chestByName = new(StringComparer.OrdinalIgnoreCase);
+    IReadOnlyList<GameChest>? _chestsIndexed;
     /// <summary>The area each chest stands in (Ff7rMapArea.cs), once known.</summary>
-    readonly Dictionary<Ff7rChapterReader.Chest, (string? Area, DateTime When)> _chestArea = [];
+    readonly Dictionary<GameChest, (string? Area, DateTime When)> _chestArea = [];
 
     /// <summary>
     /// How far Cloud is from the chest holding this step's item ("12 m", rounded to 1 m up close, 5 m to 100 m, 10 m
@@ -703,7 +707,7 @@ public partial class MainWindow : Window
         _chestByName = new(StringComparer.OrdinalIgnoreCase);
         _chestArea.Clear();
         foreach (var chest in _chestsIndexed)
-            foreach (var name in chest.Items.Select(_itemMap.Name).OfType<string>().Distinct())
+            foreach (var name in chest.Items.Select(_names.Name).OfType<string>().Distinct())
                 foreach (var key in name.EndsWith(" Materia") ? new[] { name, name[..^8] } : [name])
                     _chestByName[key] = _chestByName.ContainsKey(key) ? null : chest;
     }
@@ -803,7 +807,7 @@ public partial class MainWindow : Window
         ProgressStore.Backup(_guide.Game);
         _progress.Ever.UnionWith(_progress.Done);
         // Gil (id 20) is always owned and its name is part of "Gil Up": leave it out, as FollowItems does.
-        var ownedNames = live.Where(id => id != 20).Select(id => _itemMap.Name(id)).OfType<string>().ToList();
+        var ownedNames = live.Where(id => id != 20).Select(id => _names.Name(id)).OfType<string>().ToList();
         _liveOwnedNames = ownedNames;
         var itemSteps = _guide.Chapters.SelectMany(c => c.Objectives).Where(o => ItemTypes.Contains(o.Type)).ToList();
         bool sameStory(Chapter c) => (c.Number >= 21) == (loaded >= 21); // INTERmission is its own story
@@ -845,7 +849,7 @@ public partial class MainWindow : Window
         // menu), but nothing points at objectives that have not started yet.
         if (objective is not null && CurrentChapter is { } guideChapter)
         {
-            int Index(Ff7rChapterReader.Objective o) => o.Title is { } t
+            int Index(GameObjective o) => o.Title is { } t
                 ? Array.FindIndex(guideChapter.Objectives, s => s.Type == "cerita" && NamedAs(s, t))
                 : -1;
             // One guide step can cover several quests ("A / B"): then the later row in the game's table wins.
@@ -872,8 +876,8 @@ public partial class MainWindow : Window
         _subObjective = sub;
         // Guide story steps carry the game's own quest names, so match by name; a learned mapping wins. A
         // sub-objective can be a guide step of its own ("Train Yard Security"), and then it is the one to follow.
-        Objective? StepFor(Ff7rChapterReader.Objective? live, Chapter chapter) => live is null ? null
-            : _itemMap.FlagName("Q:" + live.TitleKey) is { } stepId ? chapter.Objectives.FirstOrDefault(o => o.Id == stepId)
+        Objective? StepFor(GameObjective? live, Chapter chapter) => live is null ? null
+            : _names.FlagName("Q:" + live.TitleKey) is { } stepId ? chapter.Objectives.FirstOrDefault(o => o.Id == stepId)
             : chapter.Objectives.FirstOrDefault(o => o.Type == "cerita" && live.Title is { } title && NamedAs(o, title));
         if (objective is not null && CurrentChapter is { } chapter && chapter.Number == _detectedChapter
             && (StepFor(sub, chapter) ?? StepFor(objective, chapter)) is { } step)
@@ -955,7 +959,7 @@ public partial class MainWindow : Window
         _toast.Visibility = show ? Visibility.Visible : Visibility.Hidden;
     }
 
-    Ff7rChapterReader.GameState? _gameState;
+    GameState? _gameState;
 
     /// <summary>
     /// Shows the overlay and the area banner only while exploring (not in menus, the map, cutscenes or battles), and logs every change of the game's
@@ -969,7 +973,7 @@ public partial class MainWindow : Window
         try
         {
             File.AppendAllText(Path.Combine(DataPaths.Logs, "state.log"),
-                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}	{(state is null ? "-" : $"paused {(state.Paused ? 1 : 0)}	state {state.State}	state2 {state.State2}")}	{_here?.Area}	{_objective?.Title}{Environment.NewLine}");
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}	{(state is null ? "-" : state.Detail)}	{_here?.Area}	{_objective?.Title}{Environment.NewLine}");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         // Shown only while exploring (1): menus (3, also a battle's command menu), cutscenes (5) and battles (0) hide
@@ -1146,7 +1150,7 @@ public partial class MainWindow : Window
             ChapterText.Text = _reader.Version is null ? Lang.T("WAITING FOR THE GAME", "MENUNGGU GAME") : Lang.T("WAITING FOR A SAVE TO LOAD", "MENUNGGU SAVE DI-LOAD");
             CountText.Text = "";
             ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(_reader.Version is null
-                ? Lang.T("Start FF7R; the overlay follows your chapter on its own.", "Buka FF7R, overlay akan mengikuti chapter kamu otomatis.")
+                ? Lang.T($"Start {_game?.ShortName}; the overlay follows your chapter on its own.", $"Buka {_game?.ShortName}, overlay akan mengikuti chapter kamu otomatis.")
                 : Lang.T("Load a save or start a chapter; the checklist shows up on its own.", "Load save atau mulai chapter, checklist-nya muncul otomatis.")) { Foreground = Muted, FontSize = 13 });
             ObjectiveText.Visibility = Visibility.Visible;
             Bar.Width = 0;

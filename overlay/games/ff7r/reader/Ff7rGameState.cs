@@ -10,14 +10,6 @@ public sealed partial class Ff7rChapterReader
 {
     const long PausedRva = 0x59039B8, StateRva = 0x5A06764, State2Rva = 0x57E9ABB;
 
-    public record GameState(bool Paused, int State, int State2)
-    {
-        public bool Exploring => State2 == 1;
-        public bool Menu => State2 == 3;
-        public bool Cutscene => State2 == 5;
-        public bool Battle => State2 == 0;
-    }
-
     /// <summary>The menu/play state, or null on another game version or while not attached.</summary>
     public GameState? ReadGameState()
     {
@@ -25,6 +17,8 @@ public sealed partial class Ff7rChapterReader
         long m = (long)_moduleBase;
         var b = new byte[1];
         int Byte(long rva) => ReadProcessMemory(_handle, (IntPtr)(m + rva), b, 1, out _) ? b[0] : -1;
-        return new GameState(Byte(PausedRva) == 1, Byte(StateRva), Byte(State2Rva));
+        bool paused = Byte(PausedRva) == 1;
+        int state = Byte(StateRva), state2 = Byte(State2Rva);
+        return new GameState(state2 == 1, state2 == 3, state2 == 5, state2 == 0, state2, $"paused {(paused ? 1 : 0)}\tstate {state}\tstate2 {state2}");
     }
 }

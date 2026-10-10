@@ -23,9 +23,6 @@ public sealed partial class Ff7rChapterReader
 {
     const long ItemTableRva = 0x4CCCE48, EquipmentTableRva = 0x4CC3438, MateriaTableRva = 0x4CCA208, RewardTableRva = 0x4CE1290, ChestTableRva = 0x4CD6488;
 
-    /// <summary>A chest: its id, where it stands (null when its point was not found or is ambiguous) and the ids it holds.</summary>
-    public sealed record Chest(string Id, Position? At, int[] Items, int? Flag = null);
-
     /// <summary>A chest flag's number + this = its bit in the save data's flag block.</summary>
     const int ChestFlagBit = 0xA80;
 
@@ -38,7 +35,7 @@ public sealed partial class Ff7rChapterReader
     /// Whether the game has this chest opened: its bit in the live copy of the save data. Null when unknown (another
     /// version, the chest's flag not found, the live copy not told apart yet).
     /// </summary>
-    public bool? ChestOpened(Chest chest)
+    public bool? ChestOpened(GameChest chest)
     {
         if (Version != "Steam 1.0.0.7" || chest.Flag is not { } flag || !ReadChestFlags()) return null;
         int bit = flag + ChestFlagBit;
@@ -88,7 +85,7 @@ public sealed partial class Ff7rChapterReader
     /// Every chest row of the loaded maps, also those without a known position (so "only one chest holds it" counts
     /// them), swapped whole after a search (the UI thread reads it).
     /// </summary>
-    public IReadOnlyList<Chest> Chests { get; private set; } = [];
+    public IReadOnlyList<GameChest> Chests { get; private set; } = [];
 
     /// <summary>The tables (addresses and row counts) the chests were built from, and whether that build was complete.</summary>
     string _chestTablesFrom = "";
@@ -170,7 +167,7 @@ public sealed partial class Ff7rChapterReader
         // places is ambiguous and left without a position.
         var wanted = rowsFound.Select(r => r.Point).Where(p => p != 0).ToHashSet();
         var wantedFlags = rowsFound.Select(r => r.Flag).Where(f => f != 0).ToHashSet();
-        var points = new System.Collections.Concurrent.ConcurrentDictionary<long, Position?>();
+        var points = new System.Collections.Concurrent.ConcurrentDictionary<long, GamePosition?>();
         // Flag rows: FName (index, number), module pointer, flag number at +0x10. Two different numbers = ambiguous (-1).
         var flags = new System.Collections.Concurrent.ConcurrentDictionary<long, int>();
         long moduleStart = (long)_moduleBase, moduleEnd = moduleStart + 0x8000000;
@@ -184,7 +181,7 @@ public sealed partial class Ff7rChapterReader
                     flags.AddOrUpdate(name, number, (_, old) => old == number ? old : -1);
                 if (!wanted.Contains(name)) continue;
                 if (BitConverter.ToSingle(buf, i + 0x30) != 1f || BitConverter.ToSingle(buf, i + 0x34) != 1f || BitConverter.ToSingle(buf, i + 0x38) != 1f) continue;
-                var p = new Position(BitConverter.ToSingle(buf, i + 0x20), BitConverter.ToSingle(buf, i + 0x24), BitConverter.ToSingle(buf, i + 0x28));
+                var p = new GamePosition(BitConverter.ToSingle(buf, i + 0x20), BitConverter.ToSingle(buf, i + 0x24), BitConverter.ToSingle(buf, i + 0x28));
                 if (!float.IsFinite(p.X) || !float.IsFinite(p.Y) || !float.IsFinite(p.Z)) continue;
                 points.AddOrUpdate(name, p, (_, old) => old == p ? old : null);
             }
@@ -193,7 +190,7 @@ public sealed partial class Ff7rChapterReader
         // in two chapters' tables (obt080/obt110 treasure2030 = 0x2089).
         int? FlagOf(long name) => flags.TryGetValue(name, out int n) && n > 0 ? n : null;
         var shared = rowsFound.Select(r => FlagOf(r.Flag)).OfType<int>().GroupBy(n => n).Where(g => g.Count() > 2).Select(g => g.Key).ToHashSet();
-        var chests = rowsFound.Select(r => new Chest(r.Id, points.GetValueOrDefault(r.Point), r.Items,
+        var chests = rowsFound.Select(r => new GameChest(r.Id, points.GetValueOrDefault(r.Point), r.Items,
             FlagOf(r.Flag) is { } n && !shared.Contains(n) ? n : null)).ToList();
         if (chests.Any(c => c.At is null)) complete = false;
         // A search cancelled by Detach must not fill the list of a game that closed.

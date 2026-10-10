@@ -17,8 +17,6 @@ public sealed partial class Ff7rChapterReader
 {
     const long FieldActorVtableRva = 0x4C23E60, LevelVtableRva = 0x4E6BEC0;
 
-    public sealed record FieldActor(string Class, Position At);
-
     IReadOnlyList<FieldActor>? _fieldActors;
     DateTime _fieldActorsAt;
     readonly Dictionary<long, string> _fieldClassNames = new();
@@ -53,7 +51,7 @@ public sealed partial class Ff7rChapterReader
                 if (!_fieldClassNames.TryGetValue(cls, out var name)) _fieldClassNames[cls] = name = FName(ReadInt32(cls + 0x18));
                 long component = ReadInt64(a + 0x160);
                 if (component == 0 || !ReadProcessMemory(_handle, (IntPtr)(component + 0x1B0), xyz, xyz.Length, out _)) continue;
-                var p = new Position(BitConverter.ToSingle(xyz, 0), BitConverter.ToSingle(xyz, 4), BitConverter.ToSingle(xyz, 8));
+                var p = new GamePosition(BitConverter.ToSingle(xyz, 0), BitConverter.ToSingle(xyz, 4), BitConverter.ToSingle(xyz, 8));
                 if (float.IsFinite(p.X) && float.IsFinite(p.Y) && float.IsFinite(p.Z)) found.Add(new FieldActor(name, p));
             }
             // None at all is a level still filling up (a load), not a level without chests: unknown.

@@ -17,20 +17,15 @@ public sealed partial class Ff7rChapterReader
     public string ObjectiveDebug { get; private set; } = "";
 
     /// <summary>Every objective of the chapter that some entry points at, from the last ReadObjective.</summary>
-    public List<Objective> Candidates { get; } = new();
+    public List<GameObjective> Candidates { get; } = new();
 
     /// <summary>
     /// A side quest entry of the kind Chapter 8 uses: no "$str" row, the entry holds its texts itself (title, description,
     /// then a billboard sprite "U_Com_Billboard_080_SLU5B_q03_99_Sprite" naming the quest q03 and its stage; 99 = cleared),
     /// after an FName "080_SLU5B_q03" numbered by stage. Found 10 Oct 2026 when The Mysterious Moogle Merchant was cleared.
+    /// The entries seen at the last objective search, swapped whole (the UI thread reads them).
     /// </summary>
-    public sealed record SideEntry(string Title, string Quest, string Stage)
-    {
-        public bool Finished => Stage == "99";
-    }
-
-    /// <summary>The side quest entries seen at the last objective search, swapped whole (the UI thread reads them).</summary>
-    public IReadOnlyList<SideEntry> SideQuests { get; private set; } = [];
+    public IReadOnlyList<SideQuest> SideQuests { get; private set; } = [];
 
     DateTime _sideForgotten;
 
@@ -49,7 +44,7 @@ public sealed partial class Ff7rChapterReader
         System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <summary>Where each candidate came from: its entry address and the entry's parent (for the choice log).</summary>
-    public List<(Objective Objective, long Slot, long Parent)> CandidateSlots { get; } = new();
+    public List<(GameObjective Objective, long Slot, long Parent)> CandidateSlots { get; } = new();
 
     /// <summary>
     /// One row of the objective table. An objective has several rows (one per stage); an entry moves along them.
@@ -57,15 +52,13 @@ public sealed partial class Ff7rChapterReader
     /// "..._Mate_011_d" (cleared) and "..._Mate_012_d". Chapter 8 discoveries ("$str080_Chapter09_side00" = The Gate
     /// Won't Open) have descriptions without "_d": "_010" active, "_990" done, "_xxx" left for later.
     /// </summary>
-    public record Objective(long Row, int Order, string TitleKey, string DescKey, string? Title, string? Text)
-    {
-        public bool Finished => DescKey.EndsWith("_990_d") || DescKey.EndsWith("_990") || DescKey.Contains("_Done")
-            || (TitleKey.Contains("_Mate_") && DescKey != TitleKey + "_d");
-    }
+    static GameObjective Objective(long row, int order, string titleKey, string descKey, string? title, string? text) =>
+        new(row, order, titleKey, descKey, title, text, descKey.EndsWith("_990_d") || descKey.EndsWith("_990") || descKey.Contains("_Done")
+            || (titleKey.Contains("_Mate_") && descKey != titleKey + "_d"));
 
-    Dictionary<long, Objective>? _objectiveRows;
+    Dictionary<long, GameObjective>? _objectiveRows;
     List<long> _objectiveSlots = new();
-    Task<(Dictionary<long, Objective>, List<long>)>? _objectiveSearch;
+    Task<(Dictionary<long, GameObjective>, List<long>)>? _objectiveSearch;
     readonly Dictionary<long, (long Row, long Seen)> _slotRows = new();
     readonly Dictionary<long, long> _slotParents = new();
     long _changes;
@@ -75,7 +68,7 @@ public sealed partial class Ff7rChapterReader
     /// The current story objective, or null while it is still being looked for. The entry that moved last wins;
     /// right after loading, when nothing has moved yet, the last entry in the array (the newest objective) does.
     /// </summary>
-    public Objective? ReadObjective(int chapter)
+    public GameObjective? ReadObjective(int chapter)
     {
         if (!Attach()) return null;
         if (_objectiveSearch is { IsCompleted: true })
@@ -130,7 +123,7 @@ public sealed partial class Ff7rChapterReader
 
         Candidates.Clear();
         CandidateSlots.Clear();
-        Objective? best = null;
+        GameObjective? best = null;
         long bestSeen = -1, bestSlot = 0;
         bool stale = false;
         foreach (long slot in _objectiveSlots)
@@ -158,10 +151,10 @@ public sealed partial class Ff7rChapterReader
     }
     DateTime _lastNearbyScan, _lastSearch;
     Task<List<(long Slot, long Row, long Parent)>>? _nearScan;
-    Dictionary<long, Objective>? _nearScanRows;
+    Dictionary<long, GameObjective>? _nearScanRows;
 
     /// <summary>New entries next to the known ones (same parent pointer, pointing at a row). Runs on a worker thread.</summary>
-    List<(long Slot, long Row, long Parent)> ScanNearEntries(Dictionary<long, Objective> rows, List<long> slots, CancellationToken cancel)
+    List<(long Slot, long Row, long Parent)> ScanNearEntries(Dictionary<long, GameObjective> rows, List<long> slots, CancellationToken cancel)
     {
         var found = new List<(long, long, long)>();
         if (slots.Count == 0) return found;
@@ -190,7 +183,7 @@ public sealed partial class Ff7rChapterReader
         return found;
     }
 
-    static bool InChapter(Objective row, int chapter) => ChapterOf(row.TitleKey) == chapter;
+    static bool InChapter(GameObjective row, int chapter) => ChapterOf(row.TitleKey) == chapter;
 
     /// <summary>
     /// The chapter a title key belongs to. Keys name a chapter ("_Chap04_", "_Chapter05_"), but from Chapter 8 on
@@ -212,7 +205,7 @@ public sealed partial class Ff7rChapterReader
         return thirteen ? 13 : 14;
     }
 
-    (Dictionary<long, Objective>, List<long>) SafeFindObjectives(CancellationToken cancel)
+    (Dictionary<long, GameObjective>, List<long>) SafeFindObjectives(CancellationToken cancel)
     {
         try
         {
@@ -230,12 +223,12 @@ public sealed partial class Ff7rChapterReader
         catch (Exception e) { ObjectiveDebug = "error: " + e.Message; return (new(), new()); }
     }
 
-    (Dictionary<long, Objective>, List<long>) FindObjectives(CancellationToken cancel)
+    (Dictionary<long, GameObjective>, List<long>) FindObjectives(CancellationToken cancel)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var started = DateTime.Now;
         var rows = new System.Collections.Concurrent.ConcurrentBag<(long Row, string Title, string Desc)>();
-        var sideEntries = new System.Collections.Concurrent.ConcurrentBag<SideEntry>();
+        var sideEntries = new System.Collections.Concurrent.ConcurrentBag<SideQuest>();
         var texts = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
         var naviTexts = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
         long stringReads = 0;
@@ -256,7 +249,7 @@ public sealed partial class Ff7rChapterReader
                 bool navi = false;
                 if (!cache.StartsWith(p1, "$str") && !(navi = cache.StartsWith(p1, "$navi")))
                 {
-                    // A side quest entry with its own texts: title, description, billboard sprite (SideEntry).
+                    // A side quest entry with its own texts: title, description, billboard sprite (SideQuest).
                     long p3s = BitConverter.ToInt64(buf, i + 32);
                     int l3s = BitConverter.ToInt32(buf, i + 40);
                     if (l3s is > 20 and < 80 && p3s > 0x10000000000 && p3s < 0x7FF000000000 && cache.StartsWith(p3s, "U_Com_Billboard_")
@@ -264,7 +257,7 @@ public sealed partial class Ff7rChapterReader
                         // The quest table itself lists every stage under a text key ("$ss_title_qst150", "$menu_map_..."):
                         // only entries with the title as text belong to the save being played.
                         && cache.Read(p1, l1) is { } title && !title.StartsWith('$'))
-                        sideEntries.Add(new SideEntry(title, sprite.Groups[1].Value, sprite.Groups[2].Value));
+                        sideEntries.Add(new SideQuest(title, sprite.Groups[1].Value, sprite.Groups[2].Value, sprite.Groups[2].Value == "99"));
                     continue;
                 }
                 string first = cache.Read(p1, l1);
@@ -292,14 +285,14 @@ public sealed partial class Ff7rChapterReader
         long rowsMs = sw.ElapsedMilliseconds;
 
         // The table exists in more than one copy; order rows by position within their own copy.
-        var byAddress = new Dictionary<long, Objective>();
+        var byAddress = new Dictionary<long, GameObjective>();
         int order = 0;
         long previous = 0;
         foreach (var (row, title, desc) in rows.OrderBy(r => r.Row))
         {
             if (row - previous > 0x10000) { order = 0; } // gap: a new copy of the table starts
             previous = row;
-            byAddress[row] = new Objective(row, order++, title, desc, texts.GetValueOrDefault(title), texts.GetValueOrDefault(desc));
+            byAddress[row] = Objective(row, order++, title, desc, texts.GetValueOrDefault(title), texts.GetValueOrDefault(desc));
         }
         // Entries pointing at a row; skip the table's own lists (several row pointers side by side).
         var found = new System.Collections.Concurrent.ConcurrentBag<long>();

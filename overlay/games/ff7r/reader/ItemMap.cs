@@ -7,7 +7,7 @@ namespace GameTracker;
 /// FF7R item/materia id -> name used to find the matching guide step. Seeded with ids seen while scanning,
 /// extended when you tick a step right after the game gave you an item it did not know yet.
 /// </summary>
-public class ItemMap
+public class ItemMap : IGameNames
 {
     static readonly string File_ = Path.Combine(DataPaths.Data, "ff7r-item-map.json");
 

@@ -23,6 +23,7 @@ Folder yang namanya diawali `_` (mis. `_template`) dilewati. Salin `_template` u
 ```json
 {
   "displayName": "NAMA GAME SEPERTI DI STEAM",
+  "shortName": "SINGKATAN",
   "processName": "nama_exe_tanpa_.exe",
   "steamAppId": 123456,
   "screenshotGlob": "Folder\\Relatif\\Ke\\Instalasi\\*.png",
@@ -33,7 +34,8 @@ Folder yang namanya diawali `_` (mis. `_template`) dilewati. Salin `_template` u
 - `processName`: nama proses saat game jalan (Task Manager > Details, tanpa `.exe`). Dipakai untuk status "sedang jalan" dan waktu main.
 - `steamAppId`: untuk tombol START (lewat Steam), info Steam, dan artwork cadangan. `null` kalau bukan game Steam.
 - `screenshotGlob`: opsional, folder screenshot milik game itu sendiri.
-- `reader`: `"ff7r"` = pembaca memori FF7R (centang otomatis, overlay ikut menu/battle/cutscene). `null` = overlay manual:
+- `shortName`: opsional, nama pendek di baris status overlay (mis. `FF7R`); tanpa ini dipakai `displayName`.
+- `reader`: id pembaca memori. `"ff7r"` = pembaca memori FF7R (centang otomatis, overlay ikut menu/battle/cutscene). `null` = overlay manual:
   checklist yang sama, dicentang dengan hotkey (Ctrl+Shift+Space centang, Ctrl+Shift+Backspace batal,
   Ctrl+Shift+PageUp/PageDown ganti chapter) atau klik di tampilan lengkap (Ctrl+Shift+A).
 
@@ -85,5 +87,12 @@ Titik tujuan per langkah, untuk jarak dari pemain (hanya game dengan reader yang
 
 Jarak hanya tampil kalau area titik itu terbaca di peta yang dimuat. Rekam sambil main dengan Ctrl+Shift+Alt+P
 (`data/points-recorded.tsv`). Jejak otomatis (`data/trail.json`: tempat quest diambil, tahap selesai, item diambil) dipakai lebih dulu.
+
+## reader/ (opsional)
+
+Pembaca memori = satu kelas C# di `games/<id>/reader/` yang mengimplementasikan `IGameReader` (`overlay/GameReader.cs`) dan
+diberi atribut `[GameReader("<id>")]`; overlay memilihnya dari `reader` di game.json, tanpa mengubah kode bersama. Isi sebagian
+saja boleh: yang tidak diketahui kembalikan `null` (atau daftar kosong), fitur yang memerlukannya mati diam-diam. Hanya baca
+memori game, jangan menulis. Contoh lengkap: `games/ff7r/reader/Ff7rChapterReader.cs`.
 
 Setelah menambah folder: build ulang (`dotnet build` di `overlay/`) supaya file JSON tersalin ke folder exe.

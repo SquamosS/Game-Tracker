@@ -20,10 +20,9 @@ public sealed partial class Ff7rChapterReader
     long _playerPosition;
     DateTime _positionSearch;
 
-    public record Position(float X, float Y, float Z);
 
     /// <summary>The controlled character's position, or null when unknown (another version, a menu, not found yet).</summary>
-    public Position? ReadPosition()
+    public GamePosition? ReadPosition()
     {
         if (!Attach() || PositionVtable == 0) return null;
         long root = ReadInt64((long)_moduleBase + PlayerRootRva);
@@ -46,7 +45,7 @@ public sealed partial class Ff7rChapterReader
         }
         var b = new byte[12];
         if (!ReadProcessMemory(_handle, (IntPtr)(_playerPosition + 0x160), b, b.Length, out _)) return null;
-        var p = new Position(BitConverter.ToSingle(b, 0), BitConverter.ToSingle(b, 4), BitConverter.ToSingle(b, 8));
+        var p = new GamePosition(BitConverter.ToSingle(b, 0), BitConverter.ToSingle(b, 4), BitConverter.ToSingle(b, 8));
         return float.IsFinite(p.X) && float.IsFinite(p.Y) && float.IsFinite(p.Z) ? p : null;
     }
 
