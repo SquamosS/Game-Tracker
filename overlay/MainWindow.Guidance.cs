@@ -413,10 +413,12 @@ public partial class MainWindow
     /// </summary>
     string? PointDistance(Objective o)
     {
-        if (!_live || _herePosition is not { } p || !_points.TryGetValue(o.Id, out var point)) return null;
+        if (!_live || _herePosition is not { } p) return null;
+        // The trail of an earlier playthrough first (MainWindow.Trail.cs), then a spot recorded by hand.
+        if ((TrailSpot(o) ?? (_points.TryGetValue(o.Id, out var fixedPoint) ? (o.Id, fixedPoint) : null)) is not var (key, point)) return null;
         // Asked again after 30 s, or 5 s while unknown (the map's area volumes may still be loading).
-        if (!_pointArea.TryGetValue(o.Id, out var known) || DateTime.Now - known.When >= TimeSpan.FromSeconds(known.Area is null ? 5 : 30))
-            _pointArea[o.Id] = known = (_reader.ReadLocation(new Ff7rChapterReader.Position(point.X, point.Y, point.Z))?.Area, DateTime.Now);
+        if (!_pointArea.TryGetValue(key, out var known) || DateTime.Now - known.When >= TimeSpan.FromSeconds(known.Area is null ? 5 : 30))
+            _pointArea[key] = known = (_reader.ReadLocation(new Ff7rChapterReader.Position(point.X, point.Y, point.Z))?.Area, DateTime.Now);
         if (known.Area is null || !known.Area.Equals(point.Area, StringComparison.OrdinalIgnoreCase)) return null;
         return Metres(Distance(new Ff7rChapterReader.Position(point.X, point.Y, point.Z), p));
     }

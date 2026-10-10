@@ -1,0 +1,122 @@
+using System.IO;
+using System.Text.Json;
+
+namespace GameTracker;
+
+/// <summary>
+/// The trail: where things happened in this playthrough, kept per guide step in data\trail.json so the next one can point
+/// the way. A side quest or discovery records where it started (who gave it), where each of its stages was finished (the
+/// game's objective text moving on) and where it was done; an item where it was picked up; a story step its stages too.
+/// Only the first recording of each spot is kept. Every recording also goes to data\logs\trail.log.
+/// </summary>
+public partial class MainWindow
+{
+    public sealed class TrailEntry
+    {
+        public GuidePoint? Start { get; set; }
+        public Dictionary<string, GuidePoint> Stages { get; set; } = [];
+        public GuidePoint? Done { get; set; }
+    }
+
+    static readonly string TrailFile = Path.Combine(DataPaths.Data, "trail.json");
+    readonly Dictionary<string, TrailEntry> _trail = LoadTrail();
+
+    static Dictionary<string, TrailEntry> LoadTrail()
+    {
+        try { return File.Exists(TrailFile) ? JsonSerializer.Deserialize<Dictionary<string, TrailEntry>>(File.ReadAllText(TrailFile)) ?? [] : []; }
+        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return []; }
+    }
+
+    /// <summary>The live objective and sub-objective stage last seen ("title key|description key"), and the steps done then.</summary>
+    string? _trailStage;
+    Objective? _trailStep;
+    HashSet<string>? _trailDone;
+
+    /// <summary>
+    /// Once a poll, while playing: records a stage finished when the live objective's description moves on, a quest
+    /// started when its first stage shows, and steps ticked since the last poll (a handful at most: more is a loaded save).
+    /// </summary>
+    void FollowTrail()
+    {
+        if (!_live || !_inGame || _reconcile || CurrentChapter is not { } chapter || chapter.Number != _detectedChapter || _herePosition is not { } p || _here is not { } here)
+        {
+            _trailDone = null;
+            return;
+        }
+        var spot = new GuidePoint(p.X, p.Y, p.Z, here.Area);
+        bool changed = false;
+
+        // Stages: the sub-objective when there is one, else the objective.
+        var live = _subObjective ?? _objective;
+        string? stage = live is null ? null : live.TitleKey + "|" + live.DescKey;
+        if (stage != _trailStage)
+        {
+            if (_trailStep is { } before && _trailStage is { } finished)
+                changed |= Record(before, "stage " + finished, e => e.Stages.TryAdd(finished, spot));
+            var step = TrailStepFor(chapter);
+            if (step is not null && step.Type is "side quest" or "kejadian" && step != _trailStep)
+                changed |= Record(step, "start", e => { if (e.Start is not null) return false; e.Start = spot; return true; });
+            (_trailStage, _trailStep) = (stage, step);
+        }
+
+        // Steps ticked since the last poll: where they were done.
+        var done = _progress.Done.ToHashSet();
+        if (_trailDone is not null)
+        {
+            var fresh = done.Except(_trailDone).ToList();
+            if (fresh.Count is > 0 and <= 3)
+                foreach (var step in chapter.Objectives.Where(o => fresh.Contains(o.Id) && o.Type != "trofi"))
+                    changed |= Record(step, "done", e => { if (e.Done is not null) return false; e.Done = spot; return true; });
+        }
+        _trailDone = done;
+        if (changed) SaveTrail();
+
+        bool Record(Objective step, string what, Func<TrailEntry, bool> put)
+        {
+            if (!_trail.TryGetValue(step.Id, out var entry)) _trail[step.Id] = entry = new TrailEntry();
+            if (!put(entry)) return false;
+            try
+            {
+                File.AppendAllText(Path.Combine(DataPaths.Logs, "trail.log"),
+                    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\tch {chapter.Number}\t{step.Id}\t{what}\t{here.Area}\t{here.Floor}\t{p.X:0}\t{p.Y:0}\t{p.Z:0}{Environment.NewLine}");
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+            return true;
+        }
+    }
+
+    /// <summary>The guide step the live objective belongs to: a side quest or discovery by its title, else the story step.</summary>
+    Objective? TrailStepFor(Chapter chapter)
+    {
+        if (_objective?.Title is not { Length: >= 3 } title) return null;
+        return chapter.Objectives.FirstOrDefault(o => o.Type is "side quest" or "kejadian" && SameQuest(o.Name, title))
+            ?? chapter.Objectives.FirstOrDefault(o => o.Type == "cerita" && NamedAs(o, title));
+    }
+
+    void SaveTrail()
+    {
+        try
+        {
+            Directory.CreateDirectory(DataPaths.Data);
+            string temp = TrailFile + ".tmp";
+            File.WriteAllText(temp, JsonSerializer.Serialize(_trail, new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(temp, TrailFile, true);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    /// <summary>
+    /// Where to point for a step, from the trail of an earlier playthrough: for the live quest the spot its current stage was
+    /// finished at; for a quest not started yet where it was given; for anything else where it was done. Key names the spot
+    /// (its area is checked once per key).
+    /// </summary>
+    (string Key, GuidePoint Point)? TrailSpot(Objective o)
+    {
+        if (!_trail.TryGetValue(o.Id, out var entry) || CurrentChapter is not { } chapter) return null;
+        bool live = TrailStepFor(chapter) == o;
+        if (live && (_subObjective ?? _objective) is { } stage && entry.Stages.TryGetValue(stage.TitleKey + "|" + stage.DescKey, out var next))
+            return (o.Id + "|" + stage.DescKey, next);
+        if (!live && o.Type is "side quest" or "kejadian" && entry.Start is { } start) return (o.Id + "|start", start);
+        return entry.Done is { } done ? (o.Id + "|done", done) : null;
+    }
+}
