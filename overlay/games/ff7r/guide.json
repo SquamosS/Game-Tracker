@@ -1194,6 +1194,7 @@
           "where": "Children's Secret Hideout: Moogle Emporium, 2 Moogle Medal.",
           "whereEn": "Children's Secret Hideout: Moogle Emporium, 2 Moogle Medal.",
           "missable": false,
+          "optional": true,
           "after": "c8-21-moogle-merchant"
         },
         {
@@ -1203,6 +1204,7 @@
           "where": "Children's Secret Hideout: Moogle Emporium, 3 Moogle Medal.",
           "whereEn": "Children's Secret Hideout: Moogle Emporium, 3 Moogle Medal.",
           "missable": false,
+          "optional": true,
           "after": "c8-21-moogle-merchant"
         },
         {
@@ -1212,6 +1214,7 @@
           "where": "Children's Secret Hideout: Moogle Emporium, 1 Moogle Medal.",
           "whereEn": "Children's Secret Hideout: Moogle Emporium, 1 Moogle Medal.",
           "missable": false,
+          "optional": true,
           "after": "c8-21-moogle-merchant"
         },
         {
@@ -1221,6 +1224,7 @@
           "where": "Children's Secret Hideout: Moogle Emporium, 5 Moogle Medal per buku; stok masih ada di Ch14.",
           "whereEn": "Children's Secret Hideout: Moogle Emporium, 5 Moogle Medal per book; stock is still available in Ch14.",
           "missable": false,
+          "optional": true,
           "after": "c8-21-moogle-merchant"
         },
         {
