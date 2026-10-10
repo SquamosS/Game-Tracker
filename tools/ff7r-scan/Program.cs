@@ -264,6 +264,99 @@ switch (args[0])
         Console.WriteLine($"{hits} temuan");
         break;
     }
+    case "chestdump": // chestdump <file>: every chest of the loaded maps: id, x, y, z, area key of the smallest navi volume holding it, item ids (TSV)
+    {
+        // Volumes: (map, layer, part) from the name "Navi070_Layer07_060_..." or from fields +0x3B0/+0x3B4 and the World name.
+        long vtVolume = modBase + 0x4C1C358;
+        var volumes = new List<(string Key, float CX, float CY, float CZ, float EX, float EY, float EZ)>();
+        var objs = new List<(long Obj, long Vt)>();
+        long vtTreasure = modBase + 0x4CD6488, vtReward = modBase + 0x4CE1290;
+        long[] itemVts = [modBase + 0x4CCCE48, modBase + 0x4CC3438, modBase + 0x4CCA208]; int[] itemStrides = [0x158, 0x288, 0x160];
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 8 <= len; i += 8)
+                {
+                    long q = BitConverter.ToInt64(buf, i);
+                    if (q == vtVolume || q == vtTreasure || q == vtReward || itemVts.Contains(q)) objs.Add((a + i, q));
+                }
+            }
+        string NameN(long at) { string n = FName(BitConverter.ToInt32(Read(at, 4))); int num = BitConverter.ToInt32(Read(at + 4, 4)); return num > 0 ? $"{n}_{num - 1}" : n; }
+        (long Rows, int Count)? Rows(long t) { long r = BitConverter.ToInt64(Read(t + 0x38, 8)); int c = BitConverter.ToInt32(Read(t + 0x40, 4)); return r == 0 || c is <= 0 or > 5000 ? null : (r, c); }
+        foreach (var (o, _) in objs.Where(x => x.Vt == vtVolume))
+        {
+            string name = FName(BitConverter.ToInt32(Read(o + 0x18, 4)));
+            string? key = null;
+            var m = Regex.Match(name, @"^Navi(\d{3})_Layer(\d{2})_(\d{3})_\d{3}_\d{3}$");
+            if (m.Success) key = $"$navi{m.Groups[1].Value}_name_part0{m.Groups[2].Value}_{int.Parse(m.Groups[3].Value) * 10:000}";
+            else
+            {
+                long level = BitConverter.ToInt64(Read(o + 0x20, 8)), world = BitConverter.ToInt64(Read(level + 0x20, 8));
+                var w = Regex.Match(FName(BitConverter.ToInt32(Read(world + 0x18, 4))), @"^(\d{3})-");
+                int layer = BitConverter.ToInt32(Read(o + 0x3B0, 4)), part = BitConverter.ToInt32(Read(o + 0x3B4, 4));
+                if (w.Success && layer is > 0 and < 100 && part is > 0 and < 100) key = $"$navi{w.Groups[1].Value}_name_part{layer:000}_{part * 10:000}";
+            }
+            if (key is null) continue;
+            var f = Read(BitConverter.ToInt64(Read(o + 0x160, 8)) + 0x160, 24);
+            volumes.Add((key, BitConverter.ToSingle(f, 0), BitConverter.ToSingle(f, 4), BitConverter.ToSingle(f, 8), BitConverter.ToSingle(f, 12), BitConverter.ToSingle(f, 16), BitConverter.ToSingle(f, 20)));
+        }
+        var ids = new Dictionary<string, int>();
+        foreach (var (o, vt) in objs.Where(x => itemVts.Contains(x.Vt)))
+        {
+            int stride = itemStrides[Array.IndexOf(itemVts, vt)];
+            if (Rows(o) is not var (r, c)) continue;
+            for (int k = 0; k < c; k++) { string code = NameN(r + (long)k * stride); int id = BitConverter.ToInt32(Read(r + (long)k * stride + 0x10, 4)); if (id > 0) ids.TryAdd(code, id); }
+        }
+        var rewards = new Dictionary<string, List<string>>();
+        foreach (var (o, _) in objs.Where(x => x.Vt == vtReward))
+        {
+            if (Rows(o) is not var (r, c)) continue;
+            for (int k = 0; k < c; k++)
+            {
+                long row = r + (long)k * 0x50, list = BitConverter.ToInt64(Read(row + 0x28, 8)); int n = BitConverter.ToInt32(Read(row + 0x30, 4));
+                if (list != 0 && n is > 0 and < 16) rewards.TryAdd(NameN(row), Enumerable.Range(0, n).Select(e => NameN(list + e * 0x10)).ToList());
+            }
+        }
+        var chestRows = new List<(string Id, long Point, string Codes)>();
+        foreach (var (o, _) in objs.Where(x => x.Vt == vtTreasure))
+        {
+            if (Rows(o) is not var (r, c)) continue;
+            for (int k = 0; k < c; k++)
+            {
+                long row = r + (long)k * 0xA0;
+                var codes = Enumerable.Range(0, 8).Select(e => NameN(row + 0x38 + e * 8)).Where(x => x.StartsWith("rwr")).SelectMany(x => rewards.GetValueOrDefault(x) ?? []).ToList();
+                chestRows.Add((NameN(row), (uint)BitConverter.ToInt32(Read(row + 0x30, 4)) | (long)BitConverter.ToInt32(Read(row + 0x34, 4)) << 32,
+                    string.Join(",", codes.Select(x => ids.TryGetValue(x, out int id) ? id.ToString() : x))));
+            }
+        }
+        var wanted = chestRows.Select(x => x.Point).ToHashSet();
+        var points = new Dictionary<long, (float X, float Y, float Z)?>();
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 0x3C <= len; i += 8)
+                {
+                    long nm = (uint)BitConverter.ToInt32(buf, i) | (long)BitConverter.ToInt32(buf, i + 4) << 32;
+                    if (!wanted.Contains(nm) || BitConverter.ToSingle(buf, i + 0x30) != 1f || BitConverter.ToSingle(buf, i + 0x34) != 1f || BitConverter.ToSingle(buf, i + 0x38) != 1f) continue;
+                    var p = (BitConverter.ToSingle(buf, i + 0x20), BitConverter.ToSingle(buf, i + 0x24), BitConverter.ToSingle(buf, i + 0x28));
+                    points[nm] = points.TryGetValue(nm, out var old) && old != p ? null : p;
+                }
+            }
+        var lines = new List<string>();
+        foreach (var (id, point, codes) in chestRows)
+        {
+            if (points.GetValueOrDefault(point) is not { } p) { lines.Add($"{id}					{codes}"); continue; }
+            var area = volumes.Where(v => Math.Abs(p.X - v.CX) <= v.EX && Math.Abs(p.Y - v.CY) <= v.EY && Math.Abs(p.Z - v.CZ) <= v.EZ).OrderBy(v => v.EX * v.EY * v.EZ).Select(v => v.Key).FirstOrDefault() ?? "";
+            lines.Add($"{id}	{p.X:0}	{p.Y:0}	{p.Z:0}	{area}	{codes}");
+        }
+        File.WriteAllLines(args[1], lines);
+        Console.WriteLine($"{volumes.Count} volume, {ids.Count} kode item, {rewards.Count} reward, {chestRows.Count} peti ({points.Count} posisi) -> {args[1]}");
+        break;
+    }
     case "chests": // chests <x> <y> <z>: every chest of the loaded maps: point position and distance, rewards (item code, id, name), save flag bit and state
     {
         float px = float.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), py = float.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture), pz = float.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture);

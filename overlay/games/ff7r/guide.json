@@ -1364,8 +1364,8 @@
           "id": "c9-03-binding",
           "type": "materia",
           "name": "Binding Materia",
-          "where": "Robot Arm Worksite: di objective Working Together, pakai lengan robot buat naikin Aerith ke atas container; dia yang ngambil materianya.",
-          "whereEn": "Robot Arm Worksite: during the Working Together objective, use the robot arm to lift Aerith onto the container; she grabs the materia.",
+          "where": "Path Through Fissure: di objective Working Together, pakai lengan robot buat naikin Aerith ke atas container; dia yang ngambil materianya. (Area peti menurut data peti game.)",
+          "whereEn": "Path Through Fissure: during the Working Together objective, use the robot arm to lift Aerith onto the container; she grabs the materia. (Chest area per the game's chest data.)",
           "missable": true
         },
         {
@@ -1453,8 +1453,8 @@
           "id": "c9-15-star-pendant",
           "type": "aksesori",
           "name": "Star Pendant",
-          "where": "Wall Market: chest di bangunan kosong di ujung putaran jalan utama yang mengarah ke utara (ke arah mansion). Opsional: dijual 1.500 gil di toko senjata Sector 5 & Wall Market.",
-          "whereEn": "Wall Market: chest in the empty building at the end of the main street loop leading north (toward the mansion). Optional: sold for 1.500 gil at the Sector 5 & Wall Market weapon shops.",
+          "where": "S6-5 Road: chest di bangunan kosong di ujung putaran jalan utama yang mengarah ke utara (ke arah mansion). Opsional: dijual 1.500 gil di toko senjata Sector 5 & Wall Market. (Lokasi peti menurut data peti game ada di S6-5 Road, bukan Wall Market; deskripsi di atas belum dicek ulang di game.)",
+          "whereEn": "S6-5 Road: chest in the empty building at the end of the main street loop leading north (toward the mansion). Optional: sold for 1.500 gil at the Sector 5 & Wall Market weapon shops. (The game's chest data puts this chest in S6-5 Road, not Wall Market; the description above is not re-checked in game yet.)",
           "missable": false,
           "optional": true
         },
@@ -1700,8 +1700,8 @@
           "id": "c9-45-fury-ring",
           "type": "aksesori",
           "name": "Fury Ring",
-          "where": "Central Foyer: aula utama mansion Corneo (Showdown with Corneo). Kalahkan grup Corneo Lackey, lalu masuk celah kecil di bawah tangga; chest di tumpukan barang.",
-          "whereEn": "Central Foyer: main hall of Corneo's mansion (Showdown with Corneo). Defeat the Corneo Lackey group, then enter the small gap under the stairs; the chest is in the pile of junk.",
+          "where": "Corneo's Mansion - Central Foyer: aula utama mansion Corneo (Showdown with Corneo). Kalahkan grup Corneo Lackey, lalu masuk celah kecil di bawah tangga; chest di tumpukan barang.",
+          "whereEn": "Corneo's Mansion - Central Foyer: main hall of Corneo's mansion (Showdown with Corneo). Defeat the Corneo Lackey group, then enter the small gap under the stairs; the chest is in the pile of junk.",
           "missable": true
         },
         {
@@ -2055,8 +2055,8 @@
           "id": "c13-04b-heavy-duty",
           "type": "armor",
           "name": "Heavy-Duty Bracer",
-          "where": "Collapsed Expressway (Onward to Sector 7): setelah turun tangga, lorong samping dari area terbuka tempat Smogger & Sweeper Prototype. Opsional: curian Rude (Ch12) & dijual di Sector 5/6.",
-          "whereEn": "Collapsed Expressway (Onward to Sector 7): after going down the stairs, take the side corridor off the open area with the Smogger & Sweeper Prototype. Optional: Rude's steal (Ch12) & sold in Sector 5/6.",
+          "where": "Bandits' Den: setelah turun tangga, lorong samping dari area terbuka tempat Smogger & Sweeper Prototype. Opsional: curian Rude (Ch12) & dijual di Sector 5/6. (Area peti menurut data peti game.)",
+          "whereEn": "Bandits' Den: after going down the stairs, take the side corridor off the open area with the Smogger & Sweeper Prototype. Optional: Rude's steal (Ch12) & sold in Sector 5/6. (Chest area per the game's chest data.)",
           "missable": false,
           "optional": true,
           "detect": null
@@ -2246,8 +2246,8 @@
           "id": "c14-08-mythril-armlet",
           "type": "armor",
           "name": "Mythril Armlet",
-          "where": "Station Way: peti di jalan utara Station Way (selatan titik disc Descendant of Shinobi, dekat pria bersenjata). Juga dijual di toko senjata Wall Market (3.200 gil).",
-          "whereEn": "Station Way: chest on the north road of Station Way (south of the Descendant of Shinobi disc spot, near the armed man). Also sold at the Wall Market weapon shop (3,200 gil).",
+          "where": "Station Way: peti di jalan utara Station Way (selatan titik disc Descendant of Shinobi, dekat pria bersenjata). Juga dijual di toko senjata Wall Market (3.200 gil). Peti yang sama dengan Ch8 (treasure0160): kalau sudah dibuka di Ch8, peti ini kosong; beli di toko.",
+          "whereEn": "Station Way: chest on the north road of Station Way (south of the Descendant of Shinobi disc spot, near the armed man). Also sold at the Wall Market weapon shop (3,200 gil). Same chest as in Ch8 (treasure0160): if you opened it in Ch8 it is empty; buy one instead.",
           "missable": false,
           "optional": true
         },
