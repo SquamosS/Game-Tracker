@@ -562,7 +562,18 @@ public partial class MainWindow : Window
     /// discovery the game has active now wherever you are: once started it stays up until it is ticked.
     /// </summary>
     List<Objective> HereSteps() => CurrentChapter is not { } chapter ? []
-        : chapter.Objectives.Where(o => o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id) && (IsHere(o) || IsLiveQuest(o))).ToList();
+        : chapter.Objectives.Where(o => o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id) && (IsHere(o) || IsLiveQuest(o))
+            && !(RewardOf(o, chapter) is { } quest && !_progress.Done.Contains(quest.Id))).ToList();
+
+    /// <summary>
+    /// The side quest or discovery of the chapter whose reward this step is: its "where" says "hadiah" and names that
+    /// quest ("Nail Bat: hadiah dari anak-anak ... setelah Kids on Patrol selesai"). Nothing to find in the area until
+    /// the quest is done, and the quest itself shows there already.
+    /// </summary>
+    static Objective? RewardOf(Objective o, Chapter chapter) =>
+        o.Type is "side quest" or "kejadian" or "cerita" || !o.Where.Contains("hadiah", StringComparison.OrdinalIgnoreCase) ? null
+        : chapter.Objectives.FirstOrDefault(q => q.Type is "side quest" or "kejadian" && q != o
+            && o.Where.Contains(q.Name.Replace("Discovery:", "").Trim(), StringComparison.OrdinalIgnoreCase));
 
     /// <summary>A side quest or discovery that is the game's live objective now.</summary>
     bool IsLiveQuest(Objective o) => o.Type is "side quest" or "kejadian" && _objective?.Title is { Length: >= 3 } title && SameQuest(o.Name, title);
