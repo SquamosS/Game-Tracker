@@ -206,6 +206,9 @@ public partial class MainWindow : Window
         LogPosition(position);
         FollowGameState();
         changed |= FollowLocation(position);
+        // Distances to chests change as you walk: redraw only when a rounded one does.
+        string distances = string.Join("|", (CurrentChapter?.Objectives ?? []).Where(o => !_progress.Done.Contains(o.Id)).Select(ChestDistance));
+        if (distances != _distances) { _distances = distances; changed = true; }
         // The notice counts down only while you can see it: a chapter's recap must not run out behind a cutscene.
         if (_notice is not null && IsVisible && --_noticeSeconds <= 0) { _notice = null; RenderNotice(); }
 
@@ -572,6 +575,7 @@ public partial class MainWindow : Window
                 if (i > 0) HereText.Inlines.Add(new System.Windows.Documents.Run("  ·  ") { Foreground = Muted });
                 HereText.Inlines.Add(new System.Windows.Documents.Run(steps[i].Name)
                     { Foreground = steps[i].Missable ? Danger : Brushes.White, FontWeight = FontWeights.SemiBold });
+                if (ChestDistance(steps[i]) is { } distance) HereText.Inlines.Add(new System.Windows.Documents.Run(" " + distance) { Foreground = Mako, FontSize = 11.5 });
             }
         }
         string shown = string.Join("|", steps.Select(s => s.Id));
@@ -581,7 +585,7 @@ public partial class MainWindow : Window
         // Hidden with the overlay: drawn when it shows again (FollowGameState), new steps then still fade in.
         if (_menuOpen || _userHidden) return;
         if (steps.Count == 0) _toast.FadeOut();
-        else _toast.Show(_here?.Area ?? "",steps.Select(o => (o.Name, o.Missable)).ToList(), steps.Any(o => !before.Contains(o.Id)));
+        else _toast.Show(_here?.Area ?? "", steps.Select(o => (ChestDistance(o) is { } d ? $"{o.Name} · {d}" : o.Name, o.Missable)).ToList(), steps.Any(o => !before.Contains(o.Id)));
         if (shown != _hereShown && steps.Count > 0)
             HereBox.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0.25, 1, TimeSpan.FromMilliseconds(350))
                 { AutoReverse = false, RepeatBehavior = new System.Windows.Media.Animation.RepeatBehavior(4) });
@@ -590,6 +594,34 @@ public partial class MainWindow : Window
 
     /// <summary>A step's "where" as shown: its closing "Hard: ..." note (Hard-only rewards) only in Hard mode.</summary>
     string ShownWhere(Objective o) => _hardMode ? o.ShownWhere : HardNote.Replace(o.ShownWhere, "");
+
+    string _distances = "";
+
+    /// <summary>
+    /// How far Cloud is from the one chest of the loaded maps holding this step's item ("12 m", rounded to 1 m up close,
+    /// 5 m to 100 m, 10 m beyond), from the game's chest tables (Ff7rTreasure.cs). Null when no chest or more than
+    /// one holds it (which one the guide means would be a guess), or the position is not known.
+    /// </summary>
+    string? ChestDistance(Objective o)
+    {
+        if (!_live || _herePosition is not { } p || !ItemTypes.Contains(o.Type)) return null;
+        Ff7rChapterReader.Chest? only = null;
+        foreach (var chest in _reader.Chests)
+            if (chest.Items.Any(id => _itemMap.Name(id) is { } name && SameItem(o, name)))
+            {
+                if (only is not null) return null;
+                only = chest;
+            }
+        if (only is null) return null;
+        double dx = only.X - p.X, dy = only.Y - p.Y, dz = only.Z - p.Z, metres = Math.Sqrt(dx * dx + dy * dy + dz * dz) / 100;
+        double round = metres < 20 ? 1 : metres < 100 ? 5 : 10;
+        return $"{Math.Round(metres / round) * round:0} m";
+    }
+
+    /// <summary>The step is that item: the same name, or "Shiva" for "Shiva Materia" (not "Turbo Ether" for "Ether").</summary>
+    static bool SameItem(Objective step, string name) =>
+        step.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
+        || (name.EndsWith(" Materia") && step.Name.Equals(name[..^8], StringComparison.OrdinalIgnoreCase));
 
     /// <summary>"Discovery: Collapsed Passageway" is the game's "Collapsed Passageway".</summary>
     static bool SameQuest(string guideName, string title) =>
@@ -1181,6 +1213,7 @@ public partial class MainWindow : Window
         if (compact && o.Type != "cerita" && !o.Name.Contains(TypeText(TypeLabel(o)), StringComparison.OrdinalIgnoreCase))
             title.Inlines.Add(new System.Windows.Documents.Run(TypeText(TypeLabel(o)).ToUpperInvariant() + " ") { Foreground = TypeBrush(TypeLabel(o)), FontWeight = FontWeights.Bold, FontSize = 10.5 });
         title.Inlines.Add(new System.Windows.Documents.Run(o.Name) { Foreground = done ? Done : o.Type == "cerita" || compact ? Brushes.White : TypeBrush(TypeLabel(o)), TextDecorations = done ? TextDecorations.Strikethrough : null });
+        if (!done && ChestDistance(o) is { } distance) title.Inlines.Add(new System.Windows.Documents.Run("  " + distance) { Foreground = Mako, FontSize = 11.5, FontWeight = FontWeights.SemiBold });
         if (!compact) title.Inlines.Add(new System.Windows.Documents.Run($"  {TypeText(TypeLabel(o))}") { Foreground = TypeBrush(TypeLabel(o)), FontSize = 10.5, FontWeight = FontWeights.SemiBold });
 
         var text = new StackPanel();

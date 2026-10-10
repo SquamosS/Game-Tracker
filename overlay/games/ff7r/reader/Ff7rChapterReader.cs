@@ -386,6 +386,8 @@ public sealed partial class Ff7rChapterReader : IDisposable
         _playerPosition = 0;
         _naviTexts = new();
         _naviVolumes = new();
+        Chests = [];
+        _chestTablesFrom = [];
         _volumes = new();
     }
 

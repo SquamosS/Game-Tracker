@@ -261,6 +261,10 @@ public sealed partial class Ff7rChapterReader
         long positionVtable = PositionVtable, volumeVtable = NaviVolumeVtable;
         var positions = new System.Collections.Concurrent.ConcurrentBag<long>();
         var volumes = new System.Collections.Concurrent.ConcurrentBag<long>();
+        // And the data tables of chests and their contents (Ff7rTreasure.cs).
+        var vt = TableVtables;
+        long[] tableVtables = vt.Item == 0 ? [] : [vt.Item, vt.Equipment, vt.Materia, vt.Reward, vt.Chest];
+        var tables = new System.Collections.Concurrent.ConcurrentBag<(int Kind, long Table)>();
         ForEachChunk(cancel, (a, buf, length) =>
         {
             for (int i = 8; i + 16 <= length; i += 8)
@@ -268,6 +272,7 @@ public sealed partial class Ff7rChapterReader
                 long p = BitConverter.ToInt64(buf, i);
                 if (positionVtable != 0 && p == positionVtable) positions.Add(a + i);
                 if (volumeVtable != 0 && p == volumeVtable) volumes.Add(a + i);
+                if (tableVtables.Length > 0 && Array.IndexOf(tableVtables, p) is >= 0 and var kind) tables.Add((kind, a + i));
                 if (!byAddress.ContainsKey(p)) continue;
                 if (byAddress.ContainsKey(BitConverter.ToInt64(buf, i - 8)) || byAddress.ContainsKey(BitConverter.ToInt64(buf, i + 8))) continue;
                 if (found.Count < 100_000) found.Add(a + i);
@@ -280,7 +285,8 @@ public sealed partial class Ff7rChapterReader
         _positionObjects = positions.ToList(); // swapped whole: the UI thread reads these
         if (!naviTexts.IsEmpty) _naviTexts = new Dictionary<string, string>(naviTexts);
         _naviVolumes = volumes.ToList(); // a new list: ReadLocation resolves names and bounds again
-        ObjectiveDebug = $"rows {byAddress.Count} ({rowsMs} ms, {stringReads} reads), slots {slots.Count} ({sw.ElapsedMilliseconds - rowsMs} ms), entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}, positions {positions.Count}, volumes {volumes.Count}";
+        if (!tables.IsEmpty) UpdateChests(tables.ToList(), cancel);
+        ObjectiveDebug = $"rows {byAddress.Count} ({rowsMs} ms, {stringReads} reads), slots {slots.Count} ({sw.ElapsedMilliseconds - rowsMs} ms), entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}, positions {positions.Count}, volumes {volumes.Count}, chests {Chests.Count}";
         return (byAddress, entries.Count > 0 ? entries : slots);
     }
 

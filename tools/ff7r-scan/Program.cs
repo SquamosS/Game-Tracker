@@ -402,6 +402,19 @@ switch (args[0])
         }
         break;
     }
+    case "rows": // rows <addr> <count> <stride> [regex]: FName key (with its number: E_ARM + 2003 = E_ARM_2002) and the int at +0x10 of each row
+    {
+        long at = Convert.ToInt64(args[1], 16); int n = int.Parse(args[2]), stride = Convert.ToInt32(args[3], 16);
+        var d = Read(at, n * stride);
+        for (int r = 0; r < n; r++)
+        {
+            int number = BitConverter.ToInt32(d, r * stride + 4);
+            string key = FName(BitConverter.ToInt32(d, r * stride)) + (number > 0 ? $"_{number - 1}" : "");
+            if (args.Length > 4 && !Regex.IsMatch(key, args[4])) continue;
+            Console.WriteLine($"{key}	{BitConverter.ToInt32(d, r * stride + 0x10)}");
+        }
+        break;
+    }
     case "navi": // navi <file>: every "$navi..." localization key with its English text (FString key then FString text)
     {
         var pairs = new SortedDictionary<string, string>();
