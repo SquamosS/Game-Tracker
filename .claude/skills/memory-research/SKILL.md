@@ -29,10 +29,9 @@ Read `research/notes.md` first: it lists every address found (and every dead end
 - While a background scanner command runs, its exe is locked: build to another folder (`dotnet build -c Release -o ../../research/scan/alt`) and run `dotnet ../../research/scan/alt/scanner.dll <cmd>`.
 - Python edit/analysis scripts: write them to the scratchpad with the Write tool and run `python -I <file>`; a bash heredoc holding `'''` breaks in this shell.
 
-## Chest opened flag (next research, see HANDOFF section 0)
-- Goal: the game's live "chest opened" state, to replace the learned state in `MainWindow.Guidance.cs`.
-- Procedure: user stands in front of an unopened chest (overlay shows its distance) -> `snap C0` -> user opens it -> `snap C1` -> `bdiff C0 C1` then `filter ... same` after a few seconds -> keep candidates whose change is 0->1 or a single bit; check them in the chest's actor, the ObjectTreasure row, or near the save copies; confirm on a second chest (and after a room change / reload) before wiring it in.
-- Dead ends already tried are in research/notes.md ("Status peti sudah dibuka live").
+## Chest opened flag (found 10 Oct 2026)
+- Bit = chest flag number (flag row int +0x10, `chests` prints it) + 0xA80 in the flag block (materia+0x40E00) of the LIVE save copy; other copies follow at the next save. Check with `flagbits <bit>`: the live copy is the one that differs. Overlay: `Ff7rTreasure.cs` ChestOpened, log `data/logs/chest-flag.log`.
+- Same snapshot method for other one-shot flags: snap before, act, snap after, `bdiff` + `same`, then keep changes within the save copies (`flagbits` lists them) before looking anywhere else.
 
 ## Into the overlay
 - New partial file `overlay/games/ff7r/reader/Ff7r<Thing>.cs` on `Ff7rChapterReader`, gated on `Version == "Steam 1.0.0.7"` (return null otherwise), doc comment stating offsets and how they were found.
