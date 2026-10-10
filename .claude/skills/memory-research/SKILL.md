@@ -34,6 +34,9 @@ Read `research/notes.md` first: it lists every address found (and every dead end
 - Same snapshot method for other one-shot flags: snap before, act, snap after, `bdiff` + `same`, then keep changes within the save copies (`flagbits` lists them) before looking anywhere else.
 
 ## Into the overlay
+- Overlay = canvas for many games (CLAUDE.md "Arsitektur"): every address, table name, item id and game rule goes in
+  `overlay/games/ff7r/reader/`; shared code (`overlay/*.cs`) only gets game-neutral concepts (quest entry, chest, position,
+  area). Until the IGameReader refactor lands, keep new calls from MainWindow into the reader few and generic.
 - New partial file `overlay/games/ff7r/reader/Ff7r<Thing>.cs` on `Ff7rChapterReader`, gated on `Version == "Steam 1.0.0.7"` (return null otherwise), doc comment stating offsets and how they were found.
 - Heap objects: collect them by vtable in the objective search's second `ForEachChunk` pass (`Ff7rObjective.cs`), swap lists whole (the UI thread reads them), reset in `Detach()`. No extra full scans on a timer; if one is needed, rate-limit it (>= 30 s).
 - Static values: read `_moduleBase + rva` each poll with the `out` overloads (no array per read).

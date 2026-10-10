@@ -62,10 +62,28 @@ Folder yang namanya diawali `_` (mis. `_template`) dilewati. Salin `_template` u
 
 - `id` unik di seluruh panduan; progres disimpan dengan id ini, jadi jangan diganti setelah dipakai.
 - `type`: `cerita`, `side quest`, `kejadian` (nama diawali `Discovery:` tampil sebagai discovery), `materia`, `senjata`,
-  `armor`, `aksesori`, `summon`, `music disc`, `manuskrip`, `trofi` (trofi tidak dihitung). Tipe lain tampil abu-abu.
+  `armor`, `aksesori`, `summon`, `music disc`, `manuskrip`, `item kunci`, `trofi` (trofi tidak dihitung). Tipe lain tampil abu-abu.
+  (Target: daftar jenis, ikon dan warna didefinisikan per game di game.json.)
 - `where` diawali **nama area resmi** lalu titik dua (`Area (B5): ...`): overlay memakainya untuk pop-up "DI AREA INI"
   dan petunjuk ruang (hanya untuk game dengan reader yang tahu area pemain).
 - Opsional: `optional: true` (item yang juga dijual: hanya pengingat), `warning` (point of no return; teks "Setelah ..." menjelaskan
   apa yang tertutup), `needs` (id langkah yang ditunggu warning), `hard: true` (hanya mode Hard).
+- `after`: id langkah yang membuka langkah ini (side quest Ch8 FF7R terbuka saat "Requests for the Mercenary" dimulai). Sebelum
+  tercapai (langkah itu aktif atau selesai) langkah tidak tampil, di mana pun ia tercantum di panduan. Data game (halaman quest,
+  objek di peta) tetap didahulukan kalau pembaca bisa membacanya.
+- `revisit`: id langkah yang membuat area langkah ini bisa didatangi lagi; sebelum itu langkah yang terlewat tidak ditandai tertinggal.
+- Tanpa `after`, urutan panduan menentukan: langkah baru tampil saat langkah cerita sebelumnya sedang berjalan.
+- Hadiah quest: sekarang dikenali dari kata "hadiah" + nama quest di `where` (FF7R); target kolom `rewardOf`.
+
+## points.json (opsional)
+
+Titik tujuan per langkah, untuk jarak dari pemain (hanya game dengan reader yang tahu posisi dan area):
+
+```json
+{ "c8-13-disc-costa": { "x": -6670, "y": 8590, "z": 349, "area": "Center District", "note": "depan Materia Shop" } }
+```
+
+Jarak hanya tampil kalau area titik itu terbaca di peta yang dimuat. Rekam sambil main dengan Ctrl+Shift+Alt+P
+(`data/points-recorded.tsv`). Jejak otomatis (`data/trail.json`: tempat quest diambil, tahap selesai, item diambil) dipakai lebih dulu.
 
 Setelah menambah folder: build ulang (`dotnet build` di `overlay/`) supaya file JSON tersalin ke folder exe.

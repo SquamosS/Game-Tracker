@@ -6,6 +6,22 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 
 ## 0. Pembaruan 10 Oktober 2026 (sesi Claude, baca dulu)
 
+**Sesi 10 Okt malam (18:00-23:00)** — kondisi terbaru
+- **Progres user**: Ch8, langkah cerita *Requests for the Mercenary* (side quest Ch8 terbuka). Selesai: Moogle Merchant, disc Costa del Sol/Tango of Tears/Gold Saucer, Shiva, Silver Staff, Whistlewind, Salvation, Graveyard Key. Belum: Kids on Patrol, Weapons on a Rampage (tersedia), Angel & Paying Respects (masih ??? di game), Chakra, Descendant of Shinobi, Talisman/Mythril (opsional). PC sempat mati: save terakhir sebelum free roam Leaf House, disc diambil ulang.
+- **Objek di peta** (`Ff7rFieldActors.cs`): `[actor pemain+0x20]` = PersistentLevel (vtable modul+0x4E6BEC0), actors TArray +0xA0; objek "FA..." (peti, barang) vtable modul+0x4C23E60, kelas = FName kelas +0x18, posisi [+0x160]+0x1B0. Peti yang objeknya tidak ada = belum bisa diambil (hanya menyembunyikan; ada di peta belum tentu bisa dicapai, mis. peti Ch13 Mythical Amulet di rumah Aerith saat Ch8). Log `data/logs/field-actors.log`.
+- **Side quest Ch8** (`Ff7rObjective.cs` SideEntry): entri berisi teks sendiri + sprite `U_Com_Billboard_080_SLU5B_qNN_SS_Sprite` (SS 99 = selesai, 00 = tersedia); tabel definisi (judul `$ss_title_qst...`) diabaikan. q01 Weapons on a Rampage, q02 Kids on Patrol, q03 Moogle Merchant, q05 Angel. Side quest tampil hanya kalau ada di halaman quest game. Discovery Ch8: `$str080_Chapter09_sideNN`.
+- **Jejak** (`MainWindow.Trail.cs`, `data/trail.json`, log `trail.log`): tempat quest diambil, tahap selesai, item diambil; dipakai playthrough berikutnya untuk jarak. `items.log` mencatat semua item yang masuk saat main. `points.json` titik manual (Ctrl+Shift+Alt+P).
+- **Aturan panduan baru**: `after` (dibuka langkah lain, saat langkah itu dimulai), `revisit`, tipe `item kunci`, hadiah quest disembunyikan sampai quest selesai, langkah setelah langkah cerita sekarang tidak tampil. Barang Moogle Emporium Ch8 opsional (dijual lagi di Ch14).
+- **Bug yang sudah diperbaiki (jangan diulang)**: setelah load/restart, `_storyMayGoBack` menghapus centang langkah yang tercantum setelah langkah cerita berikutnya, termasuk barang yang sudah dibeli; sekarang item dipertahankan bila save yang di-load memilikinya. Data side quest/salinan save lama dibuang saat load.
+
+**RENCANA BERIKUTNYA: overlay jadi canvas multi-game (disetujui arahnya oleh user, belum dikerjakan)**
+Tujuan: game baru = folder baru di `overlay/games/<id>/` (+ reader sendiri kalau mau otomatis) tanpa menyentuh kode bersama atau FF7R. Perilaku FF7R tidak boleh berubah; tiap tahap commit sendiri, review agent, uji restart (progres utuh, backup dulu).
+1. `IGameReader` di kode bersama (chapter, objektif & halaman quest, inventory, posisi/area, state, titik penting/peti); `Ff7rChapterReader` mengimplementasikannya; `MainWindow` hanya lewat antarmuka; pemilihan reader dari `game.json`.
+2. Aturan teks -> kolom guide.json: `rewardOf` (ganti kata "hadiah"), `auto`/reward tag (ganti "otomatis", "akhir chapter"), warning "Setelah ..." tetap teks tapi dibaca lewat kolom; script satu kali mengisi FF7R.
+3. Jenis langkah, ikon, warna, dan jenis "item" (untuk centang dari inventory) di `game.json`.
+4. Data runtime per game `data/<id>/` (progres, trail, chests, points-recorded, logs) dengan migrasi otomatis file lama.
+Hal khusus FF7R yang sekarang di kode bersama dan harus pindah: Gil id 20, Reconcile per jenis (senjata/disc/summon tidak dijual), ItemTypes, QuestPickUp/QuestKey regex (`obtNNN_qst`, `$strNNN`), SameQuest "Discovery:", RewardTag kata Indonesia, LogChests nama tabel `obt`.
+
 **Sesi 10 Okt sore (17:00-18:00)**
 - **Flag peti "sudah dibuka" KETEMU** dan terpasang: bit = nomor flag + 0xA80 di blok flag salinan save live (`Ff7rTreasure.cs` ChestOpened; log `data/logs/chest-flag.log`). Logika "dipelajari" (opened.json/Collected) tinggal cadangan. Detail di notes.md.
 - Discovery Ch8 (`$str080_Chapter09_sideNN`) kini terbaca; langkah baru "Discovery: The Gate Won't Open".
@@ -15,7 +31,7 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 - **Berikutnya (user setuju)**: (1) riset tujuan quest/discovery dari game (penanda minimap aktif, atau titik `oblPoint...qstNN...`) untuk jarak otomatis; (2) beda tinggi di jarak (mis. `25 m ↑6`); (3) ikon jenis di pop-up; (4) cek kunci side quest Ch8 setelah Requests for the Mercenary; (5) navmesh untuk jarak jalan (riset besar, nanti).
 - Progres user: Ch8, sekitar Center District/To Aerith's House, sebelum Requests for the Mercenary. Talisman & Chakra gereja terlewat (belum dibuka).
 
-**>>> LANJUTKAN DI SINI (akhir sesi 10 Okt ~14:10; chat ditutup karena terlalu panjang) <<<**
+**>>> (sesi 10 Okt siang, sudah selesai; kondisi terbaru di blok "Sesi 10 Okt malam" di atas) <<<**
 - **Progres user**: Ch8 "Budding Bodyguard", langkah cerita *Through the Backstreets / Around the Gate*, sekitar Twilight Valley menuju Station Way. Sudah: Talisman, Chakra (Church), Cait Sith's Theme, Caliginous Bracelet. Peti dibuka di sesi ini: Ether (Rooftops, obt080_treasure0040), 500 gil (obt080_treasure0050), Caliginous (obt080_treasure0060).
 - **Tugas berikutnya (user sudah setuju): cari flag peti "sudah dibuka" yang live** dengan snapshot penuh (skill `/memory-research`, bagian "Chest opened flag"). Target: peti **Mythril Armlet** `obt080_treasure0160` di **Station Way** (-23928, 7821, 849), BELUM dibuka. Alur: user berdiri di depan peti tanpa membuka -> `snap C0` -> user buka -> `snap C1` -> `bdiff C0 C1` + `same` -> uji kandidat di peti berikutnya (peti lain di Station Way/Center District, lihat `data/chests/obt080.tsv`). D: punya ~60 GB kosong (snapshot ~8,5 GB; hapus setelah selesai; snapshot lama `research/scan/M0.snap` juga boleh dihapus kalau perlu ruang, tanya user dulu).
 - Yang SUDAH gagal (jangan diulang): nomor di tabel flag (int +0x10 baris `stfTreasure_...`, mis. 0x2079) bukan bit di blok flag save materia+0x40E00; field aktor peti (+0x518 = render, komponen +0x7E0/+0x7E4 = animasi); rujukan FName/angka flag; savediff blok flag umum setelah autosave (hanya 5 bit berubah, tak cocok). Kemungkinan flag ada di ChunkChapter save (luar rentang yang dibandingkan) atau objek runtime lain. Detail: `research/notes.md` "Status peti sudah dibuka live".
