@@ -239,14 +239,20 @@ public sealed class ChestGuide(IGameReader reader, ProgressTracker tracker, Guid
     /// how far. Chests whose contents are a step of the guide show there too (with their distance), so this is mostly
     /// what the guide does not list one by one, like Moogle Medals.
     /// </summary>
-    public List<(string Contents, string Distance)> ChestsHere()
+    public List<(string Contents, string Distance)> ChestsHere() =>
+        Here().Take(5).Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _names.Name(id) ?? $"#{id}")), World.Metres(x.Metres))).ToList();
+
+    /// <summary>Where the chests of ChestsHere stand, all of them (the radar).</summary>
+    public List<GamePosition> ChestSpotsHere() => Here().Select(x => x.Chest.At!).ToList();
+
+    /// <summary>The chests of the area you are in that are not known to be opened, nearest first, with how far (metres).</summary>
+    List<(GameChest Chest, double Metres)> Here()
     {
         if (!_live || _area.Here is not { } here || _area.Position is not { } p) return [];
         return _reader.Chests
             .Where(c => c.At is not null && c.Items.Length > 0 && _reader.ChestShown(c, _tracker.LiveObjective) && !Opened(c) && Placed(c) != false && !ForLater(c) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
             .Select(c => (Chest: c, Metres: World.Distance(c.At!, p, _reader.UnitsPerMetre)))
-            .OrderBy(x => x.Metres).Take(5)
-            .Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _names.Name(id) ?? $"#{id}")), World.Metres(x.Metres))).ToList();
+            .OrderBy(x => x.Metres).ToList();
     }
 
     /// <summary>Reads the chests learned to be opened: once, when the overlay starts.</summary>

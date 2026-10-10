@@ -142,6 +142,38 @@ static class ModuleTests
         reader.Givers = null;
         reader.Markers = null;
 
+        // ---- Radar: the spots around you -----------------------------------------------------------------------------
+        var radarReader = new FakeReader { Chapter = 2, LiveIds = [20], Objective = FakeReader.Live(7, "Back Home") };
+        radarReader.Slots = new() { [1] = (20, 1) };
+        var radarRules = new GuideRules(types, radarReader.Names);
+        var radarTracker = new ProgressTracker(radarReader, radarRules, DataPaths.Game("test-radar"), DataPaths.GameLogs("test-radar"), new FakeHost())
+        {
+            Guide = ProgressTrackerTests.SmallGuide(),
+            Progress = new Progress { Chapter = 2 },
+        };
+        radarTracker.Poll(out _);
+        var radarStatus = new StepStatus(radarTracker, radarRules, radarReader);
+        var radarArea = new AreaTracker(radarReader, radarTracker, DataPaths.Game("test-radar"), DataPaths.GameLogs("test-radar"));
+        var radar = new Radar(radarReader, radarTracker, radarStatus, new ChestGuide(radarReader, radarTracker, radarRules, radarArea, radarStatus, true, DataPaths.Game("test-radar"), DataPaths.GameLogs("test-radar")));
+        check("radar: nothing known, nothing shown", radar.Spots().Count == 0);
+        static QuestMarker Mark(string title, string? target, float x, float y) => new(title, target, new GamePosition(x, y, 0));
+        radarReader.Quests = [new SideQuest("Kids on Patrol", "q02", "11", false, true, "Find them.")];
+        radarReader.Markers = [Mark("Kids on Patrol", null, 0, 0), Mark("Kids on Patrol", "Child01", 100, 0), Mark("Kids on Patrol", "Child02", 200, 0),
+            Mark("Back Home", null, 0, 500), Mark("Someone Else", "Child01", 9, 9)];
+        radarReader.Givers = [new QuestGiver("Weapons on a Rampage", new GamePosition(0, -300, 0))];
+        var spots = radar.Spots();
+        check("radar: a side quest under way shows its targets, not its own marker", spots.Count(s => s.Kind == RadarKind.Quest) == 2 && !spots.Any(s => s.Kind == RadarKind.Quest && s.At.X == 0));
+        check("radar: the givers of quests not taken", spots.Count(s => s.Kind == RadarKind.Giver) == 1);
+        check("radar: the live story objective's marker", radarTracker.LiveObjective?.Title == "Back Home" && spots.Where(s => s.Kind == RadarKind.Story).Select(s => s.At.Y).SequenceEqual([500f]));
+        check("radar: what is marked for a quest not under way does not show", !spots.Any(s => s.At.X == 9));
+        radarReader.Quests = [new SideQuest("Kids on Patrol", "q02", "99", true, false, "Done.")];
+        check("radar: a quest cleared shows nothing", !radar.Spots().Any(s => s.Kind == RadarKind.Quest));
+        check("radar: east, north and up in metres", Radar.Offset(radarReader, new(100, 200, 0), new(400, 600, 300)) == new RadarOffset(3, 4, 3));
+        var radarMap = typeof(Ff7rChapterReader).GetInterfaceMap(typeof(IGameReader));
+        bool Own(string name) => radarMap.TargetMethods[Array.FindIndex(radarMap.InterfaceMethods, m => m.Name == name)].DeclaringType == typeof(Ff7rChapterReader);
+        check("radar: FF7R's reader gives its heading and map axes itself", Own(nameof(IGameReader.ReadHeading)) && Own(nameof(IGameReader.OnMap)));
+        check("radar: a reader without them: no heading, X east and Y north", new NoGameReader().ReadHeading() is null && ((IGameReader)new NoGameReader()).OnMap(new(1, 2, 3)) == (1, 2));
+
         // ---- Checklist: which steps show, with which tag -------------------------------------------------------------
         var list = new Checklist(tracker, rules, status, area);
         tracker.Guide = ProgressTrackerTests.SmallGuide();

@@ -10,6 +10,17 @@ public static class World
         return Math.Sqrt(dx * dx + dy * dy + dz * dz) / unitsPerMetre;
     }
 
+    /// <summary>
+    /// Of one quest's map markers, the ones to walk to: its targets (the kids still to find) when it has any, else its own
+    /// marker when there is just one (two would be a guess).
+    /// </summary>
+    public static List<QuestMarker> Marked(IEnumerable<QuestMarker> quest)
+    {
+        var all = quest.ToList();
+        var targets = all.Where(m => m.Target is not null).ToList();
+        return targets.Count > 0 ? targets : all.Count == 1 ? all : [];
+    }
+
     /// <summary>"12 m": 1 m up close, 5 m to 100 m, 10 m beyond.</summary>
     public static string Metres(double metres)
     {

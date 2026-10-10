@@ -212,9 +212,7 @@ public sealed class TrailRecorder(IGameReader reader, ProgressTracker tracker, G
     string? MarkerDistance(Objective o, GamePosition p)
     {
         if (!_rules.IsQuest(o) || _tracker.Progress.Done.Contains(o.Id) || _reader.ReadQuestMarkers() is not { } markers) return null;
-        var mine = markers.Where(m => GuideRules.SameQuest(o, m.Title)).ToList();
-        var targets = mine.Where(m => m.Target is not null).ToList();
-        if (targets.Count == 0) targets = mine.Count == 1 ? mine : [];
+        var targets = World.Marked(markers.Where(m => GuideRules.SameQuest(o, m.Title)));
         if (targets.Count == 0) return null;
         return World.Metres(targets.Min(m => World.Distance(m.At, p, _reader.UnitsPerMetre)));
     }

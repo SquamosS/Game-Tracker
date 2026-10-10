@@ -34,8 +34,8 @@ public sealed record SideQuest(string Title, string Quest, string Stage, bool Fi
 public sealed record QuestGiver(string Title, GamePosition At);
 
 /// <summary>
-/// A spot the game marks on its map for a side quest under way: the quest's title (SideQuest.Title), what is marked
-/// (a person to find, by the game's own name; null = the quest's own marker) and where.
+/// A spot the game marks on its map for a quest under way: the quest's title (SideQuest.Title, or the story objective's
+/// GameObjective.Title), what is marked (a person to find, by the game's own name; null = the quest's own marker) and where.
 /// </summary>
 public sealed record QuestMarker(string Title, string? Target, GamePosition At);
 
@@ -107,6 +107,12 @@ public interface IGameReader : IDisposable
 
     GamePosition? ReadPosition();
 
+    /// <summary>The way the player faces: degrees clockwise from the north of the game's map (OnMap). Null = not known.</summary>
+    double? ReadHeading() => null;
+
+    /// <summary>Where a point lies on the game's own map, east and north, in the game's units. Default: X east, Y north.</summary>
+    (double East, double North) OnMap(GamePosition p) => (p.X, p.Y);
+
     /// <summary>The area a point lies in (the player's, a chest's...).</summary>
     GameLocation? ReadLocation(GamePosition p);
 
@@ -116,7 +122,7 @@ public interface IGameReader : IDisposable
     /// <summary>Who gives the side quests the quest page lists and that are not taken yet, standing in the level now. Null = not known.</summary>
     IReadOnlyList<QuestGiver>? ReadQuestGivers() => null;
 
-    /// <summary>What the game's map marks for the side quests under way (targets, the quest's own marker). Null = not known.</summary>
+    /// <summary>What the game's map marks for the quests under way (side quests' targets and own markers, the story objective's). Null = not known.</summary>
     IReadOnlyList<QuestMarker>? ReadQuestMarkers() => null;
 
     IGameNames Names { get; }
@@ -227,6 +233,8 @@ public abstract class GameReaderBase : IGameReader
     public virtual int? ReadChapter() => null;
     public virtual GameState? ReadGameState() => null;
     public virtual GamePosition? ReadPosition() => null;
+    public virtual double? ReadHeading() => null;
+    public virtual (double East, double North) OnMap(GamePosition p) => (p.X, p.Y);
     public virtual GameLocation? ReadLocation(GamePosition p) => null;
     public virtual IReadOnlyList<FieldActor>? ReadFieldActors() => null;
     public virtual IReadOnlyList<QuestGiver>? ReadQuestGivers() => null;

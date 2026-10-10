@@ -63,6 +63,7 @@ public partial class MainWindow : Window, IProgressHost
     readonly ChestGuide _chests;
     readonly TrailRecorder _trails;
     readonly Checklist _checklist;
+    readonly Radar _radar;
 
     Chapter? CurrentChapter => _tracker.CurrentChapter;
     Objective? CurrentStory => _tracker.CurrentStory;
@@ -93,6 +94,7 @@ public partial class MainWindow : Window, IProgressHost
         _chests = new ChestGuide(_reader, _tracker, _rules, _area, _status, _live, _data, _logs);
         _trails = new TrailRecorder(_reader, _tracker, _rules, _area, _status, _live, _data, _logs);
         _checklist = new Checklist(_tracker, _rules, _status, _area);
+        _radar = new Radar(_reader, _tracker, _status, _chests);
         _area.Load();
         _chests.Load();
         _trails.Load();
@@ -103,7 +105,7 @@ public partial class MainWindow : Window, IProgressHost
         WarnBox.MouseLeftButtonDown += (_, e) => { e.Handled = true; _warnOpen = !_warnOpen; Render(); };
         Lang.Changed += OnLanguageChanged;
         // The quest pop-up shows with the overlay, whatever hid it (a menu, Ctrl+Shift+G, the tray).
-        IsVisibleChanged += (_, _) => _quest.Allowed = _location.Allowed = IsVisible;
+        IsVisibleChanged += (_, _) => _quest.Allowed = _location.Allowed = _radarWindow.Allowed = IsVisible;
         // The quest sits under the location panel: follow its size and whether it shows.
         _quest.Below = _location;
         _location.SizeChanged += (_, _) => _quest.Reposition();
@@ -112,7 +114,7 @@ public partial class MainWindow : Window, IProgressHost
         SourceInitialized += (_, _) => SetupHotkeys();
         // The poll timer and the guide watcher must stop too: left running, a closed overlay keeps reading the game
         // and saving its own, older progress over the one a reopened overlay saves.
-        Closed += (_, _) => { Lang.Changed -= OnLanguageChanged; _toast.Close(); _quest.Close(); _location.Close(); _poll.Stop(); _watcher?.Dispose(); _native?.Dispose(); _reader.Dispose(); };
+        Closed += (_, _) => { Lang.Changed -= OnLanguageChanged; _toast.Close(); _quest.Close(); _location.Close(); _radarWindow.Close(); _radarTick.Stop(); _poll.Stop(); _watcher?.Dispose(); _native?.Dispose(); _reader.Dispose(); };
         LoadGuide();
         WatchGuides();
         WatchGame();
@@ -178,9 +180,28 @@ public partial class MainWindow : Window, IProgressHost
         _poll.Tick += (_, _) => PollGame();
         _poll.Start();
         PollGame();
+        _radarTick.Tick += (_, _) => DrawRadar();
+        _radarTick.Start();
     }
 
     readonly DispatcherTimer _poll = new() { Interval = TimeSpan.FromSeconds(1) };
+
+    /// <summary>The radar at the bottom left (RadarWindow): its spots are gathered once a poll, where you stand and face ten times a second.</summary>
+    readonly RadarWindow _radarWindow = new();
+    readonly DispatcherTimer _radarTick = new() { Interval = TimeSpan.FromMilliseconds(100) };
+    List<RadarSpot> _radarSpots = [];
+
+    /// <summary>Two small reads (position, heading) while the overlay shows; nothing while it is hidden.</summary>
+    void DrawRadar()
+    {
+        if (!_live || !IsVisible || !_tracker.InGame || _radarSpots.Count == 0)
+        {
+            _radarWindow.Draw(null, null, [], _reader);
+            return;
+        }
+        var me = _reader.ReadPosition();
+        _radarWindow.Draw(me, me is null ? null : _reader.ReadHeading(), _radarSpots, _reader);
+    }
 
     void PollGame()
     {
@@ -197,6 +218,7 @@ public partial class MainWindow : Window, IProgressHost
         FollowGameState();
         changed |= _area.Follow(position);
         _trails.Follow();
+        _radarSpots = _radar.Spots();
         if (_tracker.InGame) { _chests.LogChests(); _chests.LogChestFlags(); _chests.LogFieldActors(); }
         // Distances to chests change as you walk: redraw when a rounded one does, at most every 2 s.
         if (DateTime.Now - _distancesAt >= TimeSpan.FromSeconds(2))

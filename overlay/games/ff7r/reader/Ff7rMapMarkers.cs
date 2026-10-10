@@ -23,6 +23,8 @@ public sealed partial class Ff7rChapterReader
 
     static readonly Regex QuestTargetIcon = new(@"^MapIcon(\d{3})_qst_q(\d+)_(\w+)$", RegexOptions.Compiled);
     static readonly Regex SideQuestId = new(@"^(\d{3})_\w+?_q(\d+)$", RegexOptions.Compiled);
+    /// <summary>The story objective's marker: "080_SLU5B_Chapter09_100_00" is objective "$str080_Chapter09_Step100".</summary>
+    static readonly Regex StoryMarker = new(@"^(\d{3})_[A-Za-z0-9]+_(Chapter\d+)_(\d{3})_\d+$", RegexOptions.Compiled);
 
     long MarkerOwnerVtable => Version == "Steam 1.0.0.7" && _moduleBase != 0 ? (long)_moduleBase + MarkerOwnerVtableRva : 0;
 
@@ -77,14 +79,16 @@ public sealed partial class Ff7rChapterReader
 
     /// <summary>
     /// The quest page's side quests under way and what the map marks for them: their targets ("MapIcon080_qst_q2_Child01"
-    /// for "080_SLU5B_q02": the same map, the same quest number) and their own marker ("080_SLU5B_q02_11").
+    /// for "080_SLU5B_q02": the same map, the same quest number) and their own marker ("080_SLU5B_q02_11"); and the story
+    /// objectives' markers, named by the objective's title (StoryMarker).
     /// </summary>
     public IReadOnlyList<QuestMarker>? ReadQuestMarkers()
     {
         if (ReadMapMarkers() is not { } markers) return null;
         // Asked for every step of the chapter: the same answer while the markers and the quest page are the same lists.
-        var sides = SideQuests;
-        if (ReferenceEquals(_questMarkersFrom.Markers, markers) && ReferenceEquals(_questMarkersFrom.Sides, sides)) return _questMarkersFrom.Result;
+        var (sides, rows) = (SideQuests, _objectiveRows);
+        if (ReferenceEquals(_questMarkersFrom.Markers, markers) && ReferenceEquals(_questMarkersFrom.Sides, sides) && ReferenceEquals(_questMarkersFrom.Rows, rows))
+            return _questMarkersFrom.Result;
         var result = new List<QuestMarker>();
         foreach (var side in sides.Where(s => s.UnderWay && !s.Finished))
         {
@@ -97,10 +101,21 @@ public sealed partial class Ff7rChapterReader
                 else if (name.StartsWith(side.Quest + "_", StringComparison.Ordinal))
                     result.Add(new QuestMarker(side.Title, null, at));
         }
-        _questMarkersFrom = (markers, sides, result);
+        // The story's objectives by their title key, from the objective search's rows.
+        if (rows is not null)
+        {
+            var titles = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var o in rows.Values)
+                if (o.Title is { Length: > 0 } title) titles.TryAdd(o.TitleKey, title);
+            foreach (var (name, at) in markers)
+                if (StoryMarker.Match(name) is { Success: true } story
+                    && titles.TryGetValue($"$str{story.Groups[1].Value}_{story.Groups[2].Value}_Step{story.Groups[3].Value}", out var title))
+                    result.Add(new QuestMarker(title, null, at));
+        }
+        _questMarkersFrom = (markers, sides, rows, result);
         return result;
     }
-    (object? Markers, object? Sides, IReadOnlyList<QuestMarker>? Result) _questMarkersFrom;
+    (object? Markers, object? Sides, object? Rows, IReadOnlyList<QuestMarker>? Result) _questMarkersFrom;
 
     /// <summary>data\ff7r\logs\map-markers.log: the markers each time the set of names changes (for working out the story's).</summary>
     void LogMarkers(List<(string Name, GamePosition At)> markers)
