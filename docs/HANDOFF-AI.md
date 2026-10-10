@@ -6,6 +6,12 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 
 ## 0. Pembaruan 10 Oktober 2026 (sesi Claude, baca dulu)
 
+**>>> LANJUTKAN DI SINI (akhir sesi 10 Okt ~14:10; chat ditutup karena terlalu panjang) <<<**
+- **Progres user**: Ch8 "Budding Bodyguard", langkah cerita *Through the Backstreets / Around the Gate*, sekitar Twilight Valley menuju Station Way. Sudah: Talisman, Chakra (Church), Cait Sith's Theme, Caliginous Bracelet. Peti dibuka di sesi ini: Ether (Rooftops, obt080_treasure0040), 500 gil (obt080_treasure0050), Caliginous (obt080_treasure0060).
+- **Tugas berikutnya (user sudah setuju): cari flag peti "sudah dibuka" yang live** dengan snapshot penuh (skill `/memory-research`, bagian "Chest opened flag"). Target: peti **Mythril Armlet** `obt080_treasure0160` di **Station Way** (-23928, 7821, 849), BELUM dibuka. Alur: user berdiri di depan peti tanpa membuka -> `snap C0` -> user buka -> `snap C1` -> `bdiff C0 C1` + `same` -> uji kandidat di peti berikutnya (peti lain di Station Way/Center District, lihat `data/chests/obt080.tsv`). D: punya ~60 GB kosong (snapshot ~8,5 GB; hapus setelah selesai; snapshot lama `research/scan/M0.snap` juga boleh dihapus kalau perlu ruang, tanya user dulu).
+- Yang SUDAH gagal (jangan diulang): nomor di tabel flag (int +0x10 baris `stfTreasure_...`, mis. 0x2079) bukan bit di blok flag save materia+0x40E00; field aktor peti (+0x518 = render, komponen +0x7E0/+0x7E4 = animasi); rujukan FName/angka flag; savediff blok flag umum setelah autosave (hanya 5 bit berubah, tak cocok). Kemungkinan flag ada di ChunkChapter save (luar rentang yang dibandingkan) atau objek runtime lain. Detail: `research/notes.md` "Status peti sudah dibuka live".
+- Overlay sekarang (semua sudah di-commit/push, build bersih): pop-up kiri atas = **lokasi** (area + lantai + daftar peti di area ini yang belum diketahui dibuka, dengan jarak) di atas **quest**; overlay kanan = checklist dengan label `➜ AREA` untuk langkah di area lain dan jarak ke peti; peti "dibuka" dipelajari (item yang masuk == isi peti, dalam 4 m, bukan battle/menu/baru load) ke `data/chests/opened.json`, atau dianggap dibuka bila semua isinya langkah panduan yang sudah dicentang dan peti itu satu-satunya pemegang item tsb. Kalau flag game ketemu, ganti/lengkapi logika ini (`MainWindow.Guidance.cs` ChestOpened/Collected/ChestsHere).
+
 **Aturan baru dari user**
 - **Push otomatis**: setiap commit langsung di-push ke `backup/local-2026-10-08` tanpa bertanya. Tetap jangan sentuh `main`/PR. Tanya dulu hanya untuk force-push, file besar/sensitif, atau build gagal.
 - Restart overlay untuk perbaikan boleh: `Stop-Process GameTracker`, `dotnet build`, jalankan `GameTracker.exe --game ff7r` (langsung overlay).
@@ -25,9 +31,9 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 - Koreksi disetujui: item yang bisa dibeli jadi opsional, disc Ch14 missable, duplikat dihapus (Otherworldly Crystal Ch9, Moogle Medal Ch13, Bahamut Ch14), item baru (Crescent Moon Charm Ch3, Barrier Materia Ch4, Champion Belt, Enemy Skill, Whack-a-Box Hard, Pull-Up Challenge, Chakra (2) Ch21).
 - Ch7+ tetap belum diverifikasi di game; koreksi saat user main.
 
-**Progres user**: Ch7, sebelum Airbuster, 5/12. Masih terbuka: Discovery: Waste Recovery (Security Ops), Magic Up (Waste Storage), Bombing Mission (Gate Office), Titanium Bangle (otomatis). Crescent Moon Charm, Barrier Materia, Power Wristguards sudah dicentang (dicek dari inventory).
+**Progres user (lama, 10 Okt pagi)**: Ch7, sebelum Airbuster, 5/12. Masih terbuka: Discovery: Waste Recovery (Security Ops), Magic Up (Waste Storage), Bombing Mission (Gate Office), Titanium Bangle (otomatis). Crescent Moon Charm, Barrier Materia, Power Wristguards sudah dicentang (dicek dari inventory).
 
-**Tools**: scanner `tools/ff7r-scan` (menulis ke `research/scan/`, di-ignore git) punya perintah baru: who, strs, vt, base, obj, module, navi, inventory, pair, vecnear, fdiff, bdiff, find dengan lebar 1/2/4, filter float (fsame, fchg, fdir, fnear, fmoved).
+**Tools**: scanner `tools/ff7r-scan` (menulis ke `research/scan/`, di-ignore git) punya perintah: who, strs, vt, base, obj, module, navi, inventory, pair, vecnear, fdiff, bdiff, find dengan lebar 1/2/4, filter float (fsame, fchg, fdir, fnear, fmoved); sejak 10 Okt siang juga fnames, uobjs, fields, rows, rewards, points, volumes, chests, chestdump, chestrec, flagbits, flaglive, hex, savediff (daftar & arti di skill `memory-research`).
 
 **Malam 10 Okt (user tidur, belum dites di game)**
 - Struktur per game: semua file FF7R di `overlay/games/ff7r/` (game.json, guide.json, items.json, assets/, reader/). `GameRegistry` membaca `games/<id>/game.json`; game tanpa `reader` = overlay manual (hotkey), dites dengan game uji. Template di `games/_template`, cara pakai di `games/README.md`.
@@ -48,13 +54,15 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 
 **Peti (10 Okt siang)**
 - Overlay membaca tabel peti/reward/item game (`Ff7rTreasure.cs`) dan menampilkan jarak ke peti bila tepat satu peti berisi item langkah itu, di area yang sama dengan panduan, dan belum diambil sesi ini. Status "sudah dibuka" live BELUM ketemu (notes.md).
+- Pop-up lokasi mendaftar peti area ini yang belum diketahui dibuka (maks 5, terdekat dulu, Moogle Medal ikut). "Dibuka" dipelajari (`data/chests/opened.json`) atau disimpulkan dari langkah panduan yang dicentang; flag game belum ketemu.
 - Overlay menyimpan semua peti yang dimuat ke `data/chests/<tabel>.tsv` (digabung per id; area dilengkapi belakangan). Audit: `python -I tools/ff7r-scan/audit-chests.py [chapter...]` dari root proyek; 5 koreksi area (Ch9/Ch13/Ch14). Peta lain diaudit saat dimainkan.
 
 **Masih terbuka**
 - Deteksi difficulty otomatis (coba saat user main Hard).
 - Overlay ikut tersembunyi saat dialog ringan (masih bisa jalan) dan TIDAK tersembunyi di layar shop: nilai state sama dengan adegan dialog / main. Riset 10 Okt gagal (lihat notes.md "Dialog ringan vs adegan dialog"); user memilih tidak melanjutkan dulu. Ide: tanda HUD tampil, siklus snapshot penuh dengan shop.
 - Batas area masih kotak (bisa meleset di ruangan miring); bentuk persis ada di Model/BodySetup volume.
-- Penanda di atas peti dalam game (butuh posisi peti + kamera): belum.
+- Flag peti "sudah dibuka" dari game: belum ketemu (tugas berikutnya, lihat blok LANJUTKAN DI SINI).
+- Penanda di atas peti dalam game (butuh posisi peti + kamera): belum; user memilih jarak + daftar peti dulu.
 - Data panduan Ch11 & Ch15-18: sebagian area null (peta tak termuat saat ekspor nama).
 - README masih usang.
 
