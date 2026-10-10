@@ -261,11 +261,14 @@ public partial class MainWindow : Window
         bool handedOver = changedSlots.Count is > 0 and <= 3;
         // Items handed over in front of a chest that holds them: that chest is opened now (ChestOpened).
         if (handedOver) ChestOpened(owned.Where(o => changedSlots.Contains(o.Slot) && o.Id > 0).Select(o => o.Id).ToHashSet());
-        if (handedOver) LogItems(owned.Where(o => changedSlots.Contains(o.Slot) && o.Id > 0));
         if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; ForgetRecent(); _reader.ForgetChestCopy(); } // a save was loaded (or copied)
         bool IsNew(Ff7rChapterReader.Owned o) =>
             (_seenOwned.Add((o.Id, o.Obtained)) && o.Obtained >= _startedAt - 120) | (handedOver && changedSlots.Contains(o.Slot));
-        foreach (var o in owned.Where(o => o.Id > 0 && o.Id != 20).Where(IsNew).ToList())
+        var newItems = owned.Where(o => o.Id > 0 && o.Id != 20).Where(IsNew).ToList();
+        // A new item may sit in a slot that was empty (the end of the list: key items, the Graveyard Key), so not in
+        // changedSlots: log what is new, unless a save was loaded.
+        if (changedSlots.Count <= 3) LogItems(newItems.Concat(owned.Where(o => handedOver && changedSlots.Contains(o.Slot) && o.Id > 0)).DistinctBy(o => o.Slot));
+        foreach (var o in newItems)
         {
             // Consumables (ids below 100: potions, gil...) are never guide steps, so they are not learned. Neither is
             // anything that came with a loaded save.
@@ -393,7 +396,7 @@ public partial class MainWindow : Window
         Notify(Lang.T($"Learned: item {id} = {step.Name}", $"Dipelajari: item {id} = {step.Name}"));
     }
 
-    static readonly HashSet<string> ItemTypes = ["materia", "aksesori", "armor", "senjata", "summon", "music disc", "manuskrip"];
+    static readonly HashSet<string> ItemTypes = ["materia", "aksesori", "armor", "senjata", "summon", "music disc", "manuskrip", "item kunci"];
 
     /// <summary>Whether an item step not yet done follows the current story step (before the next one).</summary>
     bool ExpectingItem() => CurrentChapter is { } chapter && CurrentStory is { } story
@@ -738,6 +741,7 @@ public partial class MainWindow : Window
         "manuskrip" => "manuscript",
         "trofi" => "trophy",
         "kejadian" => "event",
+        "item kunci" => "key item",
         _ => label,
     };
 
@@ -754,6 +758,7 @@ public partial class MainWindow : Window
         "side quest" => "◎",
         "discovery" => "✧",
         "trofi" => "★",
+        "item kunci" => "⚷",
         _ => "•",
     };
 
@@ -771,6 +776,7 @@ public partial class MainWindow : Window
         "summon" => SummonColor,
         "trofi" => TrophyColor,
         "manuskrip" => ManuscriptColor,
+        "item kunci" => TrophyColor,
         _ => Muted,
     };
 
@@ -876,7 +882,9 @@ public partial class MainWindow : Window
                 SetStoryPosition(step);
                 int next = Array.FindIndex(chapter.Objectives, Array.IndexOf(chapter.Objectives, step) + 1, o => o.Type == "cerita");
                 if (next >= 0)
-                    foreach (var o in chapter.Objectives.Skip(next).Where(o => o.Type != "trofi"))
+                    // Steps that open with an earlier step (After), wherever the guide lists them, may be done already
+                    // (Ch8's Moogle Emporium goods come after "Battle Intel & VR" in the guide but are bought earlier).
+                    foreach (var o in chapter.Objectives.Skip(next).Where(o => o.Type != "trofi" && !(o.After is { } opens && Reached(opens))))
                         if (_progress.Done.Remove(o.Id)) _progress.History.Remove(o.Id);
                 _storyMayGoBack = false;
                 Save();

@@ -1179,6 +1179,15 @@
           "after": "c8-16-requests"
         },
         {
+          "id": "c8-21b-graveyard-key",
+          "type": "item kunci",
+          "name": "Graveyard Key",
+          "where": "Children's Secret Hideout: Moogle Emporium, 1 Moogle Medal. Wajib untuk side quest Paying Respects (pintu Slum Public Cemetery).",
+          "whereEn": "Children's Secret Hideout: Moogle Emporium, 1 Moogle Medal. Needed for the Paying Respects side quest (the Slum Public Cemetery gate).",
+          "missable": false,
+          "after": "c8-21-moogle-merchant"
+        },
+        {
           "id": "c8-22-disc-goldsaucer",
           "type": "music disc",
           "name": "Gold Saucer",
