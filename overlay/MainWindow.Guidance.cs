@@ -320,10 +320,23 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// A quest pick-up kept in the chest table (obt080_qst05_SlumAngelCard = the Guardian Angel's calling cards): it is
-    /// placed only while its quest needs it, so it is not a chest to list.
+    /// A quest pick-up kept in the chest table (obt080_qst05_SlumAngelCard = the Guardian Angel's calling cards) is
+    /// placed only while its quest needs it: it shows only while the game's live quest is that quest, same map and
+    /// number in its key (Ch. 3 keys look like "$str030_SLUM7_qst055", objects "oba030_qst055_Betty"). Plain chests
+    /// always show.
     /// </summary>
-    static bool IsQuestObject(Ff7rChapterReader.Chest chest) => chest.Id.Contains("_qst", StringComparison.OrdinalIgnoreCase);
+    bool QuestObjectShown(Ff7rChapterReader.Chest chest)
+    {
+        var pickUp = QuestPickUp.Match(chest.Id);
+        if (!pickUp.Success) return true;
+        var quest = _objective?.TitleKey is { } key ? QuestKey.Match(key) : null;
+        if (quest is not { Success: true } || quest.Groups[1].Value != pickUp.Groups[1].Value) return false;
+        string number = pickUp.Groups[2].Value, live = quest.Groups[2].Value;
+        return live == number || live == number + "0";
+    }
+
+    static readonly System.Text.RegularExpressions.Regex QuestPickUp = new(@"^obt(\d{3})_qst(\d+)_", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase),
+        QuestKey = new(@"^\$str(\d{3})_.*?qst(\d+)", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     /// <summary>
     /// The chests of the area you are in that are not known to be opened, nearest first (at most 5): what they hold and
@@ -334,7 +347,7 @@ public partial class MainWindow
     {
         if (!_live || _here is not { } here || _herePosition is not { } p) return [];
         return _reader.Chests
-            .Where(c => c.At is not null && c.Items.Length > 0 && !IsQuestObject(c) && !_opened.Contains(c.Id) &&ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase) && !Collected(c))
+            .Where(c => c.At is not null && c.Items.Length > 0 && QuestObjectShown(c) && !_opened.Contains(c.Id) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase) && !Collected(c))
             .Select(c => (Chest: c, Metres: Distance(c.At!, p)))
             .OrderBy(x => x.Metres).Take(5)
             .Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _itemMap.Name(id) ?? $"#{id}")), Metres(x.Metres))).ToList();
