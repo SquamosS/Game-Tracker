@@ -80,6 +80,7 @@ Check("no area in plain text", GuideRules.AreaOf(shiva with { Where = "Talk to J
 
 // ---- The tracker: ticks from the game, with a fake reader -----------------------------------------------------------
 ProgressTrackerTests.Run(Check, types);
+ModuleTests.Run(Check, types);
 
 Console.WriteLine($"{passed} passed, {failed} failed");
 return failed;

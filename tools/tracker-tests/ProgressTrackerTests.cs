@@ -10,6 +10,7 @@ sealed class FakeReader : GameReaderBase
     public List<SideQuest> Quests = [];
     public FakeNames FakeNames = new();
     public GameObjective? Objective;
+    public Func<GamePosition, GameLocation?>? Locate;
 
     public override string? Version => "test";
     public override int? ReadChapter() => Chapter;
@@ -18,6 +19,7 @@ sealed class FakeReader : GameReaderBase
     public override HashSet<int>? ReadLiveOwnedIds(IReadOnlyCollection<long> changedSlots) => LiveIds;
     public override HashSet<string>? ReadFlags() => [.. Flags];
     public override IReadOnlyList<SideQuest> SideQuests => Quests;
+    public override GameLocation? ReadLocation(GamePosition p) => Locate?.Invoke(p);
     public override GameObjective? ReadObjective(int chapter) => Objective;
     public override GameObjective? NewestObjective() => Objective;
     public override IReadOnlyList<GameObjective> Candidates => Objective is null ? [] : [Objective];
@@ -60,7 +62,7 @@ static class ProgressTrackerTests
         new(id, type, name, "Somewhere: here", false, null, Auto: auto, RewardOf: rewardOf);
 
     /// <summary>A small guide in FF7R's step types: two chapters with story, items, a disc, rewards, a side quest.</summary>
-    static Guide SmallGuide() => new("Test", "draft", [],
+    public static Guide SmallGuide() => new("Test", "draft", [],
     [
         new Chapter(1, "One", null,
         [

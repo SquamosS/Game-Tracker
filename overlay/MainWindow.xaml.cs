@@ -57,6 +57,12 @@ public partial class MainWindow : Window, IProgressHost
     /// <summary>Keeps the ticks in step with the game (Modules\Progress); the window shows them and adds manual ones.</summary>
     readonly ProgressTracker _tracker;
 
+    /// <summary>The guide's modules (Modules\\): whether steps are open, where you are, the chests, the trail.</summary>
+    readonly StepStatus _status;
+    readonly AreaTracker _area;
+    readonly ChestGuide _chests;
+    readonly TrailRecorder _trails;
+
     Chapter? CurrentChapter => _tracker.CurrentChapter;
     Objective? CurrentStory => _tracker.CurrentStory;
 
@@ -64,8 +70,8 @@ public partial class MainWindow : Window, IProgressHost
     void IProgressHost.Save() => Save();
     void IProgressHost.Persist() => Persist();
     void IProgressHost.Error(string text) => _error = text;
-    void IProgressHost.ItemsHandedOver(HashSet<int> ids) => ChestOpened(ids);
-    void IProgressHost.LogItems(IEnumerable<OwnedItem> items) => LogItems(items);
+    void IProgressHost.ItemsHandedOver(HashSet<int> ids) => _chests.LearnOpened(ids, _gameState);
+    void IProgressHost.LogItems(IEnumerable<OwnedItem> items) => _trails.LogItems(items);
 
     public MainWindow() : this(null) { }
 
@@ -81,9 +87,13 @@ public partial class MainWindow : Window, IProgressHost
         // The old shared layout kept the live files in data\: only a game with a reader wrote them.
         if (_live) foreach (var old in LiveFiles) DataPaths.MoveOld(_data, old);
         _tracker = new ProgressTracker(_reader, _rules, _data, _logs, this);
-        _links = LoadLinks();
-        _opened = LoadOpened();
-        _trail = LoadTrail();
+        _status = new StepStatus(_tracker, _rules, _reader);
+        _area = new AreaTracker(_reader, _tracker, _data, _logs);
+        _chests = new ChestGuide(_reader, _tracker, _rules, _area, _status, _live, _data, _logs);
+        _trails = new TrailRecorder(_reader, _tracker, _rules, _area, _status, _live, _data, _logs);
+        _area.Load();
+        _chests.Load();
+        _trails.Load();
         InitializeComponent();
         Header.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) DragMove(); };
         // Handled, so a click on the switch does not start dragging the overlay.
@@ -137,7 +147,7 @@ public partial class MainWindow : Window, IProgressHost
             else
             {
                 _guideAll = Guide.Load(file);
-                _points = LoadPoints(Path.Combine(_game!.Folder, "points.json"));
+                _trails.Points = TrailRecorder.LoadPoints(Path.Combine(_game!.Folder, "points.json"));
                 _tracker.Progress = ProgressStore.Load(_data, _guideAll.Game);
                 _hardMode = _tracker.Progress.Hard;
                 _tracker.Guide = _guideAll.ForMode(_hardMode);
@@ -181,16 +191,16 @@ public partial class MainWindow : Window, IProgressHost
         bool changed = _tracker.Poll(out bool wasInGame);
         FollowRecap();
         var position = _tracker.InGame ? _reader.ReadPosition() : null;
-        LogPosition(position);
+        _area.LogPosition(position);
         FollowGameState();
-        changed |= FollowLocation(position);
-        FollowTrail();
-        if (_tracker.InGame) { LogChests(); LogChestFlags(); LogFieldActors(); }
+        changed |= _area.Follow(position);
+        _trails.Follow();
+        if (_tracker.InGame) { _chests.LogChests(); _chests.LogChestFlags(); _chests.LogFieldActors(); }
         // Distances to chests change as you walk: redraw when a rounded one does, at most every 2 s.
         if (DateTime.Now - _distancesAt >= TimeSpan.FromSeconds(2))
         {
             string distances = string.Join("|", (CurrentChapter?.Objectives ?? []).Where(o => !_tracker.Progress.Done.Contains(o.Id)).Select(StepDistance))
-                + "#" + string.Join("|", ChestsHere());
+                + "#" + string.Join("|", _chests.ChestsHere());
             if (distances != _distances) { _distances = distances; _distancesAt = DateTime.Now; changed = true; }
         }
         // The notice counts down only while you can see it: a chapter's recap must not run out behind a cutscene.
@@ -205,55 +215,7 @@ public partial class MainWindow : Window, IProgressHost
         if (changed || status != _detectStatus || wasInGame != _tracker.InGame) { _detectStatus = status; Render(); }
     }
 
-    GameLocation? _here;
-
-    /// <summary>Names the area you are in from the game's own area volumes (Ff7rMapArea.cs).</summary>
-    bool FollowLocation(GamePosition? p)
-    {
-        var here = p is not null ? _reader.ReadLocation(p) : null;
-        var (lastHere, lastPosition) = (_here, _herePosition);
-        _herePosition = p;
-        if (here == _here) return false;
-        LearnLink(lastHere, lastPosition, here, p);
-        _here = here;
-        // Every change of area, with the position, in data\logs\area.log: to check maps whose areas read differently.
-        try
-        {
-            File.AppendAllText(Path.Combine(_logs, "area.log"),
-                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\tch {_tracker.DetectedChapter}\t{here?.Area ?? "-"}\t{here?.Floor}\t{p?.X:F0}\t{p?.Y:F0}\t{p?.Z:F0}{Environment.NewLine}");
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
-        return true;
-    }
-
-    GamePosition? _herePosition;
-
-    GamePosition? _loggedPosition;
-
-    /// <summary>
-    /// Appends the controlled character's position to data\logs\position.log whenever it moved 2 m or more, with the
-    /// chapter and the live objective: samples for naming the location later (not shown on the overlay yet).
-    /// </summary>
-    void LogPosition(GamePosition? position)
-    {
-        if (position is not { } p) return;
-        if (_loggedPosition is { } last
-            && Math.Sqrt((p.X - last.X) * (p.X - last.X) + (p.Y - last.Y) * (p.Y - last.Y) + (p.Z - last.Z) * (p.Z - last.Z)) < 200) return;
-        _loggedPosition = p;
-        try
-        {
-            File.AppendAllText(Path.Combine(_logs, "position.log"),
-                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\tch {_tracker.DetectedChapter}\t{p.X:F0}\t{p.Y:F0}\t{p.Z:F0}\t{_tracker.LiveObjective?.Title}{Environment.NewLine}");
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
-    }
-
     static readonly System.Text.RegularExpressions.Regex HardNote = new(@"\s*\(?Hard:.*$", System.Text.RegularExpressions.RegexOptions.Compiled);
-
-    /// <summary>Whether the step is in the area you are in now (and on its floor, when the guide names one).</summary>
-    bool IsHere(Objective o) => _here is { } here && GuideRules.AreaOf(o) is var (area, floor)
-        && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase)
-        && (floor is null || (here.Floor ?? "").Split(' ', '-').Contains(floor));
 
     /// <summary>
     /// Open items, side quests and discoveries of this chapter in the area you are in, plus the side quest or
@@ -263,48 +225,8 @@ public partial class MainWindow : Window, IProgressHost
     /// </summary>
     List<Objective> HereSteps() => CurrentChapter is not { } chapter ? []
         : chapter.Objectives.Where(o => !_rules.IsStory(o) && !_rules.IsTrophy(o) && !_tracker.Progress.Done.Contains(o.Id)
-            && (IsLiveQuest(o) || (IsHere(o) && !NotYet(o, chapter) && ChestPlaced(o) != false))
+            && (_status.IsLiveQuest(o) || (_area.IsHere(o) && !_status.NotYet(o, chapter) && _chests.ChestPlaced(o) != false))
             && !(GuideRules.RewardOf(o, chapter) is { } quest && !_tracker.Progress.Done.Contains(quest.Id))).ToList();
-
-    /// <summary>
-    /// Whether the game's quest page shows this side quest (IGameReader.SideQuests): "???" quests
-    /// have none yet. Null when the page cannot tell: not a side quest, or none of this chapter's side quests has an entry
-    /// (another chapter, or the objective search has not run yet).
-    /// </summary>
-    bool? SideQuestOpen(Objective o)
-    {
-        if (!_rules.IsQuest(o) || CurrentChapter is not { } chapter) return null;
-        var sides = _reader.SideQuests;
-        bool Listed(Objective q) => sides.Any(s => GuideRules.SameQuest(q, s.Title));
-        if (!chapter.Objectives.Any(q => _rules.IsQuest(q) && Listed(q))) return null;
-        return Listed(o);
-    }
-
-    /// <summary>
-    /// A step named by After or Revisit is reached once it is the current story step or done: Ch8's side quests open when
-    /// "Requests for the Mercenary" starts, not when it ends.
-    /// </summary>
-    bool Reached(string id) => _tracker.Progress.Done.Contains(id) || CurrentStory?.Id == id;
-
-    /// <summary>
-    /// Not open yet: the guide puts the step after the current story step, or the step that opens it (After) is not done.
-    /// </summary>
-    bool NotYet(Objective o, Chapter chapter)
-    {
-        if (SideQuestOpen(o) is { } open) return !open; // the game's quest page decides (Ch8)
-        if (o.After is { } after) return !Reached(after); // After decides, wherever the guide lists the step
-        int index = Array.IndexOf(chapter.Objectives, o);
-        if (index < 0 || CurrentStory is not { } story) return false;
-        int current = Array.IndexOf(chapter.Objectives, story);
-        // The story step this one belongs to: the last one before it.
-        int phase = Array.FindLastIndex(chapter.Objectives, index, s => _rules.IsStory(s));
-        return current >= 0 && phase > current;
-    }
-
-    /// <summary>A side quest or discovery that is the game's live objective now.</summary>
-    /// Not one left for later (GameObjective.Later): that one shows only in its area.
-    bool IsLiveQuest(Objective o) => _rules.IsQuestOrEvent(o) && _tracker.LiveObjective?.Title is { Length: >= 3 } title && GuideRules.SameQuest(o, title)
-        && !_tracker.LiveObjective.Later;
 
     string _hereShown = "";
     readonly ToastWindow _toast = new();
@@ -333,7 +255,7 @@ public partial class MainWindow : Window, IProgressHost
         // Hidden with the overlay: drawn when it shows again (FollowGameState), new steps then still fade in.
         if (_menuOpen || _userHidden) return;
         if (steps.Count == 0) _toast.FadeOut();
-        else _toast.Show(_here?.Area ?? "", steps.Select(o => (StepDistance(o) is { } d ? $"{o.Name} · {d}" : o.Name, o.Missable)).ToList(), steps.Any(o => !before.Contains(o.Id)));
+        else _toast.Show(_area.Here?.Area ?? "", steps.Select(o => (StepDistance(o) is { } d ? $"{o.Name} · {d}" : o.Name, o.Missable)).ToList(), steps.Any(o => !before.Contains(o.Id)));
         if (shown != _hereShown && steps.Count > 0)
             HereBox.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0.25, 1, TimeSpan.FromMilliseconds(350))
                 { AutoReverse = false, RepeatBehavior = new System.Windows.Media.Animation.RepeatBehavior(4) });
@@ -345,40 +267,6 @@ public partial class MainWindow : Window, IProgressHost
 
     string _distances = "";
     DateTime _distancesAt;
-
-    /// <summary>Item name -> the one chest holding it (null: several do), built again when the chest list changes.</summary>
-    Dictionary<string, GameChest?> _chestByName = new(StringComparer.OrdinalIgnoreCase);
-    IReadOnlyList<GameChest>? _chestsIndexed;
-    /// <summary>The area each chest stands in (Ff7rMapArea.cs), once known.</summary>
-    readonly Dictionary<GameChest, (string? Area, DateTime When)> _chestArea = [];
-
-    /// <summary>
-    /// How far Cloud is from the chest holding this step's item ("12 m", rounded to 1 m up close, 5 m to 100 m, 10 m
-    /// beyond), from the game's chest tables (Ff7rTreasure.cs). Only when exactly one chest of the loaded maps holds it,
-    /// that chest stands in the area the guide names for the step, and the item was not obtained since the overlay
-    /// started (the chest is empty then). Anything else would be a guess: null.
-    /// </summary>
-    string? ChestDistance(Objective o)
-    {
-        if (!_live || _herePosition is not { } p || !_rules.IsItem(o) || GuideRules.AreaOf(o) is not var (stepArea, _)) return null;
-        if (!ReferenceEquals(_chestsIndexed, _reader.Chests)) IndexChests();
-        if (_chestByName.GetValueOrDefault(o.Name) is not { At: { } at } only || Placed(only) == false) return null;
-        // The game's flag when known; else the item arriving this session or a learned opening means the chest is empty.
-        if (_reader.ChestOpened(only) ?? (only.Items.Any(_tracker.Obtained.Contains) || _opened.Contains(only.Id))) return null;
-        if (ChestArea(only) is not { } area || !area.Equals(stepArea, StringComparison.OrdinalIgnoreCase)) return null;
-        return Metres(Distance(at, p));
-    }
-
-    void IndexChests()
-    {
-        _chestsIndexed = _reader.Chests;
-        _chestByName = new(StringComparer.OrdinalIgnoreCase);
-        _chestArea.Clear();
-        foreach (var chest in _chestsIndexed)
-            foreach (var name in chest.Items.Select(_names.Name).OfType<string>().Distinct())
-                foreach (var key in _names.ShortName(name) is { } shortName ? new[] { name, shortName } : [name])
-                    _chestByName[key] = _chestByName.ContainsKey(key) ? null : chest;
-    }
 
     // ---- Step types as shown: the game's own list (game.json "stepTypes", GuideRules.TypeOf) --------------------------
 
@@ -471,7 +359,7 @@ public partial class MainWindow : Window, IProgressHost
         try
         {
             File.AppendAllText(Path.Combine(_logs, "state.log"),
-                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}	{(state is null ? "-" : state.Detail)}	{_here?.Area}	{_tracker.LiveObjective?.Title}{Environment.NewLine}");
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}	{(state is null ? "-" : state.Detail)}	{_area.Here?.Area}	{_tracker.LiveObjective?.Title}{Environment.NewLine}");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         // Shown only while exploring (1): menus (3, also a battle's command menu), cutscenes (5) and battles (0) hide
@@ -629,7 +517,7 @@ public partial class MainWindow : Window, IProgressHost
         var chapter = CurrentChapter;
         RenderObjective();
         // Where you are has its own panel at the top left, above the quest: the area large, the floor small.
-        _location.SetLocation(_tracker.InGame ? _here?.Area : null, _here?.Floor, _tracker.InGame ? ChestsHere() : []);
+        _location.SetLocation(_tracker.InGame ? _area.Here?.Area : null, _area.Here?.Floor, _tracker.InGame ? _chests.ChestsHere() : []);
         RenderRoute(chapter);
         RenderNotice();
         RenderHere();
@@ -716,7 +604,7 @@ public partial class MainWindow : Window, IProgressHost
             bool isDone = _tracker.Progress.Done.Contains(o.Id);
             if (isDone && !_showDone) continue;
             string? tag = _rules.IsStory(o) || isDone ? null : phase == current ? TagNow
-                : phase < current && (o.Revisit is null || Reached(o.Revisit)) ? TagBehind : null;
+                : phase < current && (o.Revisit is null || _status.Reached(o.Revisit)) ? TagBehind : null;
             var row = Row(o, isDone, o.Id == nextId, tag);
             List.Children.Add(row);
             if (o.Id == nextId) Dispatcher.BeginInvoke(() => row.BringIntoView(), DispatcherPriority.Loaded);
@@ -763,13 +651,13 @@ public partial class MainWindow : Window, IProgressHost
             // "Battle Intel & VR" in the guide but open with "Requests for the Mercenary").
             if (_tracker.Progress.Done.Contains(o.Id)) continue;
             // The game's quest page first (Ch8's side quests); else After, wherever the guide lists the step; else the order.
-            if (!(SideQuestOpen(o) is { } listed ? listed || IsLiveQuest(o) : o.After is { } opens ? Reached(opens) || IsLiveQuest(o) : phase <= current)) continue;
+            if (!(_status.SideQuestOpen(o) is { } listed ? listed || _status.IsLiveQuest(o) : o.After is { } opens ? _status.Reached(opens) || _status.IsLiveQuest(o) : phase <= current)) continue;
             // Trophies are not tracked here: the rewards they come with are steps of their own.
             if (_rules.IsTrophy(o)) continue;
             if (o.Optional && phase < current) continue;
             // Behind you on a stretch you cannot walk back: shown again once you can (Revisit).
-            if (phase < current && o.Revisit is { } back && !Reached(back)) continue;
-            open.Add((o, IsHere(o) ? TagHere : phase < current ? TagBehind : null));
+            if (phase < current && o.Revisit is { } back && !_status.Reached(back)) continue;
+            open.Add((o, _area.IsHere(o) ? TagHere : phase < current ? TagBehind : null));
         }
         return open.OrderByDescending(x => x.Tag == TagHere).ThenByDescending(x => x.Step.Missable).ToList();
     }
