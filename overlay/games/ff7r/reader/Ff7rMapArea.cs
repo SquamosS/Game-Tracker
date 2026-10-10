@@ -68,9 +68,12 @@ public sealed partial class Ff7rChapterReader
     void ResolveVolumes()
     {
         var volumes = new List<Volume>();
+        // The fields are only read in maps without any "Navi..." volume (checked in map 080): where names exist they
+        // stay the only source, as before.
+        bool byFields = !_naviVolumes.Any(a => VolumeName.IsMatch(FName(ReadInt32(a + 0x18))));
         foreach (long actor in _naviVolumes)
         {
-            if (ReadInt64(actor) != NaviVolumeVtable || AreaNumbers(actor) is not var (map, layer, part)) continue;
+            if (ReadInt64(actor) != NaviVolumeVtable || AreaNumbers(actor, byFields) is not var (map, layer, part)) continue;
             if (_naviTexts.GetValueOrDefault($"$navi{map}_name_part{layer}_{part:000}") is not { } area) continue;
             long brush = ReadInt64(actor + 0x160);
             var b = new byte[24];
@@ -79,7 +82,7 @@ public sealed partial class Ff7rChapterReader
             if (!f.All(float.IsFinite) || f[3] <= 0 || f[4] <= 0 || f[5] <= 0) continue;
             // Some maps have no floor names (an empty or unreadable text): then the area stands alone.
             string? floor = _naviTexts.GetValueOrDefault($"$navi{map}_name_layer{layer}");
-            if (floor is not null && (floor.Trim().Length == 0 || floor.Any(c => c < ' ' || c > '\u024F'))) floor = null;
+            if (floor is not null && !Readable(floor, area)) floor = null;
             volumes.Add(new Volume(actor, area, floor, f[0], f[1], f[2], f[3], f[4], f[5]));
         }
         _volumes = volumes;
@@ -90,16 +93,25 @@ public sealed partial class Ff7rChapterReader
     /// A volume's map ("080"), layer ("001") and part key number (30 for part 3): from its name when it is
     /// "Navi070_Layer07_060_...", otherwise from its fields and the map number in its World's name.
     /// </summary>
-    (string Map, string Layer, int Part)? AreaNumbers(long actor)
+    (string Map, string Layer, int Part)? AreaNumbers(long actor, bool byFields)
     {
         if (VolumeName.Match(FName(ReadInt32(actor + 0x18))) is { Success: true } m)
             return (m.Groups[1].Value, "0" + m.Groups[2].Value, int.Parse(m.Groups[3].Value) * 10);
+        if (!byFields) return null;
         long level = ReadInt64(actor + 0x20), world = level == 0 ? 0 : ReadInt64(level + 0x20);
         if (world == 0 || WorldMap.Match(FName(ReadInt32(world + 0x18))) is not { Success: true } w) return null;
         int layer = ReadInt32(actor + 0x3B0), part = ReadInt32(actor + 0x3B4);
         if (layer is <= 0 or > 99 || part is <= 0 or > 99) return null;
         return (w.Groups[1].Value, layer.ToString("000"), part * 10);
     }
+
+    /// <summary>
+    /// Whether a floor name is real text: not empty, no control or replacement characters, and no CJK when the area
+    /// name has none (map 080's floor keys read as stray CJK characters in an English game).
+    /// </summary>
+    static bool Readable(string text, string area) =>
+        text.Trim().Length > 0 && !text.Any(c => c < ' ' || c == '�')
+        && (area.Any(c => c >= '⺀') || !text.Any(c => c >= '⺀'));
 
     /// <summary>An FName's text from the game's FNamePool, or "" when it cannot be read.</summary>
     string FName(int index)
