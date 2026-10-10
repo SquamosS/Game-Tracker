@@ -236,14 +236,36 @@ public partial class MainWindow
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
+    readonly Dictionary<string, bool> _chestFlagsLogged = [];
+
+    /// <summary>
+    /// Writes data\logs\chest-flag.log whenever the game's opened flag of a loaded chest changes (or is first read), with
+    /// where Cloud stands: the check that the flag (new on 10 Oct 2026) keeps meaning "opened" on other maps.
+    /// </summary>
+    void LogChestFlags()
+    {
+        var lines = new List<string>();
+        foreach (var chest in _reader.Chests)
+        {
+            // Unknown for a moment (the live copy not told apart yet) is not a change worth a line.
+            if (_reader.ChestOpened(chest) is not { } open || (_chestFlagsLogged.TryGetValue(chest.Id, out var was) && was == open)) continue;
+            _chestFlagsLogged[chest.Id] = open;
+            string names = string.Join(" + ", chest.Items.Select(id => _itemMap.Name(id) ?? $"#{id}"));
+            string distance = chest.At is { } at && _herePosition is { } p ? Metres(Distance(at, p)) : "";
+            lines.Add($"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{chest.Id}\tflag {(chest.Flag is { } f ? $"0x{f:X}" : "?")}\t{(open ? "opened" : "closed")}\t{distance}\t{names}");
+        }
+        if (lines.Count == 0) return;
+        try { File.AppendAllLines(Path.Combine(DataPaths.Logs, "chest-flag.log"), lines); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
     // ---- Chests opened, learned in front of them ----------------------------------------------------------------
 
     static readonly string OpenedFile = Path.Combine(DataPaths.Data, "chests", "opened.json");
 
     /// <summary>
-    /// Chests known to be opened (ids, e.g. "obt080_treasure0030"). The game's own "opened" state is not found yet
-    /// (research\notes.md), so this is learned: an item the chest holds arrived while Cloud stood within 4 m of it.
-    /// Chests opened before that was watched are not in here.
+    /// Chests learned to be opened (ids, e.g. "obt080_treasure0030"): an item the chest holds arrived while Cloud stood
+    /// within 4 m of it. Only a fallback now: the game's own flag (Ff7rChapterReader.ChestOpened) wins when it is known.
     /// </summary>
     readonly HashSet<string> _opened = LoadOpened();
 
@@ -378,6 +400,11 @@ public partial class MainWindow
     }
 
     /// <summary>
+    /// Opened: the game's own flag when it can be read; else learned (opened.json) or inferred from ticked steps (Collected).
+    /// </summary>
+    bool Opened(Ff7rChapterReader.Chest chest) => _reader.ChestOpened(chest) ?? (_opened.Contains(chest.Id) || Collected(chest));
+
+    /// <summary>
     /// A quest pick-up kept in the chest table (obt080_qst05_SlumAngelCard = the Guardian Angel's calling cards) is
     /// placed only while its quest needs it: it shows only while the game's live quest is that quest, same map and
     /// number in its key (Ch. 3 keys look like "$str030_SLUM7_qst055", objects "oba030_qst055_Betty"; Ch. 14 keys "$str110_SLU5A_Quest070"). Plain chests
@@ -405,7 +432,7 @@ public partial class MainWindow
     {
         if (!_live || _here is not { } here || _herePosition is not { } p) return [];
         return _reader.Chests
-            .Where(c => c.At is not null && c.Items.Length > 0 && QuestObjectShown(c) && !_opened.Contains(c.Id) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase) && !Collected(c))
+            .Where(c => c.At is not null && c.Items.Length > 0 && QuestObjectShown(c) && !Opened(c) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
             .Select(c => (Chest: c, Metres: Distance(c.At!, p)))
             .OrderBy(x => x.Metres).Take(5)
             .Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _itemMap.Name(id) ?? $"#{id}")), Metres(x.Metres))).ToList();

@@ -119,9 +119,11 @@ public sealed partial class Ff7rChapterReader : IDisposable
             for (int i = 0; i < Math.Min(now.Length, before.Length); i++) if (now[i] != before[i]) n++;
             return n;
         }
-        var live = _lists.MaxBy(Changes);
+        // Paused (a menu) nothing changes: no copy can be told apart then, nor when two changed alike.
+        var changes = _lists.Select(l => (List: l, Count: Changes(l))).OrderByDescending(c => c.Count).ToList();
         _probe = null;
-        return live;
+        if (changes[0].Count == 0 || (changes.Count > 1 && changes[1].Count == changes[0].Count)) return null;
+        return changes[0].List;
     }
 
     public List<Owned>? ReadOwned()

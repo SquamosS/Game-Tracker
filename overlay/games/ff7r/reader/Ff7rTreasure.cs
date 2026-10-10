@@ -12,13 +12,53 @@ namespace GameTracker;
 /// +0x38.. the reward keys. A point is a row of FName, 0, pointer, rotation, then X, Y, Z at +0x20 and scale 1, 1, 1 at
 /// +0x30, found by its FName in one extra pass whenever the set of chest tables changes (another map loaded).
 /// Checked in Ch8: the chest in front of Cloud on the rooftops was treasure0040 = it_atel = 3 = Ether.
+///
+/// Opened: each chest row names its flag at +0x18 ("stfTreasure_obt080_treasure0080"); the flag's row (FName, 0, module
+/// pointer, int at +0x10) gives its number (0x207D), found in the same pass as the points. The game sets bit number + 0xA80
+/// of the flag block (materia list + 0x40E00) in the live copy of the save data the moment the chest opens; the other copies
+/// follow at the next save. Found 10 Oct 2026 with a full snapshot diff (Remedy treasure0080 = bit 0x2AFD), checked on Ether
+/// treasure0110 (0x2B00), and it matches chests 0030-0070 opened earlier and Chapter 3's; unopened Talisman (0010) = 0.
 /// </summary>
 public sealed partial class Ff7rChapterReader
 {
     const long ItemTableRva = 0x4CCCE48, EquipmentTableRva = 0x4CC3438, MateriaTableRva = 0x4CCA208, RewardTableRva = 0x4CE1290, ChestTableRva = 0x4CD6488;
 
     /// <summary>A chest: its id, where it stands (null when its point was not found or is ambiguous) and the ids it holds.</summary>
-    public sealed record Chest(string Id, Position? At, int[] Items);
+    public sealed record Chest(string Id, Position? At, int[] Items, int? Flag = null);
+
+    /// <summary>A chest flag's number + this = its bit in the save data's flag block.</summary>
+    const int ChestFlagBit = 0xA80;
+
+    long _chestFlagCopy;
+    DateTime _chestFlagCopyAt, _chestFlagsRead;
+    readonly byte[] _chestFlagBytes = new byte[FlagBytes];
+    bool _chestFlagsOk;
+
+    /// <summary>
+    /// Whether the game has this chest opened: its bit in the live copy of the save data. Null when unknown (another
+    /// version, the chest's flag not found, the live copy not told apart yet).
+    /// </summary>
+    public bool? ChestOpened(Chest chest)
+    {
+        if (Version != "Steam 1.0.0.7" || chest.Flag is not { } flag || !ReadChestFlags()) return null;
+        int bit = flag + ChestFlagBit;
+        return bit >> 3 < FlagBytes ? (_chestFlagBytes[bit >> 3] >> (bit & 7) & 1) == 1 : null;
+    }
+
+    /// <summary>
+    /// The flag block of the live save copy, read at most once a second. Which copy is live is asked again every 30 s
+    /// (LiveCopy compares two reads a second apart); the last answer holds meanwhile while that copy still exists.
+    /// </summary>
+    bool ReadChestFlags()
+    {
+        if (DateTime.Now - _chestFlagsRead < TimeSpan.FromSeconds(1)) return _chestFlagsOk;
+        _chestFlagsRead = DateTime.Now;
+        if (!_lists.Any(l => l.Materia == _chestFlagCopy)) _chestFlagCopy = 0;
+        if (_lists.Count > 0 && (_chestFlagCopy == 0 || DateTime.Now - _chestFlagCopyAt > TimeSpan.FromSeconds(30)) && LiveCopy() is { } live)
+            (_chestFlagCopy, _chestFlagCopyAt) = (live.Materia, DateTime.Now);
+        return _chestFlagsOk = _chestFlagCopy != 0
+            && ReadProcessMemory(_handle, (IntPtr)(_chestFlagCopy + FlagStart), _chestFlagBytes, FlagBytes, out _);
+    }
 
     /// <summary>
     /// Every chest row of the loaded maps, also those without a known position (so "only one chest holds it" counts
@@ -87,7 +127,7 @@ public sealed partial class Ff7rChapterReader
         }
         // Chest rows: id, point (FName index and number), reward keys -> ids.
         bool complete = true;
-        var rowsFound = new List<(string Id, long Point, int[] Items)>();
+        var rowsFound = new List<(string Id, long Point, long Flag, int[] Items)>();
         foreach (var (_, table) in usable.Where(t => t.Kind == 4))
         {
             var (rows, count) = TableRows(table, 0xA0)!.Value;
@@ -97,18 +137,26 @@ public sealed partial class Ff7rChapterReader
                 var keys = Enumerable.Range(0, 8).Select(k => FNameAt(row + 0x38 + k * 8)).Where(k => k.StartsWith("rwr")).ToList();
                 var items = keys.SelectMany(k => rewards.GetValueOrDefault(k) ?? []).Select(c => ids.GetValueOrDefault(c)).Where(id => id > 0).ToArray();
                 if (keys.Count > 0 && items.Length == 0) complete = false;
-                rowsFound.Add((FNameAt(row), (uint)ReadInt32(row + 0x30) | (long)ReadInt32(row + 0x34) << 32, items));
+                rowsFound.Add((FNameAt(row), (uint)ReadInt32(row + 0x30) | (long)ReadInt32(row + 0x34) << 32,
+                    (uint)ReadInt32(row + 0x18) | (long)ReadInt32(row + 0x1C) << 32, items));
             }
         }
         // Points: rows of FName (index, number), pointer, rotation, X, Y, Z, scale 1, 1, 1. A name found at two different
         // places is ambiguous and left without a position.
         var wanted = rowsFound.Select(r => r.Point).Where(p => p != 0).ToHashSet();
+        var wantedFlags = rowsFound.Select(r => r.Flag).Where(f => f != 0).ToHashSet();
         var points = new System.Collections.Concurrent.ConcurrentDictionary<long, Position?>();
+        // Flag rows: FName (index, number), module pointer, flag number at +0x10. Two different numbers = ambiguous (-1).
+        var flags = new System.Collections.Concurrent.ConcurrentDictionary<long, int>();
+        long moduleStart = (long)_moduleBase, moduleEnd = moduleStart + 0x8000000;
         ForEachChunk(cancel, (a, buf, length) =>
         {
             for (int i = 0; i + 0x3C <= length; i += 8)
             {
                 long name = (uint)BitConverter.ToInt32(buf, i) | (long)BitConverter.ToInt32(buf, i + 4) << 32;
+                if (wantedFlags.Contains(name) && BitConverter.ToInt64(buf, i + 8) is var mp && mp >= moduleStart && mp < moduleEnd
+                    && BitConverter.ToInt32(buf, i + 0x10) is > 0 and < 0x7000 and var number)
+                    flags.AddOrUpdate(name, number, (_, old) => old == number ? old : -1);
                 if (!wanted.Contains(name)) continue;
                 if (BitConverter.ToSingle(buf, i + 0x30) != 1f || BitConverter.ToSingle(buf, i + 0x34) != 1f || BitConverter.ToSingle(buf, i + 0x38) != 1f) continue;
                 var p = new Position(BitConverter.ToSingle(buf, i + 0x20), BitConverter.ToSingle(buf, i + 0x24), BitConverter.ToSingle(buf, i + 0x28));
@@ -116,7 +164,12 @@ public sealed partial class Ff7rChapterReader
                 points.AddOrUpdate(name, p, (_, old) => old == p ? old : null);
             }
         });
-        var chests = rowsFound.Select(r => new Chest(r.Id, points.GetValueOrDefault(r.Point), r.Items)).ToList();
+        // A number shared by more than two chests is not theirs (Ch14's obt110 rows mostly read 0x100); two may be one chest
+        // in two chapters' tables (obt080/obt110 treasure2030 = 0x2089).
+        int? FlagOf(long name) => flags.TryGetValue(name, out int n) && n > 0 ? n : null;
+        var shared = rowsFound.Select(r => FlagOf(r.Flag)).OfType<int>().GroupBy(n => n).Where(g => g.Count() > 2).Select(g => g.Key).ToHashSet();
+        var chests = rowsFound.Select(r => new Chest(r.Id, points.GetValueOrDefault(r.Point), r.Items,
+            FlagOf(r.Flag) is { } n && !shared.Contains(n) ? n : null)).ToList();
         if (chests.Any(c => c.At is null)) complete = false;
         // A search cancelled by Detach must not fill the list of a game that closed.
         cancel.ThrowIfCancellationRequested();
