@@ -580,6 +580,20 @@ public partial class MainWindow : Window
             && !(RewardOf(o, chapter) is { } quest && !_progress.Done.Contains(quest.Id))).ToList();
 
     /// <summary>
+    /// Whether the game's quest page shows this side quest (an entry of its own, Ff7rChapterReader.SideEntry): "???" quests
+    /// have none yet. Null when the page cannot tell: not a side quest, or none of this chapter's side quests has an entry
+    /// (another chapter, or the objective search has not run yet).
+    /// </summary>
+    bool? SideQuestOpen(Objective o)
+    {
+        if (o.Type != "side quest" || CurrentChapter is not { } chapter) return null;
+        var sides = _reader.SideQuests;
+        bool Listed(Objective q) => sides.Any(s => SameQuest(q.Name, s.Title));
+        if (!chapter.Objectives.Any(q => q.Type == "side quest" && Listed(q))) return null;
+        return Listed(o);
+    }
+
+    /// <summary>
     /// A step named by After or Revisit is reached once it is the current story step or done: Ch8's side quests open when
     /// "Requests for the Mercenary" starts, not when it ends.
     /// </summary>
@@ -590,6 +604,7 @@ public partial class MainWindow : Window
     /// </summary>
     bool NotYet(Objective o, Chapter chapter)
     {
+        if (SideQuestOpen(o) is { } open) return !open; // the game's quest page decides (Ch8)
         if (o.After is { } after) return !Reached(after); // After decides, wherever the guide lists the step
         int index = Array.IndexOf(chapter.Objectives, o);
         if (index < 0 || CurrentStory is not { } story) return false;
@@ -1233,7 +1248,9 @@ public partial class MainWindow : Window
             if (o.Type == "cerita") { phase = i; continue; }
             // A step with After opens when that step is reached, wherever the guide lists it (Ch8's side quests come after
             // "Battle Intel & VR" in the guide but open with "Requests for the Mercenary").
-            if (_progress.Done.Contains(o.Id) || (o.After is { } opens ? !Reached(opens) && !IsLiveQuest(o) : phase > current)) continue;
+            if (_progress.Done.Contains(o.Id)) continue;
+            // The game's quest page first (Ch8's side quests); else After, wherever the guide lists the step; else the order.
+            if (!(SideQuestOpen(o) ?? (o.After is { } opens ? Reached(opens) || IsLiveQuest(o) : phase <= current))) continue;
             // Trophies are not tracked here: the rewards they come with are steps of their own.
             if (o.Type == "trofi") continue;
             if (o.Optional && phase < current) continue;
