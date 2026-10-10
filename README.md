@@ -28,6 +28,11 @@ Main game dalam mode **Borderless** atau **Windowed** agar overlay terlihat di a
 | Ctrl+Shift+Backspace | Batalkan centang terakhir |
 | Ctrl+Shift+PageDown / PageUp | Chapter berikutnya / sebelumnya |
 | Ctrl+Shift+T | Mode mouse: tembus ke game atau bisa klik overlay |
+| Ctrl+Shift+A | Tampilan ringkas / checklist lengkap / dengan langkah selesai |
+| Ctrl+Shift+H | Mode Normal / Hard |
+| Ctrl+Shift+L (atau Ctrl+Shift+Alt+L kalau L dipakai aplikasi lain) | Bahasa English / Indonesia (juga saklar EN \| IN di overlay) |
+
+Klik peringatan kuning untuk membuka/menutup daftar item yang belum diambil.
 
 Geser overlay dengan menarik judulnya. Progres disimpan di `%APPDATA%\GameTracker`.
 
