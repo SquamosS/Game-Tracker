@@ -571,11 +571,17 @@ public partial class MainWindow : Window
             && !(RewardOf(o, chapter) is { } quest && !_progress.Done.Contains(quest.Id))).ToList();
 
     /// <summary>
+    /// A step named by After or Revisit is reached once it is the current story step or done: Ch8's side quests open when
+    /// "Requests for the Mercenary" starts, not when it ends.
+    /// </summary>
+    bool Reached(string id) => _progress.Done.Contains(id) || CurrentStory?.Id == id;
+
+    /// <summary>
     /// Not open yet: the guide puts the step after the current story step, or the step that opens it (After) is not done.
     /// </summary>
     bool NotYet(Objective o, Chapter chapter)
     {
-        if (o.After is { } after && !_progress.Done.Contains(after)) return true;
+        if (o.After is { } after && !Reached(after)) return true;
         int index = Array.IndexOf(chapter.Objectives, o);
         if (index < 0 || CurrentStory is not { } story) return false;
         int current = Array.IndexOf(chapter.Objectives, story);
@@ -1173,7 +1179,7 @@ public partial class MainWindow : Window
             bool isDone = _progress.Done.Contains(o.Id);
             if (isDone && !_showDone) continue;
             string? tag = o.Type == "cerita" || isDone ? null : phase == current ? TagNow
-                : phase < current && (o.Revisit is null || _progress.Done.Contains(o.Revisit)) ? TagBehind : null;
+                : phase < current && (o.Revisit is null || Reached(o.Revisit)) ? TagBehind : null;
             var row = Row(o, isDone, o.Id == nextId, tag);
             List.Children.Add(row);
             if (o.Id == nextId) Dispatcher.BeginInvoke(() => row.BringIntoView(), DispatcherPriority.Loaded);
@@ -1221,9 +1227,9 @@ public partial class MainWindow : Window
             if (o.Type == "trofi") continue;
             if (o.Optional && phase < current) continue;
             // Not open yet (After), unless the game shows it live.
-            if (o.After is { } after && !_progress.Done.Contains(after) && !IsLiveQuest(o)) continue;
+            if (o.After is { } after && !Reached(after) && !IsLiveQuest(o)) continue;
             // Behind you on a stretch you cannot walk back: shown again once you can (Revisit).
-            if (phase < current && o.Revisit is { } back && !_progress.Done.Contains(back)) continue;
+            if (phase < current && o.Revisit is { } back && !Reached(back)) continue;
             open.Add((o, IsHere(o) ? TagHere : phase == current ? null : TagBehind));
         }
         return open.OrderByDescending(x => x.Tag == TagHere).ThenByDescending(x => x.Step.Missable).ToList();
