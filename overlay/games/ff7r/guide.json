@@ -1120,6 +1120,14 @@
           "missable": false
         },
         {
+          "id": "c8-18-shiva",
+          "type": "summon",
+          "name": "Shiva",
+          "where": "Center District: Chadley (dekat Item Shop/Materia Shop); selesaikan Report 01-04 lalu menang VR Shiva (Report 05).",
+          "whereEn": "Center District: Chadley (near the Item Shop/Materia Shop); complete Reports 01-04, then win VR Shiva (Report 05).",
+          "missable": false
+        },
+        {
           "id": "c8-15-hideout",
           "type": "cerita",
           "name": "Danger in the Hideout / Escort the Children",
@@ -1143,15 +1151,6 @@
           "whereEn": "Chadley is near the Materia Shop. Reports 06-08 unlock; the reward materia (Steadfast Block, Steal, Provoke) are bought from him.",
           "missable": false,
           "after": "c8-16-requests"
-        },
-        {
-          "id": "c8-18-shiva",
-          "type": "summon",
-          "name": "Shiva",
-          "where": "Center District: Chadley (dekat Item Shop/Materia Shop); selesaikan Report 01-04 lalu menang VR Shiva (Report 05).",
-          "whereEn": "Center District: Chadley (near the Item Shop/Materia Shop); complete Reports 01-04, then win VR Shiva (Report 05).",
-          "missable": false,
-          "after": "c8-17-chadley"
         },
         {
           "id": "c8-19-kids-patrol",
