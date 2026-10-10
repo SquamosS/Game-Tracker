@@ -6,6 +6,7 @@
 //   scanner show <in>                print candidates with current values
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 
 // Scan files (snapshots of several GB, candidate lists) go to research\scan in the project, which git ignores,
 // instead of a folder of their own at the root of a drive.
@@ -195,6 +196,143 @@ switch (args[0])
             }
         File.WriteAllLines(args[1], pairs.Select(kv => $"{kv.Key}\t{kv.Value}"));
         Console.WriteLine($"{pairs.Count} nama -> {args[1]}");
+        break;
+    }
+    case "fnames": // fnames <regex>: every FNamePool entry whose text matches, with its index
+        foreach (var (index, text) in FNames().Where(n => Regex.IsMatch(n.Text, args[1], RegexOptions.IgnoreCase)).Take(400))
+            Console.WriteLine($"0x{index:X}\t{text}");
+        break;
+    case "uobjs": // uobjs <regex> [x y z]: objects named like regex, then instances of those (classes); with a position, float3 within 5 m in the object or the objects it points to
+    {
+        var wanted = FNames().Where(n => Regex.IsMatch(n.Text, args[1], RegexOptions.IgnoreCase)).ToDictionary(n => n.Index, n => n.Text);
+        Console.WriteLine($"{wanted.Count} nama cocok");
+        bool withPos = args.Length >= 5;
+        float px = withPos ? float.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 0, py = withPos ? float.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 0,
+            pz = withPos ? float.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture) : 0;
+        // Pass 1: objects (vtable in the module) whose own name matches: the classes, and objects named after them.
+        var named = new Dictionary<long, int>();
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 0x20 <= len; i += 8)
+                {
+                    long vt = BitConverter.ToInt64(buf, i);
+                    if (vt < modBase || vt >= modEnd) continue;
+                    int name = BitConverter.ToInt32(buf, i + 0x18);
+                    if (wanted.ContainsKey(name)) named[a + i] = name;
+                }
+            }
+        Console.WriteLine($"{named.Count} objek bernama cocok");
+        foreach (var (o, n) in named.Take(60))
+            Console.WriteLine($"  0x{o:X} {wanted[n]} : {FName(BitConverter.ToInt32(Read(BitConverter.ToInt64(Read(o + 0x10, 8)) + 0x18, 4)))}");
+        // Pass 2: instances whose class (+0x10) is one of those objects.
+        var classes = named.Keys.ToHashSet();
+        var instances = new List<long>();
+        foreach (var (b, s) in Regions())
+            for (long a = b; a < b + s; a += 1 << 22)
+            {
+                int len = (int)Math.Min(1 << 22, b + s - a);
+                var buf = Read(a, len);
+                for (int i = 0; i + 0x20 <= len; i += 8)
+                {
+                    long vt = BitConverter.ToInt64(buf, i);
+                    if (vt < modBase || vt >= modEnd || !classes.Contains(BitConverter.ToInt64(buf, i + 0x10))) continue;
+                    instances.Add(a + i);
+                }
+            }
+        Console.WriteLine($"{instances.Count} instance");
+        foreach (var o in instances.Take(withPos ? 5000 : 80))
+        {
+            long cls = BitConverter.ToInt64(Read(o + 0x10, 8));
+            string line = $"  0x{o:X} {FName(BitConverter.ToInt32(Read(o + 0x18, 4)))} : {FName(BitConverter.ToInt32(Read(cls + 0x18, 4)))} vt modul+0x{BitConverter.ToInt64(Read(o, 8)) - modBase:X}";
+            if (!withPos) { Console.WriteLine(line); continue; }
+            // The position may sit in the object or in an object it points to (a scene component): offsets of float3 near the player.
+            var hits = new List<string>();
+            void Look(long at, string path)
+            {
+                var m = Read(at, 0x400);
+                for (int k = 0; k + 12 <= m.Length; k += 4)
+                {
+                    float x = BitConverter.ToSingle(m, k), y = BitConverter.ToSingle(m, k + 4), z = BitConverter.ToSingle(m, k + 8);
+                    if (Math.Abs(x - px) < 500 && Math.Abs(y - py) < 500 && Math.Abs(z - pz) < 500) hits.Add($"{path}+0x{k:X}=({x:0},{y:0},{z:0})");
+                }
+            }
+            Look(o, "");
+            var self = Read(o, 0x400);
+            for (int k = 0x20; k + 8 <= self.Length && hits.Count < 6; k += 8)
+            {
+                long q = BitConverter.ToInt64(self, k);
+                if (q > 0x10000 && q < 0x7FF000000000 && (q & 7) == 0 && BitConverter.ToInt64(Read(q, 8)) is var v && v >= modBase && v < modEnd) Look(q, $"[+0x{k:X}]");
+            }
+            if (hits.Count > 0) Console.WriteLine(line + "  DEKAT " + string.Join(" ", hits.Take(6)));
+        }
+        break;
+    }
+    case "fields": // fields <addr> <hexlen>: each 4-byte value that is a valid FName index, each pointer to a named UObject, and FStrings
+    {
+        long at = Convert.ToInt64(args[1], 16);
+        var m = Read(at, Convert.ToInt32(args[2], 16));
+        for (int k = 0; k + 4 <= m.Length; k += 4)
+        {
+            int v = BitConverter.ToInt32(m, k);
+            if (v > 0x100 && (v >> 16) < 0x300 && FName(v) is { Length: >= 3 } n && n.All(c => c is >= ' ' and < (char)0x7F) && n != "?")
+                Console.WriteLine($"+0x{k:X}	fname 0x{v:X}	{n}");
+            if (k % 8 != 0 || k + 8 > m.Length) continue;
+            long q = BitConverter.ToInt64(m, k);
+            if (q <= 0x10000 || q >= 0x7FF000000000) continue;
+            var head = Read(q, 0x20);
+            long vt = BitConverter.ToInt64(head, 0);
+            if (vt >= modBase && vt < modEnd)
+            {
+                long cls = BitConverter.ToInt64(head, 0x10);
+                Console.WriteLine($"+0x{k:X}	obj 0x{q:X}	{FName(BitConverter.ToInt32(head, 0x18))} : {FName(BitConverter.ToInt32(Read(cls + 0x18, 4)))}");
+            }
+            else if (k + 16 <= m.Length && BitConverter.ToInt32(m, k + 8) is int len and > 1 and < 200 && BitConverter.ToInt32(m, k + 12) >= len)
+            {
+                var t = Read(q, len * 2);
+                string str = System.Text.Encoding.Unicode.GetString(t).TrimEnd('\0');
+                if (str.Length > 1 && str.All(c => c is >= ' ' and < (char)0x7F)) Console.WriteLine($"+0x{k:X}	fstring	{str}");
+            }
+        }
+        break;
+    }
+    case "rewards": // rewards <table> <regex>: rows (0x50 bytes, FName key) of a data table whose rows sit at +0x38 (count +0x40), with both arrays at +0x28/+0x38 (0x10-byte elements)
+    {
+        long table = Convert.ToInt64(args[1], 16);
+        long rows = BitConverter.ToInt64(Read(table + 0x38, 8));
+        int count = BitConverter.ToInt32(Read(table + 0x40, 4));
+        var data = Read(rows, count * 0x50);
+        for (int r = 0; r < count; r++)
+        {
+            int o = r * 0x50;
+            string key = FName(BitConverter.ToInt32(data, o));
+            if (!Regex.IsMatch(key, args[2], RegexOptions.IgnoreCase)) continue;
+            string Arr(int at)
+            {
+                long p = BitConverter.ToInt64(data, o + at);
+                int n = BitConverter.ToInt32(data, o + at + 8);
+                if (p == 0 || n is <= 0 or > 32) return "-";
+                var e = Read(p, n * 0x10);
+                return string.Join(" | ", Enumerable.Range(0, n).Select(i => $"{FName(BitConverter.ToInt32(e, i * 0x10))}/{BitConverter.ToInt32(e, i * 0x10 + 4)}/{BitConverter.ToInt32(e, i * 0x10 + 8)}/{BitConverter.ToInt32(e, i * 0x10 + 12)}"));
+            }
+            Console.WriteLine($"{key}	{BitConverter.ToInt32(data, o + 0x10)}	A[{Arr(0x28)}]	B[{Arr(0x38)}]");
+        }
+        break;
+    }
+    case "points": // points <addr> <before> <after>: 0x50-byte locator rows (FName, ptr, quat, xyz at +0x20) around a row
+    {
+        long at = Convert.ToInt64(args[1], 16);
+        int before = int.Parse(args[2]), after = int.Parse(args[3]);
+        var m = Read(at - before * 0x50L, (before + after) * 0x50);
+        for (int i = 0; i < before + after; i++)
+        {
+            int o = i * 0x50;
+            string n = FName(BitConverter.ToInt32(m, o));
+            if (n == "?" || n.Length < 3) continue;
+            Console.WriteLine($"0x{at - before * 0x50L + o:X}	{n}	{BitConverter.ToSingle(m, o + 0x20):0}	{BitConverter.ToSingle(m, o + 0x24):0}	{BitConverter.ToSingle(m, o + 0x28):0}");
+        }
         break;
     }
     case "obj": // obj <addr...>: a UObject's name and its class's name (FNamePool blocks at module+0x5981310, Steam 1.0.0.7)
@@ -693,6 +831,29 @@ string FName(int index)
     int header = BitConverter.ToUInt16(Read(entry, 2)), length = header >> 6;
     if (length is <= 0 or > 1024) return "?";
     return (header & 1) != 0 ? System.Text.Encoding.Unicode.GetString(Read(entry + 2, length * 2)) : System.Text.Encoding.ASCII.GetString(Read(entry + 2, length));
+}
+
+// Every ASCII FNamePool entry: at any even offset of a block, a header (length << 6) followed by that many printable
+// characters and a 0 byte (this build ends names with 0 and leaves gaps, so a sequential walk loses its place).
+IEnumerable<(int Index, string Text)> FNames()
+{
+    long blocks = modBase + 0x5981310;
+    for (int bi = 0; bi < 8192; bi++)
+    {
+        long block = BitConverter.ToInt64(Read(blocks + 8L * bi, 8));
+        if (block == 0) yield break;
+        var data = Read(block, 0x20000);
+        for (int off = 0; off + 3 <= data.Length; off += 2)
+        {
+            int header = BitConverter.ToUInt16(data, off), length = header >> 6;
+            if ((header & 1) != 0 || length == 0 || off + 2 + length >= data.Length || data[off + 2 + length] != 0) continue;
+            bool ok = true;
+            for (int k = off + 2; k < off + 2 + length && ok; k++) ok = data[k] is >= 0x20 and < 0x7F;
+            if (!ok) continue;
+            yield return (bi << 16 | off / 2, System.Text.Encoding.ASCII.GetString(data, off + 2, length));
+            off += (length + 1) & ~1;
+        }
+    }
 }
 
 float F(int bits) => BitConverter.Int32BitsToSingle(bits);
