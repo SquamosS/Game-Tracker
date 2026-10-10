@@ -16,7 +16,8 @@ public sealed class QuestWindow : Window
     static readonly Brush QuestTitle = Brush("#38BDF8"), Text = Brush("#BAE6FD"), SubTitle = Brush("#FBBF24"), SubText = Brush("#E2E8F0");
     readonly TextBlock _text = new() { TextWrapping = TextWrapping.Wrap, MaxWidth = 460, Effect = Outline.Create() };
     string _shown = "";
-    bool _hasQuest, _allowed = true;
+    /// <summary>Off until the overlay itself shows (MainWindow.IsVisibleChanged); a quest that changed while hidden fades in on show.</summary>
+    bool _hasQuest, _allowed, _pendingFade, _closed;
 
     public QuestWindow()
     {
@@ -38,7 +39,8 @@ public sealed class QuestWindow : Window
             Padding = new Thickness(14, 8, 18, 10),
         };
         SourceInitialized += (_, _) => new Native(HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)).SetClickThrough(true);
-        SizeChanged += (_, _) => Place();
+        Closed += (_, _) => _closed = true;
+        Place();
     }
 
     /// <summary>The quest to show (null: none known, the window hides). Redrawn and faded in only when it changed.</summary>
@@ -59,8 +61,8 @@ public sealed class QuestWindow : Window
                 if (subText is { Length: > 0 }) _text.Inlines.Add(new System.Windows.Documents.Run("\n   " + subText) { Foreground = SubText, FontSize = 13.5, FontStyle = FontStyles.Italic });
             }
         }
+        if (changed && _hasQuest) _pendingFade = true;
         Update();
-        if (changed && IsVisible) BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(400)));
     }
 
     /// <summary>False while the overlay is hidden (menus, battles, cutscenes, Ctrl+Shift+G).</summary>
@@ -71,9 +73,16 @@ public sealed class QuestWindow : Window
 
     void Update()
     {
+        // A queued guide reload can still render after the overlay closed: a closed window cannot show again.
+        if (_closed) return;
         bool show = _hasQuest && _allowed;
-        if (show && !IsVisible) { Show(); Place(); }
+        if (show && !IsVisible) Show();
         else if (!show && IsVisible) Hide();
+        if (show && _pendingFade)
+        {
+            _pendingFade = false;
+            BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(400)));
+        }
     }
 
     void Place()

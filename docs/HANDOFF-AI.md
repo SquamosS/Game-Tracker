@@ -39,6 +39,9 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 - Overlay default **English**; saklar **EN | IN** di header (Ctrl+Shift+L, atau Ctrl+Shift+Alt+L kalau L dipakai aplikasi lain), disimpan di `data/settings.json` (`Lang.cs`, `Lang.T(en, id)`). Dashboard & tray ikut.
 - `guide.json`: `where`/`warning` tetap Indonesia (dibaca aturan: "otomatis", "akhir chapter", "Setelah"); `whereEn`/`warningEn` = versi Inggris yang ditampilkan. Langkah baru wajib diberi keduanya; kalimat "Setelah ..." di warning = "After ..." di warningEn, catatan `Hard:` tetap di akhir.
 
+**Pop-up quest (10 Okt malam)**
+- Quest + subquest dari game tampil di pop-up sendiri kiri atas (`QuestWindow.cs`): selalu tampil saat menjelajah, fade in saat berganti, ikut tersembunyi bersama overlay. Overlay kanan hanya checklist + petunjuk langkah cerita. Teks overlay & pop-up diberi outline gelap (DropShadowEffect). Coba dulu tanpa mengecil/redup (permintaan user); cek posisi kiri atas tidak menutupi HUD game.
+
 **Masih terbuka**
 - Deteksi difficulty otomatis (coba saat user main Hard).
 - Overlay ikut tersembunyi saat dialog ringan (masih bisa jalan) dan TIDAK tersembunyi di layar shop: nilai state sama dengan adegan dialog / main. Riset 10 Okt gagal (lihat notes.md "Dialog ringan vs adegan dialog"); user memilih tidak melanjutkan dulu. Ide: tanda HUD tampil, siklus snapshot penuh dengan shop.

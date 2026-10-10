@@ -38,6 +38,7 @@ public sealed class ToastWindow : Window
         };
         SourceInitialized += (_, _) => new Native(HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)).SetClickThrough(true);
         SizeChanged += (_, _) => Place();
+        Closed += (_, _) => _closed = true;
     }
 
     /// <summary>
@@ -46,6 +47,7 @@ public sealed class ToastWindow : Window
     /// </summary>
     public void Show(string area, IReadOnlyList<(string Name, bool Missable)> steps, bool fadeIn)
     {
+        if (_closed) return; // a queued render after the overlay closed
         _text.Inlines.Clear();
         _text.Inlines.Add(new System.Windows.Documents.Run(Lang.T("◆ IN THIS AREA · ", "◆ DI AREA INI · ") + area.ToUpperInvariant() + "\n") { Foreground = Mako, FontSize = 14, FontWeight = FontWeights.SemiBold });
         for (int i = 0; i < steps.Count; i++)
@@ -63,7 +65,7 @@ public sealed class ToastWindow : Window
         }
     }
 
-    bool _fadingOut;
+    bool _fadingOut, _closed;
 
     /// <summary>Fades the banner out: nothing left to get in this area, or you left it.</summary>
     public void FadeOut()
