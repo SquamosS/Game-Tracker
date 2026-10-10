@@ -14,7 +14,7 @@ namespace GameTracker;
 public sealed class ToastWindow : Window
 {
     static readonly Brush Mako = Brush("#5EEAD4"), Danger = Brush("#F87171"), Muted = Brush("#94A3B8");
-    readonly TextBlock _text = new() { TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 900, Effect = Outline.Create() };
+    readonly TextBlock _text = new() { TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 900 };
 
     public ToastWindow()
     {
@@ -26,6 +26,8 @@ public sealed class ToastWindow : Window
         ShowInTaskbar = false;
         SizeToContent = SizeToContent.WidthAndHeight;
         FontFamily = new FontFamily("Bahnschrift");
+        TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display);
+        UseLayoutRounding = true;
         Opacity = 0;
         Content = new Border
         {

@@ -4,13 +4,12 @@
         Title="Game Tracker" Width="400" Height="640"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ResizeMode="CanResizeWithGrip"
-        FontFamily="Bahnschrift" FontSize="13" Foreground="#E2E8F0">
-  <Border Background="#800F172A" BorderBrush="#03FFFFFF" BorderThickness="1" CornerRadius="12">
+        FontFamily="Bahnschrift" FontSize="14" Foreground="#F1F5F9"
+        TextOptions.TextFormattingMode="Display" TextOptions.TextHintingMode="Fixed" UseLayoutRounding="True">
+  <!-- A near-solid panel: the game showing through made text hard to read at a glance. Display text mode keeps small
+       text sharp (a blur outline made it soft). -->
+  <Border Background="#E60F172A" BorderBrush="#03FFFFFF" BorderThickness="1" CornerRadius="12">
     <DockPanel Margin="14">
-      <!-- A thin dark halo around all text (Outline in QuestWindow.cs), readable over bright scenes. -->
-      <DockPanel.Effect>
-        <DropShadowEffect Color="Black" ShadowDepth="0" BlurRadius="4" Opacity="1" />
-      </DockPanel.Effect>
       <!-- Three levels only: a small chapter label with the count, the live quest, then what is left to get. -->
       <StackPanel DockPanel.Dock="Top" x:Name="Header" Cursor="SizeAll">
         <DockPanel>
@@ -48,7 +47,7 @@
         <TextBlock x:Name="ObjectiveText" TextWrapping="Wrap" />
         <!-- A thin accent, not a red block: amber while the point of no return is ahead, red when it is the step you are on. -->
         <Border x:Name="WarnBox" Cursor="Hand" Background="Transparent" BorderBrush="#FBBF24" BorderThickness="2,0,0,0" Padding="8,1,0,1" Margin="0,8,0,0">
-          <TextBlock x:Name="WarnText" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" Foreground="#FBBF24" FontSize="12" />
+          <TextBlock x:Name="WarnText" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" Foreground="#FBBF24" FontSize="13" FontWeight="SemiBold" />
         </Border>
       </StackPanel>
       <TextBlock DockPanel.Dock="Bottom" x:Name="FooterText" Foreground="#64748B" FontSize="10.5"

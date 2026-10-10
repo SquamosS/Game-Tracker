@@ -14,7 +14,7 @@ namespace GameTracker;
 public sealed class QuestWindow : Window
 {
     static readonly Brush QuestTitle = Brush("#38BDF8"), Text = Brush("#BAE6FD"), SubTitle = Brush("#FBBF24"), SubText = Brush("#E2E8F0");
-    readonly TextBlock _text = new() { TextWrapping = TextWrapping.Wrap, MaxWidth = 460, Effect = Outline.Create() };
+    readonly TextBlock _text = new() { TextWrapping = TextWrapping.Wrap, MaxWidth = 460 };
     string _shown = "";
     /// <summary>Off until the overlay itself shows (MainWindow.IsVisibleChanged); a quest that changed while hidden fades in on show.</summary>
     bool _hasQuest, _allowed, _pendingFade, _closed;
@@ -29,10 +29,12 @@ public sealed class QuestWindow : Window
         ShowInTaskbar = false;
         SizeToContent = SizeToContent.WidthAndHeight;
         FontFamily = new FontFamily("Bahnschrift");
+        TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display);
+        UseLayoutRounding = true;
         Content = new Border
         {
             Child = _text,
-            Background = Brush("#990A1220"),
+            Background = Brush("#E60A1220"),
             BorderBrush = QuestTitle,
             BorderThickness = new Thickness(3, 0, 0, 0),
             CornerRadius = new CornerRadius(6),
@@ -93,15 +95,4 @@ public sealed class QuestWindow : Window
     }
 
     static SolidColorBrush Brush(string hex) => (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
-}
-
-/// <summary>A thin dark halo around text, so it reads over bright scenes too (WPF has no text outline of its own).</summary>
-public static class Outline
-{
-    public static System.Windows.Media.Effects.DropShadowEffect Create()
-    {
-        var effect = new System.Windows.Media.Effects.DropShadowEffect { Color = Colors.Black, ShadowDepth = 0, BlurRadius = 4, Opacity = 1 };
-        effect.Freeze();
-        return effect;
-    }
 }

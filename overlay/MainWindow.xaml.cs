@@ -10,7 +10,7 @@ namespace GameTracker;
 
 public partial class MainWindow : Window
 {
-    static readonly Brush Accent = Brush("#38BDF8"), Muted = Brush("#94A3B8"), Done = Brush("#64748B"), Mako = Brush("#5EEAD4"),
+    static readonly Brush Accent = Brush("#38BDF8"), Muted = Brush("#CBD5E1"), Done = Brush("#64748B"), Mako = Brush("#5EEAD4"),
         Danger = Brush("#F87171"), Current = Brush("#1A38BDF8"), Now = Brush("#4ADE80"), Late = Brush("#FBBF24");
 
     /// <summary>The whole guide, and the one shown: Hard-only steps left out outside Hard mode.</summary>
@@ -968,11 +968,11 @@ public partial class MainWindow : Window
             if (CurrentStory is not { } step) return;
             ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(step.Name) { Foreground = QuestTitle, FontSize = 16, FontWeight = FontWeights.SemiBold });
             if (!string.IsNullOrWhiteSpace(step.Where))
-                ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n" + ShownWhere(step)) { Foreground = QuestText, FontSize = 12 });
+                ObjectiveText.Inlines.Add(new System.Windows.Documents.Run("\n" + ShownWhere(step)) { Foreground = QuestText, FontSize = 13 });
             return;
         }
         if (_objective is null && _inGame)
-            ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(Lang.T("Looking for the active objective...", "Mencari objektif aktif...")) { Foreground = Muted, FontSize = 12 });
+            ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(Lang.T("Looking for the active objective...", "Mencari objektif aktif...")) { Foreground = Muted, FontSize = 13 });
     }
 
     bool WarningOpen(Objective o) => o.ShownWarning is not null && (o.Needs is not { Length: > 0 } needs || !needs.All(_progress.Done.Contains));
@@ -1008,7 +1008,7 @@ public partial class MainWindow : Window
             CountText.Text = "";
             ObjectiveText.Inlines.Add(new System.Windows.Documents.Run(_reader.Version is null
                 ? Lang.T("Start FF7R; the overlay follows your chapter on its own.", "Buka FF7R, overlay akan mengikuti chapter kamu otomatis.")
-                : Lang.T("Load a save or start a chapter; the checklist shows up on its own.", "Load save atau mulai chapter, checklist-nya muncul otomatis.")) { Foreground = Muted, FontSize = 12 });
+                : Lang.T("Load a save or start a chapter; the checklist shows up on its own.", "Load save atau mulai chapter, checklist-nya muncul otomatis.")) { Foreground = Muted, FontSize = 13 });
             ObjectiveText.Visibility = Visibility.Visible;
             Bar.Width = 0;
             WarnBox.Visibility = Visibility.Collapsed;
@@ -1094,7 +1094,7 @@ public partial class MainWindow : Window
     {
         // Only once the live objective is known: before that the guide position is just the last saved one.
         if (_objective is not null && CurrentStory is { } story && !string.IsNullOrWhiteSpace(story.Where))
-            List.Children.Add(new TextBlock { Text = ShownWhere(story), TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12, Margin = new Thickness(2, 0, 0, 6) });
+            List.Children.Add(new TextBlock { Text = ShownWhere(story), TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 13, Margin = new Thickness(2, 0, 0, 6) });
         foreach (var (step, tag) in OpenSteps(objectives, current))
             List.Children.Add(Row(step, false, false, tag));
     }
@@ -1175,8 +1175,8 @@ public partial class MainWindow : Window
         var text = new StackPanel();
         text.Children.Add(title);
         if (!done) text.Children.Add(compact
-            ? new TextBlock { Text = ShownWhere(o), TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Muted, FontSize = 12 }
-            : new TextBlock { Text = ShownWhere(o), TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12 });
+            ? new TextBlock { Text = ShownWhere(o), TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Muted, FontSize = 13 }
+            : new TextBlock { Text = ShownWhere(o), TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 13 });
         if (!done && WarningOpen(o))
             text.Children.Add(new TextBlock { Text = "⚠ " + o.ShownWarning, TextWrapping = TextWrapping.Wrap, Foreground = Danger, FontSize = 12, Margin = new Thickness(0, 2, 0, 0) });
 

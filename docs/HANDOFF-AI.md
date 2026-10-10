@@ -40,7 +40,7 @@ Status per **9 Oktober 2026**, dengan pembaruan **10 Oktober 2026** di bagian 0.
 - `guide.json`: `where`/`warning` tetap Indonesia (dibaca aturan: "otomatis", "akhir chapter", "Setelah"); `whereEn`/`warningEn` = versi Inggris yang ditampilkan. Langkah baru wajib diberi keduanya; kalimat "Setelah ..." di warning = "After ..." di warningEn, catatan `Hard:` tetap di akhir.
 
 **Pop-up quest (10 Okt malam)**
-- Quest + subquest dari game tampil di pop-up sendiri kiri atas (`QuestWindow.cs`): selalu tampil saat menjelajah, fade in saat berganti, ikut tersembunyi bersama overlay. Overlay kanan hanya checklist + petunjuk langkah cerita. Teks overlay & pop-up diberi outline gelap (DropShadowEffect). Coba dulu tanpa mengecil/redup (permintaan user); cek posisi kiri atas tidak menutupi HUD game.
+- Quest + subquest dari game tampil di pop-up sendiri kiri atas (`QuestWindow.cs`): selalu tampil saat menjelajah, fade in saat berganti, ikut tersembunyi bersama overlay. Overlay kanan hanya checklist + petunjuk langkah cerita. Keterbacaan: latar panel ~90% gelap, TextFormattingMode=Display, teks keterangan 13 px #CBD5E1; outline blur (DropShadowEffect) dihapus karena membuat teks kabur. Coba dulu tanpa mengecil/redup (permintaan user); cek posisi kiri atas tidak menutupi HUD game.
 
 **Masih terbuka**
 - Deteksi difficulty otomatis (coba saat user main Hard).
