@@ -916,16 +916,19 @@ public partial class MainWindow : Window
     static string SaveFailed => Lang.T("Could not save progress (file locked or disk full?). Retried at the next tick.",
         "Gagal menyimpan progress (file dikunci/disk penuh?). Dicoba lagi saat centang berikutnya.");
 
-    bool _saveFailed;
+    /// <summary>The save error shown, in the language it was shown in; cleared by the next save that works.</summary>
+    string? _saveFailed;
 
     /// <summary>Writes the progress; a failed write shows in the footer until a later one succeeds.</summary>
     void Persist()
     {
         if (_guide is null) return;
-        bool failed = !ProgressStore.Save(_guide.Game, _progress);
-        if (failed) _error = SaveFailed;
-        else if (_saveFailed) _error = null;
-        _saveFailed = failed;
+        if (!ProgressStore.Save(_guide.Game, _progress)) _error = _saveFailed = SaveFailed;
+        else if (_saveFailed is not null)
+        {
+            if (_error == _saveFailed) _error = null;
+            _saveFailed = null;
+        }
     }
 
     static readonly Brush QuestTitle = Brush("#38BDF8"), QuestText = Brush("#BAE6FD"), SubTitle = Brush("#FBBF24"), SubText = Brush("#E2E8F0");
@@ -1080,7 +1083,7 @@ public partial class MainWindow : Window
     {
         // Only once the live objective is known: before that the guide position is just the last saved one.
         if (_objective is not null && CurrentStory is { } story && !string.IsNullOrWhiteSpace(story.Where))
-            List.Children.Add(new TextBlock { Text = story.Where, TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12, Margin = new Thickness(2, 0, 0, 6) });
+            List.Children.Add(new TextBlock { Text = ShownWhere(story), TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 12, Margin = new Thickness(2, 0, 0, 6) });
         foreach (var (step, tag) in OpenSteps(objectives, current))
             List.Children.Add(Row(step, false, false, tag));
     }

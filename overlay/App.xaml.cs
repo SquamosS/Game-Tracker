@@ -69,10 +69,17 @@ public partial class App : Application
         };
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Dashboard", null, (_, _) => ShowDashboard());
-        menu.Items.Add(Lang.T("Show/hide overlay", "Tampilkan/sembunyikan overlay"), null, (_, _) => { if (_overlay is { } o) { if (o.IsVisible) o.Hide(); else o.Show(); } });
-        menu.Items.Add(Lang.T("Close overlay", "Tutup overlay"), null, (_, _) => _overlay?.Close());
+        var toggle = menu.Items.Add("", null, (_, _) => { if (_overlay is { } o) { if (o.IsVisible) o.Hide(); else o.Show(); } });
+        var close = menu.Items.Add("", null, (_, _) => _overlay?.Close());
         menu.Items.Add("-");
-        menu.Items.Add(Lang.T("Exit", "Keluar"), null, (_, _) => Shutdown());
+        var exit = menu.Items.Add("", null, (_, _) => Shutdown());
+        // Labelled each time the menu opens, so it follows the overlay's language switch.
+        menu.Opening += (_, _) =>
+        {
+            toggle.Text = Lang.T("Show/hide overlay", "Tampilkan/sembunyikan overlay");
+            close.Text = Lang.T("Close overlay", "Tutup overlay");
+            exit.Text = Lang.T("Exit", "Keluar");
+        };
         _tray.ContextMenuStrip = menu;
         _tray.DoubleClick += (_, _) => ShowDashboard();
     }
