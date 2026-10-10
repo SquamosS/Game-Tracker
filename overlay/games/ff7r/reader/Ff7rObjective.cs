@@ -25,11 +25,12 @@ public sealed partial class Ff7rChapterReader
     /// <summary>
     /// One row of the objective table. An objective has several rows (one per stage); an entry moves along them.
     /// Finished: main steps end on "..._990_d"; discoveries move past their first row "..._Mate_01_d" to
-    /// "..._Mate_011_d" (cleared) and "..._Mate_012_d".
+    /// "..._Mate_011_d" (cleared) and "..._Mate_012_d". Chapter 8 discoveries ("$str080_Chapter09_side00" = The Gate
+    /// Won't Open) have descriptions without "_d": "_010" active, "_990" done, "_xxx" left for later.
     /// </summary>
     public record Objective(long Row, int Order, string TitleKey, string DescKey, string? Title, string? Text)
     {
-        public bool Finished => DescKey.EndsWith("_990_d") || DescKey.Contains("_Done")
+        public bool Finished => DescKey.EndsWith("_990_d") || DescKey.EndsWith("_990") || DescKey.Contains("_Done")
             || (TitleKey.Contains("_Mate_") && DescKey != TitleKey + "_d");
     }
 
@@ -234,8 +235,9 @@ public sealed partial class Ff7rChapterReader
                 long p3 = BitConverter.ToInt64(buf, i + 32);
                 int l3 = BitConverter.ToInt32(buf, i + 40);
                 // The description key normally extends the title key, but not always: Chapter 5 has title
-                // "$str050TNNL4_..." with description "$str050_TNNL4_..._d".
-                if (second.StartsWith("$str") && second.EndsWith("_d") && second != first && l3 is > 8 and < 128 && cache.StartsWith(p3, "U_Com"))
+                // "$str050TNNL4_..." with description "$str050_TNNL4_..._d"; Chapter 8 discoveries have no "_d"
+                // ("$str080_Chapter09_side00" with "$str080_Chapter09_side00_010").
+                if (second.StartsWith("$str") && (second.EndsWith("_d") || second.StartsWith(first + "_")) && second != first && l3 is > 8 and < 128 && cache.StartsWith(p3, "U_Com"))
                     rows.Add((a + i - 0x58, first, second));
                 // Localization entry: key, then its English text.
                 else if (!second.StartsWith("$") && !second.StartsWith("U_") && second.Length > 0)

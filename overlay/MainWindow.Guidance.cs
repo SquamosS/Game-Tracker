@@ -322,7 +322,7 @@ public partial class MainWindow
     /// <summary>
     /// A quest pick-up kept in the chest table (obt080_qst05_SlumAngelCard = the Guardian Angel's calling cards) is
     /// placed only while its quest needs it: it shows only while the game's live quest is that quest, same map and
-    /// number in its key (Ch. 3 keys look like "$str030_SLUM7_qst055", objects "oba030_qst055_Betty"). Plain chests
+    /// number in its key (Ch. 3 keys look like "$str030_SLUM7_qst055", objects "oba030_qst055_Betty"; Ch. 14 keys "$str110_SLU5A_Quest070"). Plain chests
     /// always show.
     /// </summary>
     bool QuestObjectShown(Ff7rChapterReader.Chest chest)
@@ -336,7 +336,7 @@ public partial class MainWindow
     }
 
     static readonly System.Text.RegularExpressions.Regex QuestPickUp = new(@"^obt(\d{3})_qst(\d+)_", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase),
-        QuestKey = new(@"^\$str(\d{3})_.*?qst(\d+)", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        QuestKey = new(@"^\$str(\d{3})_.*?(?:qst|Quest)(\d+)", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     /// <summary>
     /// The chests of the area you are in that are not known to be opened, nearest first (at most 5): what they hold and
