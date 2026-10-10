@@ -24,8 +24,11 @@ public sealed record GameObjective(long Row, int Order, string TitleKey, string 
 /// </summary>
 public sealed record OwnedItem(int Id, int Count, uint Obtained, long Slot = 0);
 
-/// <summary>A side quest as the game's quest page lists it: title, the game's quest id and stage, and whether it is cleared.</summary>
-public sealed record SideQuest(string Title, string Quest, string Stage, bool Finished);
+/// <summary>
+/// A side quest as the game's quest page lists it: title, the game's quest id and stage, whether it is cleared, whether
+/// it is taken and not cleared yet (under way), and the stage's description as the game shows it (null = not read).
+/// </summary>
+public sealed record SideQuest(string Title, string Quest, string Stage, bool Finished, bool UnderWay = false, string? Text = null);
 
 /// <summary>Someone standing in the loaded level who gives a side quest of the quest page not taken yet: its title (SideQuest.Title), where they stand.</summary>
 public sealed record QuestGiver(string Title, GamePosition At);

@@ -38,6 +38,15 @@ static class ModuleTests
         check("status: a quest page without this chapter's quests cannot tell", status.SideQuestOpen(Step("c2-kids")) is null);
         reader.Quests = [new SideQuest("Kids on Patrol", "q02", "00", false)];
         check("status: the quest page lists it: open", status.SideQuestOpen(Step("c2-kids")) == true && !status.NotYet(Step("c2-kids"), two));
+        check("under way: a quest only offered is not under way", status.QuestsUnderWay().Count == 0);
+        reader.Quests = [new SideQuest("Kids on Patrol", "q02", "10", false, true, "Find the kids.")];
+        check("under way: a quest taken shows with its stage's text and guide step",
+            status.QuestsUnderWay() is [("Kids on Patrol", "Find the kids.", { Id: "c2-kids" })]);
+        reader.Quests = [.. reader.Quests, new SideQuest("Kids on Patrol", "q02", "20", false, true, "Go back.")];
+        check("under way: two stages with different texts: the title without a text", status.QuestsUnderWay() is [("Kids on Patrol", null, _)]);
+        reader.Quests = [new SideQuest("Kids on Patrol", "q02", "99", true, true, "Done.")];
+        check("under way: a cleared quest is not", status.QuestsUnderWay().Count == 0);
+        reader.Quests = [new SideQuest("Kids on Patrol", "q02", "00", false)];
 
         // ---- AreaTracker: where you are, rooms walked between, the way to a step ---------------------------------------
         // Three rooms in a row along X, 10 m wide; Room B has floors.

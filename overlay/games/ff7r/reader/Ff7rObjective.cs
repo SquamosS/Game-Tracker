@@ -241,7 +241,7 @@ public sealed partial class Ff7rChapterReader
             var result = FindObjectives(cancel);
             File.WriteAllLines(Path.Combine(DataPaths.GameLogs("ff7r"), "objective-titles.txt"),
                 result.Item1.Values.OrderBy(o => o.Row).Select(o => $"{o.TitleKey}\t{o.Title}").Distinct()
-                    .Concat(SideQuests.OrderBy(q => q.Quest).ThenBy(q => q.Stage).Select(q => $"side {q.Quest} stage {q.Stage}\t{q.Title}")));
+                    .Concat(SideQuests.OrderBy(q => q.Quest).ThenBy(q => q.Stage).Select(q => $"side {q.Quest} stage {q.Stage}\t{q.Title}\t{q.Text}")));
             File.AppendAllText(Path.Combine(DataPaths.GameLogs("ff7r"), "objective-search.log"),
                 $"{DateTime.Now:HH:mm:ss} search {sw.Elapsed.TotalSeconds:F1}s {ObjectiveDebug}{Environment.NewLine}");
             return result;
@@ -285,7 +285,12 @@ public sealed partial class Ff7rChapterReader
                         // The quest table itself lists every stage under a text key ("$ss_title_qst150", "$menu_map_..."):
                         // only entries with the title as text belong to the save being played.
                         && cache.Read(p1, l1) is { } title && !title.StartsWith('$'))
-                        sideEntries.Add(new SideQuest(title, sprite.Groups[1].Value, sprite.Groups[2].Value, sprite.Groups[2].Value == "99"));
+                    {
+                        // Stage 00 = can be taken, 99 = cleared, anything between = under way; the description is the stage's.
+                        string stage = sprite.Groups[2].Value, text = cache.Read(p2, l2);
+                        sideEntries.Add(new SideQuest(title, sprite.Groups[1].Value, stage, stage == "99", stage is not ("00" or "99"),
+                            text.Length > 0 && !text.StartsWith('$') ? text : null));
+                    }
                     continue;
                 }
                 string first = cache.Read(p1, l1);

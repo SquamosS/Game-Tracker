@@ -105,15 +105,31 @@ public sealed class QuestWindow() : CornerWindow(QuestTitle, new Thickness(3, 0,
 
     static readonly Brush QuestTitle = Brush("#38BDF8"), QuestText = Brush("#BAE6FD"), SubTitle = Brush("#FBBF24"), SubText = Brush("#E2E8F0");
 
-    /// <summary>The quest to show (null: none known, the window hides).</summary>
-    public void SetQuest(string? title, string? text, string? subTitle, string? subText) =>
-        SetContent(title is null ? null : $"{title}\n{text}\n{subTitle}\n{subText}", () =>
+    /// <summary>
+    /// The quest to show, then the side quests under way below it (icon, colour and name of their kind of step); the window
+    /// hides when there is neither.
+    /// </summary>
+    public void SetQuest(string? title, string? text, string? subTitle, string? subText, IReadOnlyList<(string Icon, Brush Color, string Title, string Kind, string? Text)> sides) =>
+        SetContent(title is null && sides.Count == 0 ? null : $"{title}\n{text}\n{subTitle}\n{subText}\n{string.Join("\n", sides.Select(s => s.Title + "\n" + s.Text))}", () =>
         {
-            Text.Inlines.Add(new System.Windows.Documents.Run(title) { Foreground = QuestTitle, FontSize = 20, FontWeight = FontWeights.SemiBold });
-            if (text is { Length: > 0 }) Text.Inlines.Add(new System.Windows.Documents.Run("\n" + text) { Foreground = QuestText, FontSize = 14 });
-            if (subTitle is null) return;
-            Text.Inlines.Add(new System.Windows.Documents.Run("\n› " + subTitle) { Foreground = SubTitle, FontSize = 16, FontWeight = FontWeights.SemiBold });
-            if (subText is { Length: > 0 }) Text.Inlines.Add(new System.Windows.Documents.Run("\n   " + subText) { Foreground = SubText, FontSize = 13.5, FontStyle = FontStyles.Italic });
+            if (title is not null)
+            {
+                Text.Inlines.Add(new System.Windows.Documents.Run(title) { Foreground = QuestTitle, FontSize = 20, FontWeight = FontWeights.SemiBold });
+                if (text is { Length: > 0 }) Text.Inlines.Add(new System.Windows.Documents.Run("\n" + text) { Foreground = QuestText, FontSize = 14 });
+                if (subTitle is not null)
+                {
+                    Text.Inlines.Add(new System.Windows.Documents.Run("\n› " + subTitle) { Foreground = SubTitle, FontSize = 16, FontWeight = FontWeights.SemiBold });
+                    if (subText is { Length: > 0 }) Text.Inlines.Add(new System.Windows.Documents.Run("\n   " + subText) { Foreground = SubText, FontSize = 13.5, FontStyle = FontStyles.Italic });
+                }
+            }
+            for (int i = 0; i < sides.Count; i++)
+            {
+                var (icon, color, sideTitle, kind, sideText) = sides[i];
+                string gap = title is null && i == 0 ? "" : "\n";
+                Text.Inlines.Add(new System.Windows.Documents.Run(gap + icon + " " + sideTitle) { Foreground = color, FontSize = 15, FontWeight = FontWeights.SemiBold });
+                Text.Inlines.Add(new System.Windows.Documents.Run($" ({kind})") { Foreground = color, FontSize = 12 });
+                if (sideText is { Length: > 0 }) Text.Inlines.Add(new System.Windows.Documents.Run("\n   " + sideText) { Foreground = SubText, FontSize = 13 });
+            }
         });
 
     protected override void Place()

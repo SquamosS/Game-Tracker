@@ -45,6 +45,25 @@ public sealed class StepStatus(ProgressTracker tracker, GuideRules rules, IGameR
         return current >= 0 && phase > current;
     }
 
+    /// <summary>
+    /// The side quests the game's quest page shows taken and not cleared (SideQuest.UnderWay), for the quest pop-up under
+    /// the live objective: title, the stage's text, the chapter's guide step of that name (for its icon; null = none).
+    /// One per title; when the page holds two stages with different texts the text is left out (which one is current is a
+    /// guess). Not the live objective itself, which shows above.
+    /// </summary>
+    public IReadOnlyList<(string Title, string? Text, Objective? Step)> QuestsUnderWay()
+    {
+        string? live = _tracker.LiveObjective?.Title;
+        var steps = _tracker.CurrentChapter?.Objectives ?? [];
+        return _reader.SideQuests.Where(s => s.UnderWay && !s.Finished && s.Title.Length > 0
+                && !string.Equals(s.Title.Trim(), live?.Trim(), StringComparison.OrdinalIgnoreCase))
+            .GroupBy(s => s.Title.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => (g.Key, g.Select(s => s.Text).Distinct().Count() == 1 ? g.First().Text : null,
+                steps.FirstOrDefault(o => _rules.IsQuest(o) && GuideRules.SameQuest(o, g.Key))))
+            .OrderBy(q => q.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     /// <summary>A side quest or discovery that is the game's live objective now.</summary>
     /// Not one left for later (GameObjective.Later): that one shows only in its area.
     public bool IsLiveQuest(Objective o) => _rules.IsQuestOrEvent(o) && _tracker.LiveObjective?.Title is { Length: >= 3 } title && GuideRules.SameQuest(o, title)

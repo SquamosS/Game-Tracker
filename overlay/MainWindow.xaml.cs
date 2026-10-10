@@ -205,6 +205,9 @@ public partial class MainWindow : Window, IProgressHost
                 + "#" + string.Join("|", _chests.ChestsHere());
             if (distances != _distances) { _distances = distances; _distancesAt = DateTime.Now; changed = true; }
         }
+        // Side quests taken or cleared show under the quest (QuestsUnderWay): redraw when the quest page changes.
+        string sides = string.Join("|", _status.QuestsUnderWay().Select(q => q.Title + "#" + q.Text));
+        if (sides != _sides) { _sides = sides; changed = true; }
         // The notice counts down only while you can see it: a chapter's recap must not run out behind a cutscene.
         if (_notice is not null && IsVisible && --_noticeSeconds <= 0) { _notice = null; RenderNotice(); }
 
@@ -267,7 +270,7 @@ public partial class MainWindow : Window, IProgressHost
     /// <summary>A step's "where" as shown: its closing "Hard: ..." note (Hard-only rewards) only in Hard mode.</summary>
     string ShownWhere(Objective o) => _hardMode ? o.ShownWhere : HardNote.Replace(o.ShownWhere, "");
 
-    string _distances = "";
+    string _distances = "", _sides = "";
     DateTime _distancesAt;
 
     // ---- Step types as shown: the game's own list (game.json "stepTypes", GuideRules.TypeOf) --------------------------
@@ -472,7 +475,9 @@ public partial class MainWindow : Window, IProgressHost
     void FillObjective()
     {
         _quest.SetQuest(_live ? _tracker.LiveObjective?.Title ?? _tracker.LiveObjective?.TitleKey : null, _tracker.LiveObjective?.Text,
-            _tracker.LiveSubObjective is { } s ? s.Title ?? s.TitleKey : null, _tracker.LiveSubObjective?.Text);
+            _tracker.LiveSubObjective is { } s ? s.Title ?? s.TitleKey : null, _tracker.LiveSubObjective?.Text,
+            _live && _tracker.InGame ? _status.QuestsUnderWay().Select(q => (q.Step is { } o ? TypeIcon(o) : "•", q.Step is { } step ? TypeBrush(step) : QuestTitle, q.Title,
+                q.Step is { } kind ? TypeText(kind) : Lang.T("side quest", "side quest"), q.Text)).ToList() : []);
         // Without a reader the guide's own story step is the quest: its name, then where.
         if (!_live)
         {
