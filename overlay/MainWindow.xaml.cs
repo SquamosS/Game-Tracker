@@ -482,6 +482,15 @@ public partial class MainWindow : Window
     {
         if (CurrentChapter is not { } chapter || chapter.Number != _detectedChapter) return false;
         bool changed = false;
+        // Chapter 8's side quests are entries with their own texts (Ff7rChapterReader.SideEntry), stage 99 = cleared.
+        foreach (var side in _reader.SideQuests.Where(s => s.Finished))
+            foreach (var step in chapter.Objectives.Where(o => o.Type == "side quest" && SameQuest(o.Name, side.Title)))
+                if (_progress.Done.Add(step.Id))
+                {
+                    _progress.History.Add(step.Id);
+                    Notify(Lang.T($"Auto-ticked: {step.Name}", $"Otomatis dicentang: {step.Name}"));
+                    changed = true;
+                }
         foreach (var done in _reader.Candidates.Where(c => c.Title is not null && c.Finished))
             foreach (var step in chapter.Objectives.Where(o => o.Type is "kejadian" or "side quest" && SameQuest(o.Name, done.Title!)))
                 if (_progress.Done.Add(step.Id))

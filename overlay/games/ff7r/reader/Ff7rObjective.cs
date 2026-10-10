@@ -19,6 +19,22 @@ public sealed partial class Ff7rChapterReader
     /// <summary>Every objective of the chapter that some entry points at, from the last ReadObjective.</summary>
     public List<Objective> Candidates { get; } = new();
 
+    /// <summary>
+    /// A side quest entry of the kind Chapter 8 uses: no "$str" row, the entry holds its texts itself (title, description,
+    /// then a billboard sprite "U_Com_Billboard_080_SLU5B_q03_99_Sprite" naming the quest q03 and its stage; 99 = cleared),
+    /// after an FName "080_SLU5B_q03" numbered by stage. Found 10 Oct 2026 when The Mysterious Moogle Merchant was cleared.
+    /// </summary>
+    public sealed record SideEntry(string Title, string Quest, string Stage)
+    {
+        public bool Finished => Stage == "99";
+    }
+
+    /// <summary>The side quest entries seen at the last objective search, swapped whole (the UI thread reads them).</summary>
+    public IReadOnlyList<SideEntry> SideQuests { get; private set; } = [];
+
+    static readonly System.Text.RegularExpressions.Regex SideSprite = new(@"^U_Com_Billboard_(\d{3}_\w+?_q\d+)_(\d+)_Sprite$",
+        System.Text.RegularExpressions.RegexOptions.Compiled);
+
     /// <summary>Where each candidate came from: its entry address and the entry's parent (for the choice log).</summary>
     public List<(Objective Objective, long Slot, long Parent)> CandidateSlots { get; } = new();
 
@@ -190,7 +206,8 @@ public sealed partial class Ff7rChapterReader
             var sw = System.Diagnostics.Stopwatch.StartNew();
             var result = FindObjectives(cancel);
             File.WriteAllLines(Path.Combine(DataPaths.Logs, "objective-titles.txt"),
-                result.Item1.Values.OrderBy(o => o.Row).Select(o => $"{o.TitleKey}\t{o.Title}").Distinct());
+                result.Item1.Values.OrderBy(o => o.Row).Select(o => $"{o.TitleKey}\t{o.Title}").Distinct()
+                    .Concat(SideQuests.OrderBy(q => q.Quest).ThenBy(q => q.Stage).Select(q => $"side {q.Quest} stage {q.Stage}\t{q.Title}")));
             File.AppendAllText(Path.Combine(DataPaths.Logs, "objective-search.log"),
                 $"{DateTime.Now:HH:mm:ss} search {sw.Elapsed.TotalSeconds:F1}s {ObjectiveDebug}{Environment.NewLine}");
             return result;
@@ -204,6 +221,7 @@ public sealed partial class Ff7rChapterReader
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var rows = new System.Collections.Concurrent.ConcurrentBag<(long Row, string Title, string Desc)>();
+        var sideEntries = new System.Collections.Concurrent.ConcurrentBag<SideEntry>();
         var texts = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
         var naviTexts = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
         long stringReads = 0;
@@ -222,7 +240,19 @@ public sealed partial class Ff7rChapterReader
                 if (p2 < 0x10000000000 || p2 > 0x7FF000000000 || l2 < 2 || m2 < l2 || m2 > 1024) continue;
                 // "$str..." objective texts, "$navi..." map floor and area names (Ff7rMapArea.cs).
                 bool navi = false;
-                if (!cache.StartsWith(p1, "$str") && !(navi = cache.StartsWith(p1, "$navi"))) continue;
+                if (!cache.StartsWith(p1, "$str") && !(navi = cache.StartsWith(p1, "$navi")))
+                {
+                    // A side quest entry with its own texts: title, description, billboard sprite (SideEntry).
+                    long p3s = BitConverter.ToInt64(buf, i + 32);
+                    int l3s = BitConverter.ToInt32(buf, i + 40);
+                    if (l3s is > 20 and < 80 && p3s > 0x10000000000 && p3s < 0x7FF000000000 && cache.StartsWith(p3s, "U_Com_Billboard_")
+                        && SideSprite.Match(cache.Read(p3s, l3s)) is { Success: true } sprite
+                        // The quest table itself lists every stage under a text key ("$ss_title_qst150", "$menu_map_..."):
+                        // only entries with the title as text belong to the save being played.
+                        && cache.Read(p1, l1) is { } title && !title.StartsWith('$'))
+                        sideEntries.Add(new SideEntry(title, sprite.Groups[1].Value, sprite.Groups[2].Value));
+                    continue;
+                }
                 string first = cache.Read(p1, l1);
                 string second = cache.Read(p2, l2);
                 if (navi)
@@ -291,6 +321,7 @@ public sealed partial class Ff7rChapterReader
         try { if (!tables.IsEmpty) UpdateChests(tables.ToList(), cancel); }
         catch (Exception e) when (e is not OperationCanceledException) { ObjectiveDebug = "chests: " + e.Message; }
         ObjectiveDebug = $"rows {byAddress.Count} ({rowsMs} ms, {stringReads} reads), slots {slots.Count} ({sw.ElapsedMilliseconds - rowsMs} ms), entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}, positions {positions.Count}, volumes {volumes.Count}, chests {Chests.Count}";
+        SideQuests = sideEntries.Distinct().ToList();
         return (byAddress, entries.Count > 0 ? entries : slots);
     }
 
