@@ -55,7 +55,7 @@ public partial class MainWindow
     /// </summary>
     void RecapMissed(Chapter ended)
     {
-        var missed = ended.Objectives.Where(o => o.Missable && o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id)).ToList();
+        var missed = ended.Objectives.Where(o => o.Missable && !IsStory(o) && !IsTrophy(o) && !_progress.Done.Contains(o.Id)).ToList();
         if (missed.Count == 0)
         {
             Notify(Lang.T($"Chapter {ended.Number} done: no missables missed", $"Chapter {ended.Number} selesai: tidak ada missable yang terlewat"), seconds: 10);
@@ -438,7 +438,7 @@ public partial class MainWindow
     /// <summary>The placed state of the one chest holding this step's item; null when no single chest holds it.</summary>
     bool? ChestPlaced(Objective o)
     {
-        if (!ItemTypes.Contains(o.Type)) return null;
+        if (!IsItem(o)) return null;
         if (!ReferenceEquals(_chestsIndexed, _reader.Chests)) IndexChests();
         return _chestByName.GetValueOrDefault(o.Name) is { } chest ? Placed(chest) : null;
     }

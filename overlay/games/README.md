@@ -27,7 +27,13 @@ Folder yang namanya diawali `_` (mis. `_template`) dilewati. Salin `_template` u
   "processName": "nama_exe_tanpa_.exe",
   "steamAppId": 123456,
   "screenshotGlob": "Folder\\Relatif\\Ke\\Instalasi\\*.png",
-  "reader": null
+  "reader": null,
+  "stepTypes": {
+    "cerita":     { "role": "story",  "en": "story", "color": "#38BDF8" },
+    "side quest": { "role": "quest",  "icon": "◎", "color": "#22D3EE" },
+    "item":       { "role": "item",   "icon": "◆", "color": "#4ADE80", "neverLost": true },
+    "trofi":      { "role": "trophy", "en": "trophy", "icon": "★", "color": "#FCD34D" }
+  }
 }
 ```
 
@@ -38,6 +44,11 @@ Folder yang namanya diawali `_` (mis. `_template`) dilewati. Salin `_template` u
 - `reader`: id pembaca memori. `"ff7r"` = pembaca memori FF7R (centang otomatis, overlay ikut menu/battle/cutscene). `null` = overlay manual:
   checklist yang sama, dicentang dengan hotkey (Ctrl+Shift+Space centang, Ctrl+Shift+Backspace batal,
   Ctrl+Shift+PageUp/PageDown ganti chapter) atau klik di tampilan lengkap (Ctrl+Shift+A).
+- `stepTypes`: jenis langkah yang dipakai `type` di guide.json (kunci = nama jenis, ditampilkan apa adanya dalam bahasa Indonesia).
+  `role` menentukan aturan overlay: `story` (alur utama; membagi chapter jadi fase), `quest` (side quest, dicocokkan dengan halaman
+  quest game), `event` (discovery/kejadian), `item` (diberikan game: dicentang dari inventory), `trophy` (tidak dihitung). Opsional:
+  `en` (nama Inggris), `icon`, `color` (`#RRGGBB`), `neverLost: true` (tidak bisa dijual/habis: setelah load, tidak ada = belum
+  punya), `unique: true` (hanya satu per playthrough: dimiliki = selesai). Jenis yang tidak terdaftar tampil abu-abu tanpa aturan.
 
 ## guide.json
 
@@ -63,9 +74,8 @@ Folder yang namanya diawali `_` (mis. `_template`) dilewati. Salin `_template` u
 ```
 
 - `id` unik di seluruh panduan; progres disimpan dengan id ini, jadi jangan diganti setelah dipakai.
-- `type`: `cerita`, `side quest`, `kejadian` (nama diawali `Discovery:` tampil sebagai discovery), `materia`, `senjata`,
-  `armor`, `aksesori`, `summon`, `music disc`, `manuskrip`, `item kunci`, `trofi` (trofi tidak dihitung). Tipe lain tampil abu-abu.
-  (Target: daftar jenis, ikon dan warna didefinisikan per game di game.json.)
+- `type`: salah satu kunci `stepTypes` di game.json. FF7R: `cerita`, `side quest`, `discovery`, `kejadian`, `materia`, `senjata`,
+  `armor`, `aksesori`, `summon`, `music disc`, `manuskrip`, `item kunci`, `trofi`.
 - `where` diawali **nama area resmi** lalu titik dua (`Area (B5): ...`): overlay memakainya untuk pop-up "DI AREA INI"
   dan petunjuk ruang (hanya untuk game dengan reader yang tahu area pemain).
 - Opsional: `optional: true` (item yang juga dijual: hanya pengingat), `warning` (point of no return; kalimat "Setelah ..." juga diisi di `closes`, menjelaskan

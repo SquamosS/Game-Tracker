@@ -11,7 +11,7 @@ namespace GameTracker;
 /// steps on its own; none (null) gives the same overlay with manual ticking and chapter changes (hotkeys).
 /// </summary>
 public sealed record GameModule(string Id, string DisplayName, string ProcessName, int? SteamAppId,
-    string? ScreenshotGlob = null, string? Reader = null, string? Short = null)
+    string? ScreenshotGlob = null, string? Reader = null, string? Short = null, IReadOnlyDictionary<string, StepType>? StepTypes = null)
 {
     /// <summary>The name in short status lines ("FF7R"): game.json "shortName", else the full name.</summary>
     public string ShortName => Short ?? DisplayName;
@@ -56,7 +56,8 @@ public sealed record GameModule(string Id, string DisplayName, string ProcessNam
 /// </summary>
 public static class GameRegistry
 {
-    record Info(string DisplayName, string ProcessName, int? SteamAppId, string? ScreenshotGlob, string? Reader, string? ShortName);
+    record Info(string DisplayName, string ProcessName, int? SteamAppId, string? ScreenshotGlob, string? Reader, string? ShortName,
+        Dictionary<string, StepType>? StepTypes);
 
     static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true, ReadCommentHandling = JsonCommentHandling.Skip };
 
@@ -74,7 +75,7 @@ public static class GameRegistry
             try
             {
                 if (JsonSerializer.Deserialize<Info>(File.ReadAllText(file), Options) is { DisplayName.Length: > 0, ProcessName.Length: > 0 } info)
-                    games.Add(new GameModule(id, info.DisplayName, info.ProcessName, info.SteamAppId, info.ScreenshotGlob, info.Reader, info.ShortName));
+                    games.Add(new GameModule(id, info.DisplayName, info.ProcessName, info.SteamAppId, info.ScreenshotGlob, info.Reader, info.ShortName, info.StepTypes));
             }
             catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { } // a broken game.json leaves that game out
         }

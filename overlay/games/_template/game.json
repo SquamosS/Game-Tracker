@@ -1,7 +1,15 @@
 {
   "displayName": "NAMA GAME",
+  "shortName": null,
   "processName": "nama_proses",
   "steamAppId": null,
   "screenshotGlob": null,
-  "reader": null
+  "reader": null,
+  "stepTypes": {
+    "cerita":     { "role": "story",  "en": "story", "color": "#38BDF8" },
+    "side quest": { "role": "quest",  "icon": "◎", "color": "#22D3EE" },
+    "kejadian":   { "role": "event",  "en": "event" },
+    "item":       { "role": "item",   "icon": "◆", "color": "#4ADE80" },
+    "trofi":      { "role": "trophy", "en": "trophy", "icon": "★", "color": "#FCD34D" }
+  }
 }

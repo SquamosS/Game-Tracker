@@ -28,6 +28,16 @@ public record Objective(string Id, string Type, string Name, string Where, bool 
     public string? ShownCloses => Lang.Indonesian ? Closes : ClosesEn;
 }
 
+/// <summary>
+/// A kind of guide step, defined per game in game.json "stepTypes" (key = the guide's "type"). Role tells the overlay's
+/// rules what it is: "story" (the main line; its steps split the chapter into phases), "quest" (side quest, matched with
+/// the game's quest page), "event" (discovery or other event), "item" (handed over by the game: ticked from the
+/// inventory), "trophy" (not counted). En: the English name shown (the key otherwise). Icon and Color (#RRGGBB): the
+/// compact marker. NeverLost: an item that cannot be sold or used up, so a loaded save without it has not got it yet.
+/// Unique: one per playthrough, so owning it means the step is done wherever the guide lists it.
+/// </summary>
+public sealed record StepType(string? Role = null, string? En = null, string? Icon = null, string? Color = null, bool NeverLost = false, bool Unique = false);
+
 public record Chapter(int Number, string Title, string? PointOfNoReturn, Objective[] Objectives);
 
 public record Guide(string Game, string Status, string[] Notes, Chapter[] Chapters)

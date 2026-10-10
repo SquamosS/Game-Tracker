@@ -799,7 +799,7 @@
         },
         {
           "id": "c6-03-collapsed",
-          "type": "kejadian",
+          "type": "discovery",
           "name": "Discovery: Collapsed Passageway",
           "where": "Section G Utility Access: catwalk kayu di tingkat bawah runtuh waktu didekati materia biru; discovery aktif, materianya baru bisa dijangkau nanti dari Section H (Sun Lamp 3).",
           "whereEn": "Section G Utility Access: the wooden catwalk on the lower level collapses when you approach the blue materia; the discovery is active, and the materia can only be reached later from Section H (Sun Lamp 3).",
@@ -816,7 +816,7 @@
         },
         {
           "id": "c6-05-vent-fan",
-          "type": "kejadian",
+          "type": "discovery",
           "name": "Discovery: Inside the Ventilation Fan",
           "where": "Plate Ventilation Facilities - Interior: Tifa menunjuk materia merah di balik kipas besar saat lewat pipa Section H; matikan kipas di konsol ruang kontrol lalu masuk dan habisi musuh dalam 60 detik.",
           "whereEn": "Plate Ventilation Facilities - Interior: Tifa points out the red materia behind the big fan as you pass through the Section H pipe; turn off the fan at the control room console, then go in and defeat the enemies within 60 seconds.",
@@ -955,7 +955,7 @@
         },
         {
           "id": "c7-08-waste-recovery",
-          "type": "kejadian",
+          "type": "discovery",
           "name": "Discovery: Waste Recovery",
           "where": "Security Ops: di bagian Storm the Gates, cari tanda discovery ungu dekat pintu terkunci, pakai terminal, lalu sinkronkan tuas 4 kali (trofi In Lockstep). Pintu membuka ruang Waste Storage.",
           "whereEn": "Security Ops: in the Storm the Gates section, find the purple discovery mark near the locked door, use the terminal, then sync the levers 4 times (In Lockstep trophy). The door opens the Waste Storage room.",
@@ -1075,7 +1075,7 @@
         },
         {
           "id": "c8-07a-gate-discovery",
-          "type": "kejadian",
+          "type": "discovery",
           "name": "Discovery: The Gate Won't Open",
           "where": "Nuts 'n' Bolts Hills: gerbang di Scrapyard tidak terbuka saat saklarnya ditekan (discovery aktif). Lanjut sampai area besar (Smogger), kalahkan musuh, naik tangga di pojok kanan, lalu tekan saklar di sisi lain gerbang. Hadiah: jalan pintas.",
           "whereEn": "Nuts 'n' Bolts Hills: the Scrapyard gate will not open when you flip its switch (the discovery starts). Go on to the large area (Smogger), defeat the enemies, climb the ladder in the right-hand corner, then flip the switch on the other side of the gate. Reward: a shortcut.",
@@ -1380,7 +1380,7 @@
         },
         {
           "id": "c8-38-language-flowers",
-          "type": "kejadian",
+          "type": "discovery",
           "name": "Discovery: The Language of Flowers",
           "where": "Aerith's House: setelah fight Rude, Aerith menghentikanmu di halaman (hanya kalau 6 side quest Ch8 selesai); ikuti dia ke belakang taman.",
           "whereEn": "Aerith's House: after the Rude fight, Aerith stops you in the yard (only if all 6 Ch8 side quests are done); follow her to the back of the garden.",
@@ -1518,7 +1518,7 @@
         },
         {
           "id": "c9-14-johnny",
-          "type": "kejadian",
+          "type": "discovery",
           "name": "Discovery: Vagabond Johnny",
           "where": "Wall Market: Johnny lari lewat setelah kamu masuk kota; ikuti dan jawab dia. 'Yeah' = route Sam, 'No' = route Madam M.",
           "whereEn": "Wall Market: Johnny runs past after you enter town; follow him and answer him. 'Yeah' = Sam route, 'No' = Madam M route.",
@@ -2538,7 +2538,7 @@
         },
         {
           "id": "c14-31-johnny-wallet",
-          "type": "kejadian",
+          "type": "discovery",
           "name": "Discovery: Johnny's Stolen Wallet",
           "where": "Sector 5 Undercity Station: setelah Tomboy Bandit, kembalikan dompet ke Johnny (penanda Discovery ungu). Untuk trofi The Johnny Experience.",
           "whereEn": "Sector 5 Undercity Station: after Tomboy Bandit, return the wallet to Johnny (purple Discovery marker). For The Johnny Experience trophy.",

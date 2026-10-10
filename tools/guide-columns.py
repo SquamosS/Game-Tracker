@@ -27,10 +27,10 @@ def low(s):
 
 
 def reward_of(o, objectives):
-    if o["type"] in ("side quest", "kejadian", "cerita") or "hadiah" not in low(o["where"]):
+    if o["type"] in ("side quest", "kejadian", "discovery", "cerita") or "hadiah" not in low(o["where"]):
         return None
     for q in objectives:
-        if q["type"] in ("side quest", "kejadian") and q is not o and low(q["name"].replace("Discovery:", "").strip()) in low(o["where"]):
+        if q["type"] in ("side quest", "kejadian", "discovery") and q is not o and low(q["name"].replace("Discovery:", "").strip()) in low(o["where"]):
             return q["id"]
     return None
 

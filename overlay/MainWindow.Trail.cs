@@ -58,7 +58,7 @@ public partial class MainWindow
             if (_trailStep is { } before && _trailStage is { } finished && live is not null && finished.StartsWith(live.TitleKey + "|"))
                 changed |= Record(before, "stage " + finished, e => e.Stages.TryAdd(finished, spot));
             var step = TrailStepFor(chapter);
-            if (step is not null && step.Type is "side quest" or "kejadian" && step != _trailStep)
+            if (step is not null && IsQuestOrEvent(step) && step != _trailStep)
                 changed |= Record(step, "start", e => { if (e.Start is not null) return false; e.Start = spot; return true; });
             (_trailStage, _trailStep) = (stage, step);
         }
@@ -71,8 +71,8 @@ public partial class MainWindow
             if (fresh.Count is > 0 and <= 3)
                 // Items where they arrived, discoveries as the game finishes them. Not story steps (ticked by flags at
                 // the next autosave, wherever that is) nor Ch8's side quests (seen at the next objective search, later).
-                foreach (var step in chapter.Objectives.Where(o => fresh.Contains(o.Id) && (ItemTypes.Contains(o.Type) || o.Type == "kejadian"
-                    || (o.Type == "side quest" && IsLiveQuest(o)))))
+                foreach (var step in chapter.Objectives.Where(o => fresh.Contains(o.Id) && (IsItem(o) || IsEvent(o)
+                    || (IsQuest(o) && IsLiveQuest(o)))))
                     changed |= Record(step, "done", e => { if (e.Done is not null) return false; e.Done = spot; return true; });
         }
         _trailDone = done;
@@ -96,8 +96,8 @@ public partial class MainWindow
     Objective? TrailStepFor(Chapter chapter)
     {
         if (_objective?.Title is not { Length: >= 3 } title) return null;
-        return chapter.Objectives.FirstOrDefault(o => o.Type is "side quest" or "kejadian" && SameQuest(o, title))
-            ?? chapter.Objectives.FirstOrDefault(o => o.Type == "cerita" && NamedAs(o, title));
+        return chapter.Objectives.FirstOrDefault(o => IsQuestOrEvent(o) && SameQuest(o, title))
+            ?? chapter.Objectives.FirstOrDefault(o => IsStory(o) && NamedAs(o, title));
     }
 
     void SaveTrail()
@@ -123,7 +123,7 @@ public partial class MainWindow
         bool live = TrailStepFor(chapter) == o;
         if (live && (_subObjective ?? _objective) is { } stage && entry.Stages.TryGetValue(stage.TitleKey + "|" + stage.DescKey, out var next))
             return (o.Id + "|" + stage.DescKey, next);
-        if (!live && o.Type is "side quest" or "kejadian" && entry.Start is { } start) return (o.Id + "|start", start);
+        if (!live && IsQuestOrEvent(o) && entry.Start is { } start) return (o.Id + "|start", start);
         return entry.Done is { } done ? (o.Id + "|done", done) : null;
     }
 }

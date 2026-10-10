@@ -4,5 +4,20 @@
   "processName": "ff7remake_",
   "steamAppId": 1462040,
   "screenshotGlob": "End\\Binaries\\Win64\\ff7remake_*.png",
-  "reader": "ff7r"
+  "reader": "ff7r",
+  "stepTypes": {
+    "cerita":     { "role": "story",  "en": "story",      "color": "#38BDF8" },
+    "side quest": { "role": "quest",  "icon": "◎", "color": "#22D3EE" },
+    "discovery":  { "role": "event",  "icon": "✧", "color": "#C084FC" },
+    "kejadian":   { "role": "event",  "en": "event" },
+    "materia":    { "role": "item",   "icon": "◆", "color": "#4ADE80" },
+    "senjata":    { "role": "item",   "en": "weapon",     "icon": "⚔", "color": "#FB923C", "neverLost": true },
+    "armor":      { "role": "item",   "icon": "■", "color": "#2DD4BF" },
+    "aksesori":   { "role": "item",   "en": "accessory",  "icon": "●", "color": "#A3E635" },
+    "music disc": { "role": "item",   "icon": "♪", "color": "#F472B6", "neverLost": true, "unique": true },
+    "summon":     { "role": "item",   "icon": "✦", "color": "#E879F9", "neverLost": true },
+    "manuskrip":  { "role": "item",   "en": "manuscript", "icon": "✎", "color": "#D6A77A" },
+    "item kunci": { "role": "item",   "en": "key item",   "icon": "⚷", "color": "#FCD34D" },
+    "trofi":      { "role": "trophy", "en": "trophy",     "icon": "★", "color": "#FCD34D" }
+  }
 }
