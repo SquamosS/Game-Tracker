@@ -1,3 +1,16 @@
 {
-  "c8-07a-gate-discovery": { "x": -34464, "y": 867, "z": 1015, "area": "Scrapyard Back Alley", "note": "Switch on the far side of the gate (recorded standing at it, 10 Oct 2026)" }
+  "c8-07a-gate-discovery": {
+    "x": -34464,
+    "y": 867,
+    "z": 1015,
+    "area": "Scrapyard Back Alley",
+    "note": "Switch on the far side of the gate (recorded standing at it, 10 Oct 2026)"
+  },
+  "c8-13-disc-costa": {
+    "x": -6670,
+    "y": 8590,
+    "z": 349,
+    "area": "Center District",
+    "note": "In front of the Materia Shop counter that sells Costa del Sol (recorded standing there, 10 Oct 2026)"
+  }
 }
