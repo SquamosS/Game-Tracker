@@ -253,11 +253,18 @@ public partial class MainWindow
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return []; }
     }
 
-    /// <summary>An item arrived: the one chest within 4 m holding it (none or several: nothing learned) is opened.</summary>
-    void ChestOpened(int itemId)
+    DateTime _inGameSince;
+
+    /// <summary>
+    /// Items arrived together (ids of the slots that changed): the one chest within 4 m whose contents are exactly those
+    /// ids is opened. Not while in a battle or a menu, nor in the first 10 s after a save loaded or a save being matched
+    /// (Reconcile): a drop, a reward or a loaded save must not mark a closed chest, since a wrong entry stays.
+    /// </summary>
+    void ChestOpened(HashSet<int> arrived)
     {
-        if (_herePosition is not { } p) return;
-        var near = _reader.Chests.Where(c => c.At is { } at && c.Items.Contains(itemId) && !_opened.Contains(c.Id) && Distance(at, p) <= 4).ToList();
+        if (_herePosition is not { } p || arrived.Count == 0 || _reconcile || _storyMayGoBack
+            || DateTime.Now - _inGameSince < TimeSpan.FromSeconds(10) || _gameState is { Battle: true } or { Menu: true }) return;
+        var near = _reader.Chests.Where(c => c.At is { } at && !_opened.Contains(c.Id) && c.Items.ToHashSet().SetEquals(arrived) && Distance(at, p) <= 4).ToList();
         if (near.Count != 1 || !_opened.Add(near[0].Id)) return;
         try
         {
@@ -282,13 +289,17 @@ public partial class MainWindow
         return $"{Math.Round(metres / round) * round:0} m";
     }
 
-    /// <summary>The area a chest stands in (Ff7rMapArea.cs), cached once known; null while it cannot be read.</summary>
+    /// <summary>
+    /// The area a chest stands in (Ff7rMapArea.cs), cached once known; null while it cannot be read (asked again after
+    /// 30 s, when the area volumes may have loaded).
+    /// </summary>
     string? ChestArea(Ff7rChapterReader.Chest chest)
     {
         if (!ReferenceEquals(_chestsIndexed, _reader.Chests)) IndexChests();
-        if (_chestArea.TryGetValue(chest, out var area)) return area;
-        if (chest.At is not { } at || _reader.ReadLocation(at) is not { } location) return null;
-        return _chestArea[chest] = location.Area;
+        if (_chestArea.TryGetValue(chest, out var known) && (known.Area is not null || DateTime.Now - known.When < TimeSpan.FromSeconds(30))) return known.Area;
+        string? area = chest.At is { } at ? _reader.ReadLocation(at)?.Area : null;
+        _chestArea[chest] = (area, DateTime.Now);
+        return area;
     }
 
     /// <summary>

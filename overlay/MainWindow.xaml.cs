@@ -169,7 +169,7 @@ public partial class MainWindow : Window
         if (!_inGame) { chapter = null; _detectedChapter = null; }
         // Back in game after the title screen or a load (or the overlay just started): the save may be another
         // one, even the same chapter, so check the ticks against it.
-        if (_inGame && !wasInGame) { _reconcile = true; _loadedSlots = []; ForgetRecent(); }
+        if (_inGame && !wasInGame) { _reconcile = true; _loadedSlots = []; ForgetRecent(); _inGameSince = DateTime.Now; }
 
         bool changed = chapter is not null && chapter != _detectedChapter;
         if (chapter is not null) _detectedChapter = chapter;
@@ -258,7 +258,7 @@ public partial class MainWindow : Window
         foreach (var o in owned) _slotIds[o.Slot] = (o.Id, o.Count);
         bool handedOver = changedSlots.Count is > 0 and <= 3;
         // Items handed over in front of a chest that holds them: that chest is opened now (ChestOpened).
-        if (handedOver) foreach (var o in owned.Where(o => changedSlots.Contains(o.Slot))) ChestOpened(o.Id);
+        if (handedOver) ChestOpened(owned.Where(o => changedSlots.Contains(o.Slot) && o.Id > 0).Select(o => o.Id).ToHashSet());
         if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; ForgetRecent(); } // a save was loaded (or copied)
         bool IsNew(Ff7rChapterReader.Owned o) =>
             (_seenOwned.Add((o.Id, o.Obtained)) && o.Obtained >= _startedAt - 120) | (handedOver && changedSlots.Contains(o.Slot));
@@ -612,7 +612,7 @@ public partial class MainWindow : Window
     Dictionary<string, Ff7rChapterReader.Chest?> _chestByName = new(StringComparer.OrdinalIgnoreCase);
     IReadOnlyList<Ff7rChapterReader.Chest>? _chestsIndexed;
     /// <summary>The area each chest stands in (Ff7rMapArea.cs), once known.</summary>
-    readonly Dictionary<Ff7rChapterReader.Chest, string> _chestArea = [];
+    readonly Dictionary<Ff7rChapterReader.Chest, (string? Area, DateTime When)> _chestArea = [];
 
     /// <summary>
     /// How far Cloud is from the chest holding this step's item ("12 m", rounded to 1 m up close, 5 m to 100 m, 10 m
