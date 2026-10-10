@@ -43,8 +43,8 @@
         </Border>
         <TextBlock x:Name="ObjectiveText" TextWrapping="Wrap" />
         <!-- A thin accent, not a red block: amber while the point of no return is ahead, red when it is the step you are on. -->
-        <Border x:Name="WarnBox" BorderBrush="#FBBF24" BorderThickness="2,0,0,0" Padding="8,1,0,1" Margin="0,8,0,0">
-          <TextBlock x:Name="WarnText" TextWrapping="Wrap" Foreground="#FBBF24" FontSize="12" />
+        <Border x:Name="WarnBox" Cursor="Hand" Background="Transparent" BorderBrush="#FBBF24" BorderThickness="2,0,0,0" Padding="8,1,0,1" Margin="0,8,0,0">
+          <TextBlock x:Name="WarnText" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" Foreground="#FBBF24" FontSize="12" />
         </Border>
       </StackPanel>
       <TextBlock DockPanel.Dock="Bottom" x:Name="FooterText" Foreground="#64748B" FontSize="10.5"

@@ -67,6 +67,7 @@ public partial class MainWindow : Window
         Header.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) DragMove(); };
         // Handled, so a click on the switch does not start dragging the overlay.
         LangSwitch.MouseLeftButtonDown += (_, e) => { e.Handled = true; Lang.Set(!Lang.Indonesian); };
+        WarnBox.MouseLeftButtonDown += (_, e) => { e.Handled = true; _warnOpen = !_warnOpen; Render(); };
         Lang.Changed += OnLanguageChanged;
         Loaded += (_, _) => DockRight();
         SourceInitialized += (_, _) => SetupHotkeys();
@@ -77,6 +78,9 @@ public partial class MainWindow : Window
         WatchGuides();
         WatchGame();
     }
+
+    /// <summary>The point-of-no-return warning opened by a click: the steps left and the reason, not just the count.</summary>
+    bool _warnOpen;
 
     void OnLanguageChanged() => Render();
 
@@ -1033,12 +1037,12 @@ public partial class MainWindow : Window
         bool urgent = gate is not null && gate == CurrentStory;
         WarnBox.Visibility = toGet.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         WarnBox.BorderBrush = WarnText.Foreground = urgent ? Danger : Late;
-        WarnText.Text = toGet.Count == 0 ? "" : string.Join(Environment.NewLine, new[]
-        {
-            gate is null ? Lang.T($"⚠ Not picked up yet ({toGet.Count}): {string.Join(" · ", toGet)}", $"⚠ Belum diambil ({toGet.Count}): {string.Join(" · ", toGet)}")
-                : Lang.T($"⚠ {toGet.Count} left before {gate.Name}: {string.Join(" · ", toGet)}", $"⚠ {toGet.Count} lagi sebelum {gate.Name}: {string.Join(" · ", toGet)}"),
-            urgent || _full ? reason : null,
-        }.Where(s => s is not null));
+        // Short by default (the count and the gate, one line); a click opens what is left and why.
+        string head = gate is null ? Lang.T($"Not picked up yet ({toGet.Count})", $"Belum diambil ({toGet.Count})")
+            : Lang.T($"{toGet.Count} left before {gate.Name}", $"{toGet.Count} lagi sebelum {gate.Name}");
+        WarnText.TextWrapping = _warnOpen ? TextWrapping.Wrap : TextWrapping.NoWrap;
+        WarnText.Text = toGet.Count == 0 ? "" : !_warnOpen ? $"⚠ {head}  ▸"
+            : string.Join(Environment.NewLine, new[] { $"⚠ {head}  ▾", string.Join(" · ", toGet), urgent || _full ? reason : null }.Where(s => s is not null));
 
         string? nextId = NextStep(objectives)?.Id;
         // Items listed after a story step can be done while that step is the current one.
