@@ -23,6 +23,30 @@ public sealed partial class Ff7rChapterReader
 {
     const long ItemTableRva = 0x4CCCE48, EquipmentTableRva = 0x4CC3438, MateriaTableRva = 0x4CCA208, RewardTableRva = 0x4CE1290, ChestTableRva = 0x4CD6488;
 
+    /// <summary>
+    /// A quest pick-up kept in the chest table (obt080_qst05_SlumAngelCard = the Guardian Angel's calling cards) is
+    /// placed only while its quest needs it: it shows only while the game's live quest is that quest, same map and
+    /// number in its key (Ch. 3 keys look like "$str030_SLUM7_qst055", objects "oba030_qst055_Betty"; Ch. 14 keys "$str110_SLU5A_Quest070"). Plain chests
+    /// always show.
+    /// </summary>
+    public bool ChestShown(GameChest chest, GameObjective? live)
+    {
+        var pickUp = QuestPickUp.Match(chest.Id);
+        if (!pickUp.Success) return true;
+        // Chapter 8's side quests: an entry "080_SLU5B_q05" (The Angel of the Slums) under way, stage 01-98, not cleared.
+        var entries = SideQuests.Where(q => q.Quest.StartsWith(pickUp.Groups[1].Value + "_")
+            && q.Quest.EndsWith("_q" + pickUp.Groups[2].Value)).ToList();
+        if (entries.Count > 0)
+            return !entries.Any(q => q.Finished) && entries.Any(q => int.TryParse(q.Stage, out int stage) && stage is > 0 and < 99);
+        var quest = live?.TitleKey is { } key ? QuestKey.Match(key) : null;
+        if (quest is not { Success: true } || quest.Groups[1].Value != pickUp.Groups[1].Value) return false;
+        string number = pickUp.Groups[2].Value, liveNumber = quest.Groups[2].Value;
+        return liveNumber == number || liveNumber == number + "0";
+    }
+
+    static readonly System.Text.RegularExpressions.Regex QuestPickUp = new(@"^obt(\d{3})_qst(\d+)_", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase),
+        QuestKey = new(@"^\$str(\d{3})_.*?(?:qst|Quest)(\d+)", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
     /// <summary>A chest flag's number + this = its bit in the save data's flag block.</summary>
     const int ChestFlagBit = 0xA80;
 

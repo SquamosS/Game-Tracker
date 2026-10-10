@@ -268,16 +268,16 @@ public partial class MainWindow : Window
         if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; ForgetRecent(); _reader.ForgetChestCopy(); _reader.ForgetSideQuests(); } // a save was loaded (or copied)
         bool IsNew(OwnedItem o) =>
             (_seenOwned.Add((o.Id, o.Obtained)) && o.Obtained >= _startedAt - 120) | (handedOver && changedSlots.Contains(o.Slot));
-        var newItems = owned.Where(o => o.Id > 0 && o.Id != 20).Where(IsNew).ToList();
+        var newItems = owned.Where(o => o.Id > 0 && !_names.IsCurrency(o.Id)).Where(IsNew).ToList();
         // A new item may sit in a slot that was empty (the end of the list: key items, the Graveyard Key), so not in
         // changedSlots: log what is new, unless a save was loaded.
         if (changedSlots.Count <= 3) LogItems(newItems.Concat(owned.Where(o => handedOver && changedSlots.Contains(o.Slot) && o.Id > 0)).DistinctBy(o => o.Slot));
         foreach (var o in newItems)
         {
-            // Consumables (ids below 100: potions, gil...) are never guide steps, so they are not learned. Neither is
-            // anything that came with a loaded save.
+            // Consumables (potions...) are never guide steps, so they are not learned. Neither is anything that came
+            // with a loaded save.
             _obtained.Add(o.Id); // its chest, if any, is empty now: no distance to it any more
-            if (_names.Name(o.Id) is not { } name) { if (o.Id >= 100 && changedSlots.Count <= 3) _unknownNew.Add((o.Id, DateTime.Now)); continue; }
+            if (_names.Name(o.Id) is not { } name) { if (!_names.IsConsumable(o.Id) && changedSlots.Count <= 3) _unknownNew.Add((o.Id, DateTime.Now)); continue; }
             var step = StepFor(name);
             if (step is null || !_progress.Done.Add(step.Id)) continue;
             _progress.History.Add(step.Id);
@@ -390,8 +390,8 @@ public partial class MainWindow : Window
     {
         _unknownNew.RemoveAll(u => DateTime.Now - u.When > TimeSpan.FromMinutes(2));
         if (_unknownNew.Count == 0) return;
-        // Materia ids are 10000 and up; learn only when a single unknown of the right kind for this step came in.
-        var ids = _unknownNew.Where(u => (u.Id >= 10000) == (step.Type == "materia")).Select(u => u.Id).Distinct().ToList();
+        // Learn only when a single unknown of the right kind for this step came in.
+        var ids = _unknownNew.Where(u => _names.FitsStep(u.Id, step.Type)).Select(u => u.Id).Distinct().ToList();
         if (ids.Count == 0) return;
         if (ids.Count > 1) { Notify(Lang.T("Not learned: more than one new item", "Tidak dipelajari: lebih dari satu item baru")); return; }
         int id = ids[0];
@@ -429,7 +429,7 @@ public partial class MainWindow : Window
         // You marked where you are: remember that the game's current objective belongs to that story step.
         if (_objective is { } objective && CurrentStory is { } current && CurrentChapter?.Number == _detectedChapter)
         {
-            _names.LearnFlag("Q:" + objective.TitleKey, current.Id);
+            _names.LearnObjective(objective.TitleKey, current.Id);
             Notify(Lang.T($"Learned: objective {objective.TitleKey} = {current.Name}", $"Dipelajari: objektif {objective.TitleKey} = {current.Name}"));
         }
     }
@@ -439,25 +439,6 @@ public partial class MainWindow : Window
         step.Name.Split(" / ").Any(part => part.Trim().Equals(title, StringComparison.OrdinalIgnoreCase));
 
     string _lastChoiceLog = "";
-
-    /// <summary>Sub-objective keys: "..._Step060_s030_030", "..._Step20_S10", "..._toPark_sub01".</summary>
-    static bool IsSub(string key) => SubPattern.IsMatch(key);
-
-    /// <summary>The objective of the last entry in the longest run of adjacent entries, ignoring chapter titles.</summary>
-    GameObjective? NewestEntry()
-    {
-        var slots = _reader.CandidateSlots
-            .Where(c => !c.Objective.TitleKey.Contains("_Parent") && !c.Objective.TitleKey.EndsWith("_End") && !IsSub(c.Objective.TitleKey))
-            .OrderBy(c => c.Slot).ToList();
-        List<(GameObjective Objective, long Slot, long Parent)> best = [], run = [];
-        foreach (var c in slots)
-        {
-            if (run.Count > 0 && c.Slot - run[^1].Slot > 0x400) run = [];
-            run.Add(c);
-            if (run.Count >= best.Count) best = run;
-        }
-        return best.Count >= 2 ? best[^1].Objective : null;
-    }
 
     /// <summary>
     /// Writes the candidates and the pick to data\logs\quest-choice.log whenever either changes, marking ties
@@ -567,7 +548,6 @@ public partial class MainWindow : Window
 
     static readonly System.Text.RegularExpressions.Regex AreaPattern = new(@"^([^:(]{3,60}?)\s*(?:\(([^)]*)\))?\s*:", System.Text.RegularExpressions.RegexOptions.Compiled),
         FloorPattern = new(@"\bB\d+\b", System.Text.RegularExpressions.RegexOptions.Compiled),
-        SubPattern = new(@"_(s|S|sub)\d+(_\d+)?$", System.Text.RegularExpressions.RegexOptions.Compiled),
         HardNote = new(@"\s*\(?Hard:.*$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <summary>Whether the step is in the area you are in now (and on its floor, when the guide names one).</summary>
@@ -632,9 +612,9 @@ public partial class MainWindow : Window
             && o.Where.Contains(q.Name.Replace("Discovery:", "").Trim(), StringComparison.OrdinalIgnoreCase));
 
     /// <summary>A side quest or discovery that is the game's live objective now.</summary>
-    /// Not one left for later ("..._xxx": "take a look the next time you're in the area"): that one shows only in its area.
+    /// Not one left for later (GameObjective.Later): that one shows only in its area.
     bool IsLiveQuest(Objective o) => o.Type is "side quest" or "kejadian" && _objective?.Title is { Length: >= 3 } title && SameQuest(o.Name, title)
-        && !_objective.DescKey.EndsWith("_xxx");
+        && !_objective.Later;
 
     string _hereShown = "";
     readonly ToastWindow _toast = new();
@@ -806,8 +786,8 @@ public partial class MainWindow : Window
         _reconcile = false;
         ProgressStore.Backup(_guide.Game);
         _progress.Ever.UnionWith(_progress.Done);
-        // Gil (id 20) is always owned and its name is part of "Gil Up": leave it out, as FollowItems does.
-        var ownedNames = live.Where(id => id != 20).Select(id => _names.Name(id)).OfType<string>().ToList();
+        // Money is always owned and its name is part of "Gil Up": leave it out, as FollowItems does.
+        var ownedNames = live.Where(id => !_names.IsCurrency(id)).Select(id => _names.Name(id)).OfType<string>().ToList();
         _liveOwnedNames = ownedNames;
         var itemSteps = _guide.Chapters.SelectMany(c => c.Objectives).Where(o => ItemTypes.Contains(o.Type)).ToList();
         bool sameStory(Chapter c) => (c.Number >= 21) == (loaded >= 21); // INTERmission is its own story
@@ -855,21 +835,16 @@ public partial class MainWindow : Window
             // One guide step can cover several quests ("A / B"): then the later row in the game's table wins.
             var furthest = _reader.Candidates.MaxBy(o => (Index(o), o.Order));
             if (furthest is not null && Index(furthest) < 0) furthest = null;
-            // The game's own order comes first: each objective that starts gets the next entry in one array
-            // (entries 0x188 apart), so the last entry of the longest run is the newest objective. The guide
-            // order is the fallback when there is no such run.
-            var newest = NewestEntry();
+            // The game's own order comes first (the objective it started last); the guide order is the fallback.
+            var newest = _reader.NewestObjective();
             // A discovery or side quest just finished is still the newest entry, but the story goes on: follow the
             // story step again (the Story menu shows it ticked, not as the current objective).
             if (newest is { Finished: true } && Index(newest) < 0)
-                newest = _reader.Candidates.Where(o => !IsSub(o.TitleKey) && Index(o) >= 0).OrderByDescending(o => (Index(o), o.Order)).FirstOrDefault() ?? newest;
+                newest = _reader.Candidates.Where(o => !o.Sub && Index(o) >= 0).OrderByDescending(o => (Index(o), o.Order)).FirstOrDefault() ?? newest;
             objective = newest ?? furthest ?? objective;
             LogChoice(objective, Index, newest is not null && furthest is not null && furthest.Row != newest.Row ? furthest : null);
         }
-        // Sub-objectives have entries of their own in a second array; the newest one under this objective is live.
-        var sub = objective is null ? null : _reader.CandidateSlots
-            .Where(c => IsSub(c.Objective.TitleKey) && c.Objective.TitleKey.StartsWith(objective.TitleKey + "_"))
-            .OrderByDescending(c => c.Slot).Select(c => c.Objective).FirstOrDefault();
+        var sub = objective is null ? null : _reader.SubObjectiveOf(objective);
         if (objective?.Row == _objective?.Row && sub?.Row == _subObjective?.Row && !_storyMayGoBack) return false;
         if (_objective is not null) _reader.RefreshListsSoon();
         _objective = objective;
@@ -877,7 +852,7 @@ public partial class MainWindow : Window
         // Guide story steps carry the game's own quest names, so match by name; a learned mapping wins. A
         // sub-objective can be a guide step of its own ("Train Yard Security"), and then it is the one to follow.
         Objective? StepFor(GameObjective? live, Chapter chapter) => live is null ? null
-            : _names.FlagName("Q:" + live.TitleKey) is { } stepId ? chapter.Objectives.FirstOrDefault(o => o.Id == stepId)
+            : _names.ObjectiveStep(live.TitleKey) is { } stepId ? chapter.Objectives.FirstOrDefault(o => o.Id == stepId)
             : chapter.Objectives.FirstOrDefault(o => o.Type == "cerita" && live.Title is { } title && NamedAs(o, title));
         if (objective is not null && CurrentChapter is { } chapter && chapter.Number == _detectedChapter
             && (StepFor(sub, chapter) ?? StepFor(objective, chapter)) is { } step)

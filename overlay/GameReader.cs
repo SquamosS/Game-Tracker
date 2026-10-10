@@ -12,11 +12,16 @@ public sealed record GameLocation(string Area, string? Floor);
 /// One stage of a quest or story objective as the game shows it. Row: the game's own id for this stage (equal rows =
 /// same stage); Order: story order of the stage among the game's objectives; TitleKey/DescKey: the game's text keys
 /// for title and description (one quest shares its title key across stages); Title/Text: their text, when read;
-/// Finished: the stage is the quest's last (cleared).
+/// Finished: the stage is the quest's last (cleared); Sub: a sub-objective of another (its title key starts with the
+/// other's); Later: left for later ("take a look the next time you're in the area"), not the quest being played.
 /// </summary>
-public sealed record GameObjective(long Row, int Order, string TitleKey, string DescKey, string? Title, string? Text, bool Finished);
+public sealed record GameObjective(long Row, int Order, string TitleKey, string DescKey, string? Title, string? Text, bool Finished,
+    bool Sub = false, bool Later = false);
 
-/// <summary>One inventory record; Slot is where it lives (keeps holding the same id unless something new is put there), Obtained the game's time stamp.</summary>
+/// <summary>
+/// One inventory record; Slot is where it lives (keeps holding the same id unless something new is put there), Obtained
+/// when it was obtained (Unix seconds; 0 = not known).
+/// </summary>
 public sealed record OwnedItem(int Id, int Count, uint Obtained, long Slot = 0);
 
 /// <summary>A side quest as the game's quest page lists it: title, the game's quest id and stage, and whether it is cleared.</summary>
@@ -38,8 +43,8 @@ public sealed record GameChest(string Id, GamePosition? At, int[] Items, int? Fl
 public sealed record GameState(bool Exploring, bool Menu, bool Cutscene, bool Battle, int Code, string Detail);
 
 /// <summary>
-/// Names of the game's items and flags for guide steps: shipped with the game's folder and learned while playing
-/// (an item or flag that arrived right before you ticked a step). Null = not known.
+/// The game's items and flags as guide steps know them: names shipped with the game's folder and learned while playing
+/// (an item, flag or objective that arrived right before you ticked a step), and what kind of item an id is. Null = not known.
 /// </summary>
 public interface IGameNames
 {
@@ -47,6 +52,19 @@ public interface IGameNames
     string? FlagName(string flag);
     void Learn(int id, string name);
     void LearnFlag(string flag, string name);
+
+    /// <summary>The guide step (id) learned for an objective's title key, from LearnObjective.</summary>
+    string? ObjectiveStep(string titleKey);
+    void LearnObjective(string titleKey, string stepId);
+
+    /// <summary>Money: always owned, never a guide step (its name may be part of an item's, "Gil Up").</summary>
+    bool IsCurrency(int id);
+
+    /// <summary>Used up (potions...): never a guide step, so never learned as one.</summary>
+    bool IsConsumable(int id);
+
+    /// <summary>Whether an unknown item of this id could be what a guide step of this type gives (learning item names).</summary>
+    bool FitsStep(int id, string stepType);
 }
 
 /// <summary>
@@ -95,6 +113,12 @@ public interface IGameReader : IDisposable
     /// <summary>The live story objective of the chapter, null when not known.</summary>
     GameObjective? ReadObjective(int chapter);
 
+    /// <summary>The objective the game started last (its own order), null when it cannot tell (then the guide order decides).</summary>
+    GameObjective? NewestObjective();
+
+    /// <summary>The live sub-objective of an objective ("Find Stamp" › "Train Yard Security"), if any.</summary>
+    GameObjective? SubObjectiveOf(GameObjective objective);
+
     /// <summary>Every objective stage some entry of the game points at, from the last ReadObjective.</summary>
     IReadOnlyList<GameObjective> Candidates { get; }
 
@@ -112,6 +136,12 @@ public interface IGameReader : IDisposable
 
     /// <summary>Whether the save being played has opened the chest; null = not known.</summary>
     bool? ChestOpened(GameChest chest);
+
+    /// <summary>
+    /// Whether the chest stands in the level now as far as quests go: a quest's pick-up kept with the chests shows only
+    /// while that quest is live (live: the objective the overlay follows). Plain chests always do.
+    /// </summary>
+    bool ChestShown(GameChest chest, GameObjective? live);
 
     /// <summary>A save was loaded: drop what was read from the one before (asked again).</summary>
     void ForgetChestCopy();
@@ -145,6 +175,11 @@ public sealed class NoGameReader : IGameReader
         public string? FlagName(string flag) => null;
         public void Learn(int id, string name) { }
         public void LearnFlag(string flag, string name) { }
+        public string? ObjectiveStep(string titleKey) => null;
+        public void LearnObjective(string titleKey, string stepId) { }
+        public bool IsCurrency(int id) => false;
+        public bool IsConsumable(int id) => false;
+        public bool FitsStep(int id, string stepType) => false;
     }
 
     public string? Version => null;
@@ -161,12 +196,15 @@ public sealed class NoGameReader : IGameReader
     public void RefreshListsSoon() { }
     public HashSet<string>? ReadFlags() => null;
     public GameObjective? ReadObjective(int chapter) => null;
+    public GameObjective? NewestObjective() => null;
+    public GameObjective? SubObjectiveOf(GameObjective objective) => null;
     public IReadOnlyList<GameObjective> Candidates => [];
     public IReadOnlyList<(GameObjective Objective, long Slot, long Parent)> CandidateSlots => [];
     public IReadOnlyList<SideQuest> SideQuests => [];
     public void ForgetSideQuests() { }
     public IReadOnlyList<GameChest> Chests => [];
     public bool? ChestOpened(GameChest chest) => null;
+    public bool ChestShown(GameChest chest, GameObjective? live) => true;
     public void ForgetChestCopy() { }
     public void Dispose() { }
 }

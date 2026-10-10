@@ -51,10 +51,38 @@ public sealed partial class Ff7rChapterReader
     /// Finished: main steps end on "..._990_d"; discoveries move past their first row "..._Mate_01_d" to
     /// "..._Mate_011_d" (cleared) and "..._Mate_012_d". Chapter 8 discoveries ("$str080_Chapter09_side00" = The Gate
     /// Won't Open) have descriptions without "_d": "_010" active, "_990" done, "_xxx" left for later.
+    /// Sub: sub-objective keys "..._Step060_s030_030", "..._Step20_S10", "..._toPark_sub01". Later: "..._xxx", left for
+    /// later ("take a look the next time you're in the area").
     /// </summary>
     static GameObjective Objective(long row, int order, string titleKey, string descKey, string? title, string? text) =>
         new(row, order, titleKey, descKey, title, text, descKey.EndsWith("_990_d") || descKey.EndsWith("_990") || descKey.Contains("_Done")
-            || (titleKey.Contains("_Mate_") && descKey != titleKey + "_d"));
+            || (titleKey.Contains("_Mate_") && descKey != titleKey + "_d"), SubKey.IsMatch(titleKey), descKey.EndsWith("_xxx"));
+
+    static readonly System.Text.RegularExpressions.Regex SubKey = new(@"_(s|S|sub)\d+(_\d+)?$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// The objective of the last entry in the longest run of adjacent entries, ignoring chapter titles: each objective
+    /// that starts gets the next entry in one array (entries 0x188 apart). Null without such a run.
+    /// </summary>
+    public GameObjective? NewestObjective()
+    {
+        var slots = CandidateSlots
+            .Where(c => !c.Objective.TitleKey.Contains("_Parent") && !c.Objective.TitleKey.EndsWith("_End") && !c.Objective.Sub)
+            .OrderBy(c => c.Slot).ToList();
+        List<(GameObjective Objective, long Slot, long Parent)> best = [], run = [];
+        foreach (var c in slots)
+        {
+            if (run.Count > 0 && c.Slot - run[^1].Slot > 0x400) run = [];
+            run.Add(c);
+            if (run.Count >= best.Count) best = run;
+        }
+        return best.Count >= 2 ? best[^1].Objective : null;
+    }
+
+    /// <summary>Sub-objectives have entries of their own in a second array; the newest one under this objective is live.</summary>
+    public GameObjective? SubObjectiveOf(GameObjective objective) => CandidateSlots
+        .Where(c => c.Objective.Sub && c.Objective.TitleKey.StartsWith(objective.TitleKey + "_"))
+        .OrderByDescending(c => c.Slot).Select(c => c.Objective).FirstOrDefault();
 
     Dictionary<long, GameObjective>? _objectiveRows;
     List<long> _objectiveSlots = new();

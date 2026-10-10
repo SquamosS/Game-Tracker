@@ -99,6 +99,19 @@ public class ItemMap : IGameNames
         Save();
     }
 
+    // Objectives are learned among the flags, under "Q:" + their title key.
+    public string? ObjectiveStep(string titleKey) => FlagName("Q:" + titleKey);
+    public void LearnObjective(string titleKey, string stepId) => LearnFlag("Q:" + titleKey, stepId);
+
+    /// <summary>Gil is item 20.</summary>
+    public bool IsCurrency(int id) => id == 20;
+
+    /// <summary>Ids below 100: potions, gil...</summary>
+    public bool IsConsumable(int id) => id < 100;
+
+    /// <summary>Materia ids are 10000 and up: an unknown one is learned only for a materia step, other ids only for other steps.</summary>
+    public bool FitsStep(int id, string stepType) => (id >= 10000) == (stepType == "materia");
+
     public static ItemMap Load()
     {
         try { return JsonSerializer.Deserialize<ItemMap>(File.ReadAllText(File_)) ?? new(); }
