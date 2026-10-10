@@ -401,6 +401,44 @@ public partial class MainWindow
     }
 
     /// <summary>
+    /// Whether the chest's object stands in the level now (a field object within 1.5 m of its point, Ff7rFieldActors.cs):
+    /// a chest the game has not placed yet cannot be opened, whatever the guide's order says. Null when the level cannot
+    /// be read; then the guide's order decides (ForLater).
+    /// </summary>
+    bool? Placed(Ff7rChapterReader.Chest chest)
+    {
+        if (chest.At is not { } at || _reader.ReadFieldActors() is not { } actors) return null;
+        return actors.Any(a => Distance(a.At, at) <= 1.5);
+    }
+
+    /// <summary>The placed state of the one chest holding this step's item; null when no single chest holds it.</summary>
+    bool? ChestPlaced(Objective o)
+    {
+        if (!ItemTypes.Contains(o.Type)) return null;
+        if (!ReferenceEquals(_chestsIndexed, _reader.Chests)) IndexChests();
+        return _chestByName.GetValueOrDefault(o.Name) is { } chest ? Placed(chest) : null;
+    }
+
+    readonly List<Ff7rChapterReader.FieldActor> _fieldLogged = [];
+
+    /// <summary>
+    /// Writes data\logs\field-actors.log when a field object appears where none of its class was seen before this
+    /// session (3 m apart; things carried around by people are left out): to learn the classes of pick-ups as they
+    /// appear (the MP Up materia of The Language of Flowers).
+    /// </summary>
+    void LogFieldActors()
+    {
+        if (_reader.ReadFieldActors() is not { } actors) return;
+        var fresh = actors.Where(a => !a.Class.StartsWith("WE") && (a.At.X != 0 || a.At.Y != 0)
+            && !_fieldLogged.Any(b => b.Class == a.Class && Distance(a.At, b.At) <= 3)).ToList();
+        if (fresh.Count == 0) return;
+        _fieldLogged.AddRange(fresh);
+        var lines = fresh.Select(a => $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{_here?.Area}\t{a.Class}\t{a.At.X:0}\t{a.At.Y:0}\t{a.At.Z:0}");
+        try { File.AppendAllLines(Path.Combine(DataPaths.Logs, "field-actors.log"), lines); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+    }
+
+    /// <summary>
     /// The chest holds a step of this chapter that is not open yet (MP Up in Aerith's garden comes with The Language of
     /// Flowers, after the Rude fight): not listed before its time.
     /// </summary>
@@ -440,7 +478,7 @@ public partial class MainWindow
     {
         if (!_live || _here is not { } here || _herePosition is not { } p) return [];
         return _reader.Chests
-            .Where(c => c.At is not null && c.Items.Length > 0 && QuestObjectShown(c) && !Opened(c) && !ForLater(c) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
+            .Where(c => c.At is not null && c.Items.Length > 0 && QuestObjectShown(c) && !Opened(c) && (Placed(c) ?? !ForLater(c)) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
             .Select(c => (Chest: c, Metres: Distance(c.At!, p)))
             .OrderBy(x => x.Metres).Take(5)
             .Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _itemMap.Name(id) ?? $"#{id}")), Metres(x.Metres))).ToList();

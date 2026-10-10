@@ -207,7 +207,7 @@ public partial class MainWindow : Window
         LogPosition(position);
         FollowGameState();
         changed |= FollowLocation(position);
-        if (_inGame) { LogChests(); LogChestFlags(); }
+        if (_inGame) { LogChests(); LogChestFlags(); LogFieldActors(); }
         // Distances to chests change as you walk: redraw when a rounded one does, at most every 2 s.
         if (DateTime.Now - _distancesAt >= TimeSpan.FromSeconds(2))
         {
@@ -565,7 +565,7 @@ public partial class MainWindow : Window
     /// </summary>
     List<Objective> HereSteps() => CurrentChapter is not { } chapter ? []
         : chapter.Objectives.Where(o => o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id)
-            && (IsLiveQuest(o) || (IsHere(o) && !NotYet(o, chapter)))
+            && (IsLiveQuest(o) || (IsHere(o) && (ChestPlaced(o) ?? !NotYet(o, chapter))))
             && !(RewardOf(o, chapter) is { } quest && !_progress.Done.Contains(quest.Id))).ToList();
 
     /// <summary>
@@ -655,7 +655,7 @@ public partial class MainWindow : Window
     {
         if (!_live || _herePosition is not { } p || !ItemTypes.Contains(o.Type) || AreaOf(o) is not var (stepArea, _)) return null;
         if (!ReferenceEquals(_chestsIndexed, _reader.Chests)) IndexChests();
-        if (_chestByName.GetValueOrDefault(o.Name) is not { At: { } at } only) return null;
+        if (_chestByName.GetValueOrDefault(o.Name) is not { At: { } at } only || Placed(only) == false) return null;
         // The game's flag when known; else the item arriving this session or a learned opening means the chest is empty.
         if (_reader.ChestOpened(only) ?? (only.Items.Any(_obtained.Contains) || _opened.Contains(only.Id))) return null;
         if (ChestArea(only) is not { } area || !area.Equals(stepArea, StringComparison.OrdinalIgnoreCase)) return null;
@@ -1218,6 +1218,8 @@ public partial class MainWindow : Window
             // Trophies are not tracked here: the rewards they come with are steps of their own.
             if (o.Type == "trofi") continue;
             if (o.Optional && phase < current) continue;
+            // Not open yet (After), unless the game shows it live.
+            if (o.After is { } after && !_progress.Done.Contains(after) && !IsLiveQuest(o)) continue;
             // Behind you on a stretch you cannot walk back: shown again once you can (Revisit).
             if (phase < current && o.Revisit is { } back && !_progress.Done.Contains(back)) continue;
             open.Add((o, IsHere(o) ? TagHere : phase == current ? null : TagBehind));

@@ -401,6 +401,9 @@ public sealed partial class Ff7rChapterReader : IDisposable
         _chestsComplete = false;
         _volumes = new();
         _ownedProbe.Data = _chestProbe.Data = null;
+        _fieldActors = null;
+        _fieldActorsAt = DateTime.MinValue;
+        _fieldClassNames.Clear();
         ForgetChestCopy();
     }
 
