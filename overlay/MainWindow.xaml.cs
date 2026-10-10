@@ -565,7 +565,7 @@ public partial class MainWindow : Window
     /// </summary>
     List<Objective> HereSteps() => CurrentChapter is not { } chapter ? []
         : chapter.Objectives.Where(o => o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id)
-            && (IsLiveQuest(o) || (IsHere(o) && (ChestPlaced(o) ?? !NotYet(o, chapter))))
+            && (IsLiveQuest(o) || (IsHere(o) && !NotYet(o, chapter) && ChestPlaced(o) != false))
             && !(RewardOf(o, chapter) is { } quest && !_progress.Done.Contains(quest.Id))).ToList();
 
     /// <summary>

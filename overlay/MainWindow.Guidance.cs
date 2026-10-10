@@ -402,8 +402,9 @@ public partial class MainWindow
 
     /// <summary>
     /// Whether the chest's object stands in the level now (a field object within 1.5 m of its point, Ff7rFieldActors.cs):
-    /// a chest the game has not placed yet cannot be opened, whatever the guide's order says. Null when the level cannot
-    /// be read; then the guide's order decides (ForLater).
+    /// a chest the game has not placed yet cannot be opened. Placed is not reachable, though (Aerith's house holds the
+    /// Ch13 Mythical Amulet chest during Ch8, locked): it only hides, the guide's order still decides. Null when the level
+    /// cannot be read.
     /// </summary>
     bool? Placed(Ff7rChapterReader.Chest chest)
     {
@@ -478,7 +479,7 @@ public partial class MainWindow
     {
         if (!_live || _here is not { } here || _herePosition is not { } p) return [];
         return _reader.Chests
-            .Where(c => c.At is not null && c.Items.Length > 0 && QuestObjectShown(c) && !Opened(c) && (Placed(c) ?? !ForLater(c)) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
+            .Where(c => c.At is not null && c.Items.Length > 0 && QuestObjectShown(c) && !Opened(c) && Placed(c) != false && !ForLater(c) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
             .Select(c => (Chest: c, Metres: Distance(c.At!, p)))
             .OrderBy(x => x.Metres).Take(5)
             .Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _itemMap.Name(id) ?? $"#{id}")), Metres(x.Metres))).ToList();
