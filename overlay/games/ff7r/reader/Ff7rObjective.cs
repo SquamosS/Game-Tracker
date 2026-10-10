@@ -32,6 +32,19 @@ public sealed partial class Ff7rChapterReader
     /// <summary>The side quest entries seen at the last objective search, swapped whole (the UI thread reads them).</summary>
     public IReadOnlyList<SideEntry> SideQuests { get; private set; } = [];
 
+    DateTime _sideForgotten;
+
+    /// <summary>
+    /// A save was loaded: the entries seen belong to the old one. None until a search started after the load finishes
+    /// (and a new one is asked for now).
+    /// </summary>
+    public void ForgetSideQuests()
+    {
+        SideQuests = [];
+        _sideForgotten = DateTime.Now;
+        _objectiveSearch ??= Scan(SafeFindObjectives);
+    }
+
     static readonly System.Text.RegularExpressions.Regex SideSprite = new(@"^U_Com_Billboard_(\d{3}_\w+?_q\d+)_(\d+)_Sprite$",
         System.Text.RegularExpressions.RegexOptions.Compiled);
 
@@ -220,6 +233,7 @@ public sealed partial class Ff7rChapterReader
     (Dictionary<long, Objective>, List<long>) FindObjectives(CancellationToken cancel)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
+        var started = DateTime.Now;
         var rows = new System.Collections.Concurrent.ConcurrentBag<(long Row, string Title, string Desc)>();
         var sideEntries = new System.Collections.Concurrent.ConcurrentBag<SideEntry>();
         var texts = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
@@ -321,7 +335,9 @@ public sealed partial class Ff7rChapterReader
         try { if (!tables.IsEmpty) UpdateChests(tables.ToList(), cancel); }
         catch (Exception e) when (e is not OperationCanceledException) { ObjectiveDebug = "chests: " + e.Message; }
         ObjectiveDebug = $"rows {byAddress.Count} ({rowsMs} ms, {stringReads} reads), slots {slots.Count} ({sw.ElapsedMilliseconds - rowsMs} ms), entries {entries.Count}, parents {string.Join(",", parents.Select(g => g.Count()))}, positions {positions.Count}, volumes {volumes.Count}, chests {Chests.Count}";
-        SideQuests = sideEntries.Distinct().ToList();
+        // Not from a game that closed meanwhile, nor from before a save was loaded.
+        cancel.ThrowIfCancellationRequested();
+        if (started > _sideForgotten) SideQuests = sideEntries.Distinct().ToList();
         return (byAddress, entries.Count > 0 ? entries : slots);
     }
 

@@ -38,9 +38,11 @@ public partial class MainWindow
     /// </summary>
     void FollowTrail()
     {
-        if (!_live || !_inGame || _reconcile || CurrentChapter is not { } chapter || chapter.Number != _detectedChapter || _herePosition is not { } p || _here is not { } here)
+        // Not around a load: the objective, ticks and position then belong to the save being matched, not to a spot.
+        if (!_live || !_inGame || _reconcile || _storyMayGoBack || DateTime.Now - _inGameSince < TimeSpan.FromSeconds(20)
+            || CurrentChapter is not { } chapter || chapter.Number != _detectedChapter || _herePosition is not { } p || _here is not { } here)
         {
-            _trailDone = null;
+            (_trailDone, _trailStage, _trailStep) = (null, null, null);
             return;
         }
         var spot = new GuidePoint(p.X, p.Y, p.Z, here.Area);
@@ -52,7 +54,8 @@ public partial class MainWindow
         // No objective for a moment (a VR battle, a load) is not a stage finished: the same one comes back after it.
         if (stage is not null && stage != _trailStage)
         {
-            if (_trailStep is { } before && _trailStage is { } finished)
+            // A stage is finished when the same quest moves to its next text, not when another quest takes over.
+            if (_trailStep is { } before && _trailStage is { } finished && live is not null && finished.StartsWith(live.TitleKey + "|"))
                 changed |= Record(before, "stage " + finished, e => e.Stages.TryAdd(finished, spot));
             var step = TrailStepFor(chapter);
             if (step is not null && step.Type is "side quest" or "kejadian" && step != _trailStep)
@@ -66,7 +69,10 @@ public partial class MainWindow
         {
             var fresh = done.Except(_trailDone).ToList();
             if (fresh.Count is > 0 and <= 3)
-                foreach (var step in chapter.Objectives.Where(o => fresh.Contains(o.Id) && o.Type != "trofi"))
+                // Items where they arrived, discoveries as the game finishes them. Not story steps (ticked by flags at
+                // the next autosave, wherever that is) nor Ch8's side quests (seen at the next objective search, later).
+                foreach (var step in chapter.Objectives.Where(o => fresh.Contains(o.Id) && (ItemTypes.Contains(o.Type) || o.Type == "kejadian"
+                    || (o.Type == "side quest" && IsLiveQuest(o)))))
                     changed |= Record(step, "done", e => { if (e.Done is not null) return false; e.Done = spot; return true; });
         }
         _trailDone = done;

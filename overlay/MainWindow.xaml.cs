@@ -170,7 +170,7 @@ public partial class MainWindow : Window
         if (!_inGame) { chapter = null; _detectedChapter = null; }
         // Back in game after the title screen or a load (or the overlay just started): the save may be another
         // one, even the same chapter, so check the ticks against it.
-        if (_inGame && !wasInGame) { _reconcile = true; _loadedSlots = []; ForgetRecent(); _inGameSince = DateTime.Now; _reader.ForgetChestCopy(); }
+        if (_inGame && !wasInGame) { _reconcile = true; _loadedSlots = []; ForgetRecent(); _inGameSince = DateTime.Now; _reader.ForgetChestCopy(); _reader.ForgetSideQuests(); }
 
         bool changed = chapter is not null && chapter != _detectedChapter;
         if (chapter is not null) _detectedChapter = chapter;
@@ -182,7 +182,7 @@ public partial class MainWindow : Window
                 // end-of-chapter reward are done (that reward arrives during the chapter change, with a save copy).
                 // Any other jump (an earlier chapter, or several ahead) is another save being loaded: rebuild the
                 // ticks from what that save holds.
-                if (chapter != _progress.Chapter && chapter != _progress.Chapter + 1) { _reconcile = true; ForgetRecent(); _reader.ForgetChestCopy(); }
+                if (chapter != _progress.Chapter && chapter != _progress.Chapter + 1) { _reconcile = true; ForgetRecent(); _reader.ForgetChestCopy(); _reader.ForgetSideQuests(); }
                 else if (chapter > _progress.Chapter && _guide.Chapters.FirstOrDefault(c => c.Number == _progress.Chapter) is { } finished)
                     foreach (var o in finished.Objectives.Where(o => o.Type == "cerita" || RewardTag(o) == "REWARD CHAPTER"
                         || (o.Type == "trofi" && ChapterEndTrophy(o))))
@@ -261,7 +261,7 @@ public partial class MainWindow : Window
         bool handedOver = changedSlots.Count is > 0 and <= 3;
         // Items handed over in front of a chest that holds them: that chest is opened now (ChestOpened).
         if (handedOver) ChestOpened(owned.Where(o => changedSlots.Contains(o.Slot) && o.Id > 0).Select(o => o.Id).ToHashSet());
-        if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; ForgetRecent(); _reader.ForgetChestCopy(); } // a save was loaded (or copied)
+        if (changedSlots.Count > 3) { _reconcile = true; _loadedSlots = changedSlots; ForgetRecent(); _reader.ForgetChestCopy(); _reader.ForgetSideQuests(); } // a save was loaded (or copied)
         bool IsNew(Ff7rChapterReader.Owned o) =>
             (_seenOwned.Add((o.Id, o.Obtained)) && o.Obtained >= _startedAt - 120) | (handedOver && changedSlots.Contains(o.Slot));
         var newItems = owned.Where(o => o.Id > 0 && o.Id != 20).Where(IsNew).ToList();
@@ -787,6 +787,8 @@ public partial class MainWindow : Window
     bool _reconcile, _storyMayGoBack;
     /// <summary>Inventory slots that changed when a save was last loaded: they sit in the copy that save went to.</summary>
     HashSet<long> _loadedSlots = [];
+    /// <summary>Names of what the loaded save owns, as Reconcile read them (the copy the save went to).</summary>
+    List<string> _liveOwnedNames = [];
 
     /// <summary>
     /// Another save was loaded: make the ticks match it. Steps of later chapters are not done yet; earlier
@@ -802,6 +804,7 @@ public partial class MainWindow : Window
         _progress.Ever.UnionWith(_progress.Done);
         // Gil (id 20) is always owned and its name is part of "Gil Up": leave it out, as FollowItems does.
         var ownedNames = live.Where(id => id != 20).Select(id => _itemMap.Name(id)).OfType<string>().ToList();
+        _liveOwnedNames = ownedNames;
         var itemSteps = _guide.Chapters.SelectMany(c => c.Objectives).Where(o => ItemTypes.Contains(o.Type)).ToList();
         bool sameStory(Chapter c) => (c.Number >= 21) == (loaded >= 21); // INTERmission is its own story
         foreach (var chapter in _guide.Chapters.Where(sameStory))
@@ -882,10 +885,15 @@ public partial class MainWindow : Window
                 SetStoryPosition(step);
                 int next = Array.FindIndex(chapter.Objectives, Array.IndexOf(chapter.Objectives, step) + 1, o => o.Type == "cerita");
                 if (next >= 0)
-                    // Steps that open with an earlier step (After), wherever the guide lists them, may be done already
-                    // (Ch8's Moogle Emporium goods come after "Battle Intel & VR" in the guide but are bought earlier).
-                    foreach (var o in chapter.Objectives.Skip(next).Where(o => o.Type != "trofi" && !(o.After is { } opens && Reached(opens))))
+                {
+                    // An item the loaded save owns is done, wherever the guide lists it (Ch8's Moogle Emporium goods come
+                    // after "Battle Intel & VR" in the guide but are bought earlier): only items listed once, as in Reconcile.
+                    // Side quests come back from the game's quest page (FollowCompleted).
+                    var itemSteps = _guide!.Chapters.SelectMany(c => c.Objectives).Where(s => ItemTypes.Contains(s.Type)).ToList();
+                    bool Owned(Objective o) => ItemTypes.Contains(o.Type) && itemSteps.Count(s => s.Name == o.Name) == 1 && _liveOwnedNames.Any(n => Matches(o, n));
+                    foreach (var o in chapter.Objectives.Skip(next).Where(o => o.Type != "trofi" && !Owned(o)))
                         if (_progress.Done.Remove(o.Id)) _progress.History.Remove(o.Id);
+                }
                 _storyMayGoBack = false;
                 Save();
             }
@@ -1258,7 +1266,7 @@ public partial class MainWindow : Window
             // "Battle Intel & VR" in the guide but open with "Requests for the Mercenary").
             if (_progress.Done.Contains(o.Id)) continue;
             // The game's quest page first (Ch8's side quests); else After, wherever the guide lists the step; else the order.
-            if (!(SideQuestOpen(o) ?? (o.After is { } opens ? Reached(opens) || IsLiveQuest(o) : phase <= current))) continue;
+            if (!(SideQuestOpen(o) is { } listed ? listed || IsLiveQuest(o) : o.After is { } opens ? Reached(opens) || IsLiveQuest(o) : phase <= current)) continue;
             // Trophies are not tracked here: the rewards they come with are steps of their own.
             if (o.Type == "trofi") continue;
             if (o.Optional && phase < current) continue;
