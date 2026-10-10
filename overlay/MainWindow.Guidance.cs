@@ -320,6 +320,12 @@ public partial class MainWindow
     }
 
     /// <summary>
+    /// A quest pick-up kept in the chest table (obt080_qst05_SlumAngelCard = the Guardian Angel's calling cards): it is
+    /// placed only while its quest needs it, so it is not a chest to list.
+    /// </summary>
+    static bool IsQuestObject(Ff7rChapterReader.Chest chest) => chest.Id.Contains("_qst", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// The chests of the area you are in that are not known to be opened, nearest first (at most 5): what they hold and
     /// how far. Chests whose contents are a step of the guide show there too (with their distance), so this is mostly
     /// what the guide does not list one by one, like Moogle Medals.
@@ -328,7 +334,7 @@ public partial class MainWindow
     {
         if (!_live || _here is not { } here || _herePosition is not { } p) return [];
         return _reader.Chests
-            .Where(c => c.At is not null && c.Items.Length > 0 && !_opened.Contains(c.Id) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase) && !Collected(c))
+            .Where(c => c.At is not null && c.Items.Length > 0 && !IsQuestObject(c) && !_opened.Contains(c.Id) &&ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase) && !Collected(c))
             .Select(c => (Chest: c, Metres: Distance(c.At!, p)))
             .OrderBy(x => x.Metres).Take(5)
             .Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _itemMap.Name(id) ?? $"#{id}")), Metres(x.Metres))).ToList();
