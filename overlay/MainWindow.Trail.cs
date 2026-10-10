@@ -39,8 +39,8 @@ public partial class MainWindow
     void FollowTrail()
     {
         // Not around a load: the objective, ticks and position then belong to the save being matched, not to a spot.
-        if (!_live || !_inGame || _reconcile || _storyMayGoBack || DateTime.Now - _inGameSince < TimeSpan.FromSeconds(20)
-            || CurrentChapter is not { } chapter || chapter.Number != _detectedChapter || _herePosition is not { } p || _here is not { } here)
+        if (!_live || !_tracker.InGame || _tracker.LoadPending || DateTime.Now - _tracker.InGameSince < TimeSpan.FromSeconds(20)
+            || CurrentChapter is not { } chapter || chapter.Number != _tracker.DetectedChapter || _herePosition is not { } p || _here is not { } here)
         {
             (_trailDone, _trailStage, _trailStep) = (null, null, null);
             return;
@@ -49,7 +49,7 @@ public partial class MainWindow
         bool changed = false;
 
         // Stages: the sub-objective when there is one, else the objective.
-        var live = _subObjective ?? _objective;
+        var live = _tracker.LiveSubObjective ?? _tracker.LiveObjective;
         string? stage = live is null ? null : live.TitleKey + "|" + live.DescKey;
         // No objective for a moment (a VR battle, a load) is not a stage finished: the same one comes back after it.
         if (stage is not null && stage != _trailStage)
@@ -64,7 +64,7 @@ public partial class MainWindow
         }
 
         // Steps ticked since the last poll: where they were done.
-        var done = _progress.Done.ToHashSet();
+        var done = _tracker.Progress.Done.ToHashSet();
         if (_trailDone is not null)
         {
             var fresh = done.Except(_trailDone).ToList();
@@ -95,7 +95,7 @@ public partial class MainWindow
     /// <summary>The guide step the live objective belongs to: a side quest or discovery by its title, else the story step.</summary>
     Objective? TrailStepFor(Chapter chapter)
     {
-        if (_objective?.Title is not { Length: >= 3 } title) return null;
+        if (_tracker.LiveObjective?.Title is not { Length: >= 3 } title) return null;
         return chapter.Objectives.FirstOrDefault(o => _rules.IsQuestOrEvent(o) && GuideRules.SameQuest(o, title))
             ?? chapter.Objectives.FirstOrDefault(o => _rules.IsStory(o) && GuideRules.NamedAs(o, title));
     }
@@ -121,7 +121,7 @@ public partial class MainWindow
     {
         if (!_trail.TryGetValue(o.Id, out var entry) || CurrentChapter is not { } chapter) return null;
         bool live = TrailStepFor(chapter) == o;
-        if (live && (_subObjective ?? _objective) is { } stage && entry.Stages.TryGetValue(stage.TitleKey + "|" + stage.DescKey, out var next))
+        if (live && (_tracker.LiveSubObjective ?? _tracker.LiveObjective) is { } stage && entry.Stages.TryGetValue(stage.TitleKey + "|" + stage.DescKey, out var next))
             return (o.Id + "|" + stage.DescKey, next);
         if (!live && _rules.IsQuestOrEvent(o) && entry.Start is { } start) return (o.Id + "|start", start);
         return entry.Done is { } done ? (o.Id + "|done", done) : null;

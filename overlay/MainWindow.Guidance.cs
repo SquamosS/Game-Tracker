@@ -27,14 +27,12 @@ public partial class MainWindow
 
     void RenderNotice()
     {
-        NoticeBox.Visibility = _notice is null || !_inGame ? Visibility.Collapsed : Visibility.Visible;
+        NoticeBox.Visibility = _notice is null || !_tracker.InGame ? Visibility.Collapsed : Visibility.Visible;
         NoticeText.Text = _notice ?? "";
         NoticeBox.BorderBrush = _noticeAlert ? Danger : Now;
         NoticeBox.Background = _noticeAlert ? NoticeBad : NoticeOk;
     }
 
-    /// <summary>Chapter whose recap waits, and since when.</summary>
-    (int Chapter, DateTime Since)? _pendingRecap;
 
     /// <summary>
     /// Runs the recap 90 s after the chapter changed, when the inventory (read every 15-60 s) has caught up with
@@ -42,11 +40,11 @@ public partial class MainWindow
     /// </summary>
     void FollowRecap()
     {
-        if (_pendingRecap is not var (number, since)) return;
-        if (_reconcile || _storyMayGoBack || _guide is null) { _pendingRecap = null; return; }
+        if (_tracker.PendingRecap is not var (number, since)) return;
+        if (_tracker.LoadPending || _tracker.Guide is null) { _tracker.PendingRecap = null; return; }
         if (DateTime.Now - since < TimeSpan.FromSeconds(90)) return;
-        _pendingRecap = null;
-        if (_guide.Chapters.FirstOrDefault(c => c.Number == number) is { } ended) RecapMissed(ended);
+        _tracker.PendingRecap = null;
+        if (_tracker.Guide.Chapters.FirstOrDefault(c => c.Number == number) is { } ended) RecapMissed(ended);
     }
 
     /// <summary>
@@ -55,7 +53,7 @@ public partial class MainWindow
     /// </summary>
     void RecapMissed(Chapter ended)
     {
-        var missed = ended.Objectives.Where(o => o.Missable && !_rules.IsStory(o) && !_rules.IsTrophy(o) && !_progress.Done.Contains(o.Id)).ToList();
+        var missed = ended.Objectives.Where(o => o.Missable && !_rules.IsStory(o) && !_rules.IsTrophy(o) && !_tracker.Progress.Done.Contains(o.Id)).ToList();
         if (missed.Count == 0)
         {
             Notify(Lang.T($"Chapter {ended.Number} done: no missables missed", $"Chapter {ended.Number} selesai: tidak ada missable yang terlewat"), seconds: 10);
@@ -168,7 +166,7 @@ public partial class MainWindow
     {
         RouteText.Inlines.Clear();
         RouteText.Visibility = Visibility.Collapsed;
-        if (_here is not { } here || chapter is null || !_inGame || _full) return;
+        if (_here is not { } here || chapter is null || !_tracker.InGame || _full) return;
         var objectives = chapter.Objectives;
         int current = CurrentStory is { } story ? Array.IndexOf(objectives, story) : objectives.Length;
         foreach (var (step, tag) in OpenSteps(objectives, current))
@@ -244,9 +242,9 @@ public partial class MainWindow
     void LogItems(IEnumerable<OwnedItem> items)
     {
         var p = _herePosition;
-        var lines = items.Select(o => string.Join('\t', $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}", _detectedChapter, o.Id, _names.Name(o.Id) ?? $"#{o.Id}", o.Count,
+        var lines = items.Select(o => string.Join('\t', $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}", _tracker.DetectedChapter, o.Id, _names.Name(o.Id) ?? $"#{o.Id}", o.Count,
             _here?.Area ?? "", _here?.Floor ?? "", p is null ? "" : $"{p.X:0}", p is null ? "" : $"{p.Y:0}", p is null ? "" : $"{p.Z:0}",
-            _reader.ReadGameState() switch { { Battle: true } => "battle", { Exploring: true } => "exploring", { Menu: true } => "menu", { Cutscene: true } => "cutscene", { } g => $"state {g.Code}", null => "" }, _objective?.Title ?? "")).ToList();
+            _reader.ReadGameState() switch { { Battle: true } => "battle", { Exploring: true } => "exploring", { Menu: true } => "menu", { Cutscene: true } => "cutscene", { } g => $"state {g.Code}", null => "" }, _tracker.LiveObjective?.Title ?? "")).ToList();
         if (lines.Count == 0) return;
         try
         {
@@ -296,8 +294,6 @@ public partial class MainWindow
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return []; }
     }
 
-    DateTime _inGameSince;
-
     /// <summary>
     /// Items arrived together (ids of the slots that changed): the one chest within 4 m whose contents are exactly those
     /// ids is opened. Not while in a battle or a menu, nor in the first 10 s after a save loaded or a save being matched
@@ -305,8 +301,8 @@ public partial class MainWindow
     /// </summary>
     void ChestOpened(HashSet<int> arrived)
     {
-        if (_herePosition is not { } p || arrived.Count == 0 || _reconcile || _storyMayGoBack
-            || DateTime.Now - _inGameSince < TimeSpan.FromSeconds(10) || _gameState is { Battle: true } or { Menu: true }) return;
+        if (_herePosition is not { } p || arrived.Count == 0 || _tracker.LoadPending
+            || DateTime.Now - _tracker.InGameSince < TimeSpan.FromSeconds(10) || _gameState is { Battle: true } or { Menu: true }) return;
         var near = _reader.Chests.Where(c => c.At is { } at && !_opened.Contains(c.Id) && c.Items.ToHashSet().SetEquals(arrived) && Distance(at, p) <= 4).ToList();
         if (near.Count != 1 || !_opened.Add(near[0].Id)) return;
         try
@@ -351,10 +347,10 @@ public partial class MainWindow
     /// </summary>
     bool Collected(GameChest chest)
     {
-        if (_guide is null) return false;
+        if (_tracker.Guide is null) return false;
         var names = chest.Items.Distinct().Select(_names.Name).ToList();
         return names.All(name => name is not null && ReferenceEquals(_chestByName.GetValueOrDefault(name), chest)
-            && _guide.Chapters.SelectMany(c => c.Objectives).Any(o => _progress.Done.Contains(o.Id) && _rules.SameItem(o, name)));
+            && _tracker.Guide.Chapters.SelectMany(c => c.Objectives).Any(o => _tracker.Progress.Done.Contains(o.Id) && _rules.SameItem(o, name)));
     }
 
     /// <summary>A spot in the game world for a guide step (games/<id>/points.json): where it is done, in which area.</summary>
@@ -390,7 +386,7 @@ public partial class MainWindow
         {
             string file = Path.Combine(_data, "points-recorded.tsv");
             if (!File.Exists(file)) File.WriteAllText(file, "time\tchapter\tarea\tfloor\tx\ty\tz\tobjective" + Environment.NewLine);
-            File.AppendAllText(file, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{_detectedChapter}\t{_here?.Area}\t{_here?.Floor}\t{p.X:F0}\t{p.Y:F0}\t{p.Z:F0}\t{_objective?.Title}{Environment.NewLine}");
+            File.AppendAllText(file, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{_tracker.DetectedChapter}\t{_here?.Area}\t{_here?.Floor}\t{p.X:F0}\t{p.Y:F0}\t{p.Z:F0}\t{_tracker.LiveObjective?.Title}{Environment.NewLine}");
             Notify(Lang.T($"Spot saved: {_here?.Area ?? "?"} ({p.X:F0}, {p.Y:F0}, {p.Z:F0})", $"Titik disimpan: {_here?.Area ?? "?"} ({p.X:F0}, {p.Y:F0}, {p.Z:F0})"));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -462,7 +458,7 @@ public partial class MainWindow
     /// Flowers, after the Rude fight): not listed before its time.
     /// </summary>
     bool ForLater(GameChest chest) => CurrentChapter is { } chapter && chest.Items.Select(_names.Name).OfType<string>()
-        .Any(name => chapter.Objectives.Any(o => _rules.SameItem(o, name) && !_progress.Done.Contains(o.Id) && NotYet(o, chapter)));
+        .Any(name => chapter.Objectives.Any(o => _rules.SameItem(o, name) && !_tracker.Progress.Done.Contains(o.Id) && NotYet(o, chapter)));
 
     /// <summary>
     /// Opened: the game's own flag when it can be read; else learned (opened.json) or inferred from ticked steps (Collected).
@@ -478,7 +474,7 @@ public partial class MainWindow
     {
         if (!_live || _here is not { } here || _herePosition is not { } p) return [];
         return _reader.Chests
-            .Where(c => c.At is not null && c.Items.Length > 0 && _reader.ChestShown(c, _objective) && !Opened(c) && Placed(c) != false && !ForLater(c) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
+            .Where(c => c.At is not null && c.Items.Length > 0 && _reader.ChestShown(c, _tracker.LiveObjective) && !Opened(c) && Placed(c) != false && !ForLater(c) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
             .Select(c => (Chest: c, Metres: Distance(c.At!, p)))
             .OrderBy(x => x.Metres).Take(5)
             .Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _names.Name(id) ?? $"#{id}")), Metres(x.Metres))).ToList();

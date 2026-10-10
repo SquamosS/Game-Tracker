@@ -78,5 +78,8 @@ Check("area and floor from 'where'", GuideRules.AreaOf(shiva with { Where = "Con
 Check("area without floor", GuideRules.AreaOf(shiva with { Where = "Center District: shop" }) == ("Center District", null));
 Check("no area in plain text", GuideRules.AreaOf(shiva with { Where = "Talk to Jessie, who waits" }) is null);
 
+// ---- The tracker: ticks from the game, with a fake reader -----------------------------------------------------------
+ProgressTrackerTests.Run(Check, types);
+
 Console.WriteLine($"{passed} passed, {failed} failed");
 return failed;
