@@ -2,6 +2,8 @@ using GameTracker;
 
 // Everything the overlay code would write (learned names, logs) goes to a throwaway folder, never to the real data\.
 string scratch = Path.Combine(Path.GetTempPath(), "gametracker-tests");
+// Each run starts empty: learned links or opened chests of an earlier run must not decide this one.
+if (Directory.Exists(scratch)) Directory.Delete(scratch, recursive: true);
 Environment.SetEnvironmentVariable("GAMETRACKER_DATA", scratch);
 
 // Checks for overlay\Modules\ against the real FF7R guide and game.json (copied next to this program). Each check

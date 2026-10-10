@@ -11,6 +11,8 @@ sealed class FakeReader : GameReaderBase
     public FakeNames FakeNames = new();
     public GameObjective? Objective;
     public Func<GamePosition, GameLocation?>? Locate;
+    public List<GameChest> ChestList = [];
+    public Dictionary<string, bool> OpenFlags = [];
 
     public override string? Version => "test";
     public override int? ReadChapter() => Chapter;
@@ -20,6 +22,8 @@ sealed class FakeReader : GameReaderBase
     public override HashSet<string>? ReadFlags() => [.. Flags];
     public override IReadOnlyList<SideQuest> SideQuests => Quests;
     public override GameLocation? ReadLocation(GamePosition p) => Locate?.Invoke(p);
+    public override IReadOnlyList<GameChest> Chests => ChestList;
+    public override bool? ChestOpened(GameChest chest) => OpenFlags.TryGetValue(chest.Id, out var open) ? open : null;
     public override GameObjective? ReadObjective(int chapter) => Objective;
     public override GameObjective? NewestObjective() => Objective;
     public override IReadOnlyList<GameObjective> Candidates => Objective is null ? [] : [Objective];

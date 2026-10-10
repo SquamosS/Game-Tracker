@@ -4,9 +4,9 @@ using System.Text.Json;
 namespace GameTracker;
 
 /// <summary>A spot in the game world for a guide step (games/&lt;id&gt;/points.json, the trail): where it is done, in which area.</summary>
-/// <summary>A spot in the game world for a guide step (games/<id>/points.json): where it is done, in which area.</summary>
 public sealed record GuidePoint(float X, float Y, float Z, string Area, string? Note = null);
 
+/// <summary>One guide step's spots in the trail: where it started, where each stage was finished, where it was done.</summary>
 public sealed class TrailEntry
 {
     public GuidePoint? Start { get; set; }
@@ -182,7 +182,7 @@ public sealed class TrailRecorder(IGameReader reader, ProgressTracker tracker, G
     public string? PointDistance(Objective o)
     {
         if (!_live || _area.Position is not { } p) return null;
-        // The trail of an earlier playthrough first (MainWindow.Trail.cs), then a spot recorded by hand.
+        // The trail of an earlier playthrough first (TrailSpot), then a spot recorded by hand.
         if ((TrailSpot(o) ?? (Points.TryGetValue(o.Id, out var fixedPoint) ? (o.Id, fixedPoint) : null)) is not var (key, point)) return null;
         // Asked again after 30 s, or 5 s while unknown (the map's area volumes may still be loading).
         if (!_pointArea.TryGetValue(key, out var known) || DateTime.Now - known.When >= TimeSpan.FromSeconds(known.Area is null ? 5 : 30))

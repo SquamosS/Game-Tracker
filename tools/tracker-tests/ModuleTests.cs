@@ -54,13 +54,44 @@ static class ModuleTests
         check("area: walking on changes the room", area.Here?.Area == "Room C");
         check("area: the way back through the rooms walked", area.RouteTo(area.Here!, "Room A", null) is ["Room B", "Room A"]);
         check("area: no way to a room never walked to", area.RouteTo(area.Here!, "Room Z", null) is null);
-        area.Follow(new(9000, 0, 0)); // a jump (a load): no room, and no link learned from it
-        area.Follow(new(500, 0, 0));
+        area.Follow(new(500, 0, 0)); // from Room C straight into Room A, 20 m in a second: a load or a cutscene, not a walk
         check("area: a jump teaches no way", area.RouteTo(area.Here!, "Room C", null) is ["Room B", "Room C"]);
         area.Follow(new(1500, 0, 0));
         var inB = Step("c2-bat") with { Where = "Room B (B5): on the shelf" };
         check("area: a step in this room and on its floor is here", area.IsHere(inB));
         check("area: the same room on another floor is not", !area.IsHere(inB with { Where = "Room B (B2): upstairs" }));
         check("area: another room is not here", !area.IsHere(inB with { Where = "Room A: corner" }));
+
+        // ---- ChestGuide: the one chest holding a step's item, how far, and the chests left here ----------------------
+        tracker.Progress.Chapter = 1;
+        tracker.Progress.Done.Clear();
+        var chest = new GameChest("obt010_treasure0010", new GamePosition(1500, 300, 0), [10001]);
+        reader.ChestList = [chest];
+        var chests = new ChestGuide(reader, tracker, rules, area, status, true, DataPaths.Game("test-chests"), DataPaths.GameLogs("test-chests"));
+        chests.Load();
+        var fire = Step("c1-fire") with { Where = "Room B: a chest by the door" };
+        area.Follow(new(1200, 300, 0));
+        check("chests: the distance to the one chest holding the step's item", chests.ChestDistance(fire) == "3 m");
+        check("chests: no distance when the guide puts the step in another area", chests.ChestDistance(fire with { Where = "Room A: corner" }) is null);
+        check("chests: the chests left in this area", chests.ChestsHere() is [("Fire Materia", "3 m")]);
+        reader.OpenFlags[chest.Id] = true;
+        check("chests: the game's flag says opened: no distance", chests.ChestDistance(fire) is null && chests.ChestsHere().Count == 0);
+        reader.OpenFlags.Clear();
+        area.Follow(new(1400, 300, 0));
+        chests.LearnOpened([10001], new GameState(false, false, false, true, 0, ""));
+        check("chests: an item arriving in a battle opens no chest", chests.ChestsHere().Count == 1);
+        chests.LearnOpened([10001], null);
+        check("chests: its item arriving within 4 m opens the chest", chests.ChestsHere().Count == 0 && chests.ChestDistance(fire) is null);
+
+        // ---- The chapter recap: the missables never ticked, once the inventory had time to catch up -------------------
+        var missable = ProgressTrackerTests.SmallGuide();
+        tracker.Guide = missable with { Chapters = missable.Chapters.Select(c => c with { Objectives = c.Objectives.Select(o => o.Id == "c1-fire" ? o with { Missable = true } : o).ToArray() }).ToArray() };
+        tracker.PendingRecap = (1, DateTime.Now.AddSeconds(-30));
+        check("recap: not before 90 s", tracker.DueRecap() is null && tracker.PendingRecap is not null);
+        tracker.PendingRecap = (1, DateTime.Now.AddSeconds(-100));
+        check("recap: the missables never ticked", tracker.DueRecap() is (1, [{ Id: "c1-fire" }]) && tracker.PendingRecap is null);
+        tracker.Progress.Done.Add("c1-fire");
+        tracker.PendingRecap = (1, DateTime.Now.AddSeconds(-100));
+        check("recap: nothing missed", tracker.DueRecap() is (1, []));
     }
 }
