@@ -23,7 +23,7 @@
     <Compile Include="..\..\overlay\DataPaths.cs" Link="overlay\DataPaths.cs" />
     <Compile Include="..\..\overlay\ProgressStore.cs" Link="overlay\ProgressStore.cs" />
     <Compile Include="..\..\overlay\Modules\**\*.cs" Link="overlay\Modules\%(RecursiveDir)%(Filename)%(Extension)" />
-    <Compile Include="..\..\overlay\games\ff7r\reader\ItemMap.cs" Link="overlay\games\ff7r\ItemMap.cs" />
+    <Compile Include="..\..\overlay\games\ff7r\reader\*.cs" Link="overlay\games\ff7r\%(Filename)%(Extension)" />
     <None Include="..\..\overlay\games\**\*.json" Link="games\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

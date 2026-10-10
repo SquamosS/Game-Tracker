@@ -6,7 +6,10 @@ static class ModuleTests
     public static void Run(Action<string, bool> check, IReadOnlyDictionary<string, StepType> types)
     {
         // ---- World: centimetres to metres, rounded as the overlay shows them ------------------------------------------
-        check("world: 300/400 cm apart is 5 m", Math.Abs(World.Distance(new(0, 0, 0), new(300, 400, 0)) - 5) < 1e-9);
+        check("world: 300/400 cm apart is 5 m (Unreal units)", Math.Abs(World.Distance(new(0, 0, 0), new(300, 400, 0), 100) - 5) < 1e-9);
+        check("world: 3/4 m apart is 5 m (a game in metres)", Math.Abs(World.Distance(new(0, 0, 0), new(3, 4, 0), 1) - 5) < 1e-9);
+        check("world: a reader without units says metres", new NoGameReader().UnitsPerMetre == 1);
+        check("world: FF7R's reader says centimetres", ((IGameReader)new Ff7rChapterReader()).UnitsPerMetre == 100);
         check("world: 1 m steps up close", World.Metres(3.4) == "3 m");
         check("world: 5 m steps to 100 m", World.Metres(47) == "45 m");
         check("world: 10 m steps beyond", World.Metres(123) == "120 m");
@@ -82,6 +85,55 @@ static class ModuleTests
         check("chests: an item arriving in a battle opens no chest", chests.ChestsHere().Count == 1);
         chests.LearnOpened([10001], null);
         check("chests: its item arriving within 4 m opens the chest", chests.ChestsHere().Count == 0 && chests.ChestDistance(fire) is null);
+
+        // ---- Checklist: which steps show, with which tag -------------------------------------------------------------
+        var list = new Checklist(tracker, rules, status, area);
+        tracker.Guide = ProgressTrackerTests.SmallGuide();
+        tracker.Progress = new Progress { Chapter = 1 };
+        var ch1 = tracker.Guide.Chapters[0].Objectives;
+        int Current() => tracker.CurrentStory is { } s ? Array.IndexOf(ch1, s) : ch1.Length;
+        area.Follow(new(2500, 0, 0)); // Room C: no step here
+        var open = list.OpenSteps(ch1, Current());
+        check("checklist: the current phase's open items show", open.Select(x => x.Step.Id).SequenceEqual(["c1-sword", "c1-fire", "c1-disc"]));
+        check("checklist: no story steps, trophies or later phases", !open.Any(x => x.Step.Id is "c1-start" or "c1-boss" or "c1-ice" or "c1-trophy"));
+        tracker.Progress.Done.Add("c1-start");
+        open = list.OpenSteps(ch1, Current());
+        check("checklist: steps of a phase left behind are tagged BEHIND", open.Where(x => x.Step.Id == "c1-sword").Select(x => x.Tag).SingleOrDefault() == Checklist.TagBehind);
+        check("checklist: the next phase opens", open.Any(x => x.Step.Id == "c1-ice"));
+        check("checklist: full list: NOW for the current phase, BEHIND before", list.FullTag(ch1[5], false, 4, 4) == Checklist.TagNow && list.FullTag(ch1[1], false, 0, 4) == Checklist.TagBehind
+            && list.FullTag(ch1[1], true, 0, 4) is null && list.FullTag(ch1[4], false, 4, 4) is null);
+
+        // ---- Manual ticks ------------------------------------------------------------------------------------------
+        var host = new FakeHost();
+        var manual = new ProgressTracker(reader, rules, DataPaths.Game("test"), DataPaths.GameLogs("test"), host)
+        {
+            Guide = ProgressTrackerTests.SmallGuide(),
+            Progress = new Progress { Chapter = 1, Done = ["c1-start"], History = ["c1-start"] },
+        };
+        var c1 = manual.Guide!.Chapters[0].Objectives;
+        check("manual: the next step is the first open one after the last finished story step", manual.NextStep(c1)?.Id == "c1-sword");
+        manual.SetDone("c1-sword", true);
+        check("manual: a tick is saved and kept for undo", manual.Progress.Done.Contains("c1-sword") && manual.Progress.History[^1] == "c1-sword" && host.Saves == 1);
+        check("manual: undo unticks the last tick", manual.Undo() == "c1-sword" && !manual.Progress.Done.Contains("c1-sword"));
+        check("manual: nothing to undo twice over the start", manual.Undo() == "c1-start" && manual.Undo() is null);
+        manual.JumpTo(c1[5]); // "I am at the Ice Materia": the story before it is done
+        check("manual: jumping to a step finishes the story before it", manual.Progress.Done.Contains("c1-start") && manual.Progress.Done.Contains("c1-boss") && !manual.Progress.Done.Contains("c1-ice"));
+        check("manual: next chapter", manual.ChangeChapter(+1) && manual.Progress.Chapter == 2);
+        check("manual: no chapter after the last", !manual.ChangeChapter(+1) && manual.Progress.Chapter == 2);
+
+        // ---- Two stories (FF7R's INTERmission): a save of one does not touch the other's ticks ----------------------
+        var twoStories = ProgressTrackerTests.SmallGuide();
+        twoStories = twoStories with { Chapters = [.. twoStories.Chapters, new Chapter(21, "INTERmission 1", null, [new("c21-start", "cerita", "Wutai", "Somewhere: here", false, null)], Story: "INTERmission")] };
+        var storyReader = new FakeReader { Chapter = 1, LiveIds = [20] };
+        storyReader.Slots = new() { [1] = (20, 1) };
+        var stories = new ProgressTracker(storyReader, new GuideRules(types, storyReader.Names), DataPaths.Game("test"), DataPaths.GameLogs("test"), new FakeHost())
+        {
+            Guide = twoStories,
+            Progress = new Progress { Chapter = 21, Done = ["c21-start", "c1-start", "c2-next"], Ever = ["c21-start", "c1-start", "c2-next"] },
+        };
+        stories.Poll(out _); // a main-story save of chapter 1 is loaded after playing the INTERmission
+        check("stories: a main-story save does not untick the INTERmission (chapter 21 is not its future)", stories.Progress.Done.Contains("c21-start"));
+        check("stories: the main story's later chapter is unticked as usual", !stories.Progress.Done.Contains("c2-next") && stories.Progress.Chapter == 1);
 
         // ---- The chapter recap: the missables never ticked, once the inventory had time to catch up -------------------
         var missable = ProgressTrackerTests.SmallGuide();

@@ -45,8 +45,7 @@ public sealed class AreaTracker(IGameReader reader, ProgressTracker tracker, str
     public void LogPosition(GamePosition? position)
     {
         if (position is not { } p) return;
-        if (_loggedPosition is { } last
-            && Math.Sqrt((p.X - last.X) * (p.X - last.X) + (p.Y - last.Y) * (p.Y - last.Y) + (p.Z - last.Z) * (p.Z - last.Z)) < 200) return;
+        if (_loggedPosition is { } last && World.Distance(p, last, _reader.UnitsPerMetre) < 2) return;
         _loggedPosition = p;
         try
         {
@@ -98,8 +97,7 @@ public sealed class AreaTracker(IGameReader reader, ProgressTracker tracker, str
     void LearnLink(GameLocation? from, GamePosition? fromAt, GameLocation? to, GamePosition? toAt)
     {
         if (from is null || to is null || fromAt is null || toAt is null || from == to) return;
-        float dx = toAt.X - fromAt.X, dy = toAt.Y - fromAt.Y, dz = toAt.Z - fromAt.Z;
-        if (dx * dx + dy * dy + dz * dz > 1500f * 1500f) return;
+        if (World.Distance(fromAt, toAt, _reader.UnitsPerMetre) > 15) return;
         if (!_links.Add(LinkKey(Room(from), Room(to)))) return;
         _neighbours = null;
         try

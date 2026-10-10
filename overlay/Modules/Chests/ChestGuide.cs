@@ -40,7 +40,7 @@ public sealed class ChestGuide(IGameReader reader, ProgressTracker tracker, Guid
         // The game's flag when known; else the item arriving this session or a learned opening means the chest is empty.
         if (_reader.ChestOpened(only) ?? (only.Items.Any(_tracker.Obtained.Contains) || _opened.Contains(only.Id))) return null;
         if (ChestArea(only) is not { } area || !area.Equals(stepArea, StringComparison.OrdinalIgnoreCase)) return null;
-        return World.Metres(World.Distance(at, p));
+        return World.Metres(World.Distance(at, p, _reader.UnitsPerMetre));
     }
 
     void IndexChests()
@@ -117,7 +117,7 @@ public sealed class ChestGuide(IGameReader reader, ProgressTracker tracker, Guid
             if (_reader.ChestOpened(chest) is not { } open || (_chestFlagsLogged.TryGetValue(chest.Id, out var was) && was == open)) continue;
             _chestFlagsLogged[chest.Id] = open;
             string names = string.Join(" + ", chest.Items.Select(id => _names.Name(id) ?? $"#{id}"));
-            string distance = chest.At is { } at && _area.Position is { } p ? World.Metres(World.Distance(at, p)) : "";
+            string distance = chest.At is { } at && _area.Position is { } p ? World.Metres(World.Distance(at, p, _reader.UnitsPerMetre)) : "";
             lines.Add($"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{chest.Id}\tflag {(chest.Flag is { } f ? $"0x{f:X}" : "?")}\t{(open ? "opened" : "closed")}\t{distance}\t{names}");
         }
         if (lines.Count == 0) return;
@@ -147,7 +147,7 @@ public sealed class ChestGuide(IGameReader reader, ProgressTracker tracker, Guid
     {
         if (_area.Position is not { } p || arrived.Count == 0 || _tracker.LoadPending
             || DateTime.Now - _tracker.InGameSince < TimeSpan.FromSeconds(10) || state is { Battle: true } or { Menu: true }) return;
-        var near = _reader.Chests.Where(c => c.At is { } at && !_opened.Contains(c.Id) && c.Items.ToHashSet().SetEquals(arrived) && World.Distance(at, p) <= 4).ToList();
+        var near = _reader.Chests.Where(c => c.At is { } at && !_opened.Contains(c.Id) && c.Items.ToHashSet().SetEquals(arrived) && World.Distance(at, p, _reader.UnitsPerMetre) <= 4).ToList();
         if (near.Count != 1 || !_opened.Add(near[0].Id)) return;
         try
         {
@@ -193,7 +193,7 @@ public sealed class ChestGuide(IGameReader reader, ProgressTracker tracker, Guid
     bool? Placed(GameChest chest)
     {
         if (chest.At is not { } at || _reader.ReadFieldActors() is not { } actors) return null;
-        return actors.Any(a => World.Distance(a.At, at) <= 1.5);
+        return actors.Any(a => World.Distance(a.At, at, _reader.UnitsPerMetre) <= 1.5);
     }
 
     /// <summary>The placed state of the one chest holding this step's item; null when no single chest holds it.</summary>
@@ -215,7 +215,7 @@ public sealed class ChestGuide(IGameReader reader, ProgressTracker tracker, Guid
     {
         if (_reader.ReadFieldActors() is not { } actors) return;
         var fresh = actors.Where(a => !a.Class.StartsWith("WE") && (a.At.X != 0 || a.At.Y != 0)
-            && !_fieldLogged.Any(b => b.Class == a.Class && World.Distance(a.At, b.At) <= 3)).ToList();
+            && !_fieldLogged.Any(b => b.Class == a.Class && World.Distance(a.At, b.At, _reader.UnitsPerMetre) <= 3)).ToList();
         if (fresh.Count == 0) return;
         _fieldLogged.AddRange(fresh);
         var lines = fresh.Select(a => $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{_area.Here?.Area}\t{a.Class}\t{a.At.X:0}\t{a.At.Y:0}\t{a.At.Z:0}");
@@ -244,7 +244,7 @@ public sealed class ChestGuide(IGameReader reader, ProgressTracker tracker, Guid
         if (!_live || _area.Here is not { } here || _area.Position is not { } p) return [];
         return _reader.Chests
             .Where(c => c.At is not null && c.Items.Length > 0 && _reader.ChestShown(c, _tracker.LiveObjective) && !Opened(c) && Placed(c) != false && !ForLater(c) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
-            .Select(c => (Chest: c, Metres: World.Distance(c.At!, p)))
+            .Select(c => (Chest: c, Metres: World.Distance(c.At!, p, _reader.UnitsPerMetre)))
             .OrderBy(x => x.Metres).Take(5)
             .Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _names.Name(id) ?? $"#{id}")), World.Metres(x.Metres))).ToList();
     }

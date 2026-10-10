@@ -62,6 +62,7 @@ public partial class MainWindow : Window, IProgressHost
     readonly AreaTracker _area;
     readonly ChestGuide _chests;
     readonly TrailRecorder _trails;
+    readonly Checklist _checklist;
 
     Chapter? CurrentChapter => _tracker.CurrentChapter;
     Objective? CurrentStory => _tracker.CurrentStory;
@@ -91,6 +92,7 @@ public partial class MainWindow : Window, IProgressHost
         _area = new AreaTracker(_reader, _tracker, _data, _logs);
         _chests = new ChestGuide(_reader, _tracker, _rules, _area, _status, _live, _data, _logs);
         _trails = new TrailRecorder(_reader, _tracker, _rules, _area, _status, _live, _data, _logs);
+        _checklist = new Checklist(_tracker, _rules, _status, _area);
         _area.Load();
         _chests.Load();
         _trails.Load();
@@ -401,52 +403,28 @@ public partial class MainWindow : Window, IProgressHost
 
     void ChangeChapter(int delta)
     {
-        if (_tracker.Guide is null) return;
-        int[] numbers = _tracker.Guide.Chapters.Select(c => c.Number).ToArray();
-        int index = Array.IndexOf(numbers, CurrentChapter!.Number) + delta;
-        if (index < 0 || index >= numbers.Length) return;
-        _tracker.Progress.Chapter = numbers[index];
-        Save();
+        if (_tracker.ChangeChapter(delta)) Save();
     }
 
     void TickNext()
     {
-        var next = NextStep(CurrentChapter?.Objectives ?? []);
+        var next = _tracker.NextStep(CurrentChapter?.Objectives ?? []);
         if (next is null) return;
         Notify(Lang.T($"✓ Ticked: {next.Name}", $"✓ Dicentang: {next.Name}"));
         SetDone(next.Id, true);
     }
 
-    /// <summary>
-    /// The step you are on: the first open one after the last finished story step. Items skipped before
-    /// that stay open (and counted as missables) but do not hold the guide back.
-    /// </summary>
-    Objective? NextStep(Objective[] objectives)
-    {
-        int lastStory = Array.FindLastIndex(objectives, o => _rules.IsStory(o) && _tracker.Progress.Done.Contains(o.Id));
-        return objectives.Skip(lastStory + 1).FirstOrDefault(o => !_tracker.Progress.Done.Contains(o.Id))
-            ?? objectives.FirstOrDefault(o => !_tracker.Progress.Done.Contains(o.Id));
-    }
 
     void Undo()
     {
-        if (_tracker.Progress.History.Count == 0) return;
-        string id = _tracker.Progress.History[^1];
-        _tracker.Progress.History.RemoveAt(_tracker.Progress.History.Count - 1);
-        _tracker.Progress.Done.Remove(id);
+        if (_tracker.Undo() is not { } id) return;
         Notify(Lang.T($"↶ Undone: {StepName(id)}", $"↶ Dibatalkan: {StepName(id)}"));
         Save();
     }
 
     string StepName(string id) => _tracker.Guide?.Chapters.SelectMany(c => c.Objectives).FirstOrDefault(o => o.Id == id)?.Name ?? id;
 
-    void SetDone(string id, bool done)
-    {
-        if (done && _tracker.Progress.Done.Add(id)) _tracker.Progress.History.Add(id);
-        if (!done && _tracker.Progress.Done.Remove(id)) _tracker.Progress.History.Remove(id);
-        Save();
-        if (done) _tracker.LearnFrom(id);
-    }
+    void SetDone(string id, bool done) => _tracker.SetDone(id, done);
 
     void Save()
     {
@@ -540,9 +518,9 @@ public partial class MainWindow : Window, IProgressHost
             WarnBox.Visibility = Visibility.Collapsed;
             return;
         }
-        // A small label; INTERmission titles already say which part they are.
+        // A small label; a chapter of another story (FF7R's INTERmission, guide.json "story") is named by its title alone.
         ChapterText.Text = chapter is null ? Lang.T("NO GUIDE YET", "BELUM ADA PANDUAN")
-            : (_hardMode ? "HARD · " : "") + (chapter.Number >= 21 ? chapter.Title.ToUpperInvariant() : $"CH {chapter.Number} · {chapter.Title.ToUpperInvariant()}");
+            : (_hardMode ? "HARD · " : "") + (chapter.Story is not null ? chapter.Title.ToUpperInvariant() : $"CH {chapter.Number} · {chapter.Title.ToUpperInvariant()}");
 
         var objectives = chapter?.Objectives ?? [];
         // Trophies are left out everywhere: the goal is collecting everything in one run, not the trophy list.
@@ -575,7 +553,7 @@ public partial class MainWindow : Window, IProgressHost
         WarnText.Text = toGet.Count == 0 ? "" : !_warnOpen ? $"⚠ {head}  ▸"
             : string.Join(Environment.NewLine, new[] { $"⚠ {head}  ▾", string.Join(" · ", toGet), urgent || _full ? reason : null }.Where(s => s is not null));
 
-        string? nextId = NextStep(objectives)?.Id;
+        string? nextId = _tracker.NextStep(objectives)?.Id;
         // Items listed after a story step can be done while that step is the current one.
         int current = CurrentStory is { } story ? Array.IndexOf(objectives, story) : objectives.Length;
         int phase = -1;
@@ -603,8 +581,7 @@ public partial class MainWindow : Window, IProgressHost
             if (_rules.IsStory(o)) phase = i;
             bool isDone = _tracker.Progress.Done.Contains(o.Id);
             if (isDone && !_showDone) continue;
-            string? tag = _rules.IsStory(o) || isDone ? null : phase == current ? TagNow
-                : phase < current && (o.Revisit is null || _status.Reached(o.Revisit)) ? TagBehind : null;
+            string? tag = _checklist.FullTag(o, isDone, phase, current);
             var row = Row(o, isDone, o.Id == nextId, tag);
             List.Children.Add(row);
             if (o.Id == nextId) Dispatcher.BeginInvoke(() => row.BringIntoView(), DispatcherPriority.Loaded);
@@ -620,12 +597,11 @@ public partial class MainWindow : Window, IProgressHost
         // Only once the live objective is known: before that the guide position is just the last saved one.
         if (_tracker.LiveObjective is not null && CurrentStory is { } story && !string.IsNullOrWhiteSpace(story.Where))
             List.Children.Add(new TextBlock { Text = ShownWhere(story), TextWrapping = TextWrapping.Wrap, Foreground = Muted, FontSize = 13, Margin = new Thickness(2, 0, 0, 6) });
-        foreach (var (step, tag) in OpenSteps(objectives, current))
+        foreach (var (step, tag) in _checklist.OpenSteps(objectives, current))
             List.Children.Add(Row(step, false, false, tag));
     }
 
-    /// <summary>A step's tag: a step of the current story step, one in your area, one left behind.</summary>
-    const string TagNow = "NOW", TagHere = "HERE", TagBehind = "BEHIND";
+    const string TagNow = Checklist.TagNow, TagHere = Checklist.TagHere, TagBehind = Checklist.TagBehind;
 
     static string TagText(string tag) => tag switch
     {
@@ -634,33 +610,6 @@ public partial class MainWindow : Window, IProgressHost
         TagBehind => Lang.T("LEFT BEHIND", "TERTINGGAL"),
         _ => tag,
     };
-
-    /// <summary>
-    /// The compact tracker's steps: open items and side quests up to the current story step, those in your area
-    /// first (TagHere), then missables; earlier ones tagged TagBehind. Optional pick-ups only while you pass them.
-    /// </summary>
-    List<(Objective Step, string? Tag)> OpenSteps(Objective[] objectives, int current)
-    {
-        int phase = -1;
-        var open = new List<(Objective Step, string? Tag)>();
-        for (int i = 0; i < objectives.Length; i++)
-        {
-            var o = objectives[i];
-            if (_rules.IsStory(o)) { phase = i; continue; }
-            // A step with After opens when that step is reached, wherever the guide lists it (Ch8's side quests come after
-            // "Battle Intel & VR" in the guide but open with "Requests for the Mercenary").
-            if (_tracker.Progress.Done.Contains(o.Id)) continue;
-            // The game's quest page first (Ch8's side quests); else After, wherever the guide lists the step; else the order.
-            if (!(_status.SideQuestOpen(o) is { } listed ? listed || _status.IsLiveQuest(o) : o.After is { } opens ? _status.Reached(opens) || _status.IsLiveQuest(o) : phase <= current)) continue;
-            // Trophies are not tracked here: the rewards they come with are steps of their own.
-            if (_rules.IsTrophy(o)) continue;
-            if (o.Optional && phase < current) continue;
-            // Behind you on a stretch you cannot walk back: shown again once you can (Revisit).
-            if (phase < current && o.Revisit is { } back && !_status.Reached(back)) continue;
-            open.Add((o, _area.IsHere(o) ? TagHere : phase < current ? TagBehind : null));
-        }
-        return open.OrderByDescending(x => x.Tag == TagHere).ThenByDescending(x => x.Step.Missable).ToList();
-    }
 
     /// <summary>
     /// One step. The compact tracker is read mid-game and is usually click-through: a coloured type icon instead
@@ -738,15 +687,7 @@ public partial class MainWindow : Window, IProgressHost
     /// "I'm here": marks every earlier story step done so this step becomes current. Earlier items and
     /// side quests stay unticked, so missables you may have skipped still show up.
     /// </summary>
-    void JumpTo(Objective target)
-    {
-        var objectives = CurrentChapter?.Objectives ?? [];
-        foreach (var o in objectives.TakeWhile(o => o != target).Where(o => _rules.IsStory(o)))
-            if (_tracker.Progress.Done.Add(o.Id)) _tracker.Progress.History.Add(o.Id);
-        _tracker.Progress.Done.Remove(target.Id);
-        Save();
-        _tracker.LearnStory();
-    }
+    void JumpTo(Objective target) => _tracker.JumpTo(target);
 
     static SolidColorBrush Brush(string hex) => (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
 }

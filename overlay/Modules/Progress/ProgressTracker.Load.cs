@@ -27,7 +27,9 @@ public sealed partial class ProgressTracker
         var ownedNames = live.Where(id => !_names.IsCurrency(id)).Select(id => _names.Name(id)).OfType<string>().ToList();
         _liveOwnedNames = ownedNames;
         var itemSteps = Guide.Chapters.SelectMany(c => c.Objectives).Where(o => _rules.IsItem(o)).ToList();
-        bool sameStory(Chapter c) => (c.Number >= 21) == (loaded >= 21); // INTERmission is its own story
+        // A chapter of another story (guide.json "story": FF7R's INTERmission) is neither the past nor the future of this one.
+        string? story = Guide.Chapters.FirstOrDefault(c => c.Number == loaded)?.Story;
+        bool sameStory(Chapter c) => c.Story == story;
         foreach (var chapter in Guide.Chapters.Where(sameStory))
             foreach (var o in chapter.Objectives.Where(o => !_rules.IsTrophy(o)))
             {

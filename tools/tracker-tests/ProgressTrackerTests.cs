@@ -15,6 +15,7 @@ sealed class FakeReader : GameReaderBase
     public Dictionary<string, bool> OpenFlags = [];
 
     public override string? Version => "test";
+    public override double UnitsPerMetre => 100; // positions below are in centimetres, as in Unreal
     public override int? ReadChapter() => Chapter;
     public override IGameNames Names => FakeNames;
     public override List<OwnedItem>? ReadOwned() => Slots.Select(s => new OwnedItem(s.Value.Id, s.Value.Count, 0, s.Key)).ToList();

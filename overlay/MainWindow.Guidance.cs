@@ -62,7 +62,7 @@ public partial class MainWindow
         if (_area.Here is not { } here || chapter is null || !_tracker.InGame || _full) return;
         var objectives = chapter.Objectives;
         int current = CurrentStory is { } story ? Array.IndexOf(objectives, story) : objectives.Length;
-        foreach (var (step, tag) in OpenSteps(objectives, current))
+        foreach (var (step, tag) in _checklist.OpenSteps(objectives, current))
         {
             if (tag == TagHere || GuideRules.AreaOf(step) is not var (area, floor)) continue;
             if (area.Equals(here.Area, StringComparison.OrdinalIgnoreCase)) continue; // same room, other floor: no walk to show

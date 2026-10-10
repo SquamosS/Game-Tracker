@@ -38,7 +38,9 @@ public record Objective(string Id, string Type, string Name, string Where, bool 
 /// </summary>
 public sealed record StepType(string? Role = null, string? En = null, string? Icon = null, string? Color = null, bool NeverLost = false, bool Unique = false);
 
-public record Chapter(int Number, string Title, string? PointOfNoReturn, Objective[] Objectives);
+/// <summary>One chapter of the guide. Story: the story it belongs to when the game has more than one (FF7R's INTERmission);
+/// chapters of another story are neither the past nor the future of this one (a loaded save), and are named by title alone.</summary>
+public record Chapter(int Number, string Title, string? PointOfNoReturn, Objective[] Objectives, string? Story = null);
 
 public record Guide(string Game, string Status, string[] Notes, Chapter[] Chapters)
 {

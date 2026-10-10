@@ -2,7 +2,7 @@ using System.Reflection;
 
 namespace GameTracker;
 
-/// <summary>A point in the game world, in the game's own units (FF7R: centimetres).</summary>
+/// <summary>A point in the game world, in the game's own units (IGameReader.UnitsPerMetre; FF7R: centimetres).</summary>
 public sealed record GamePosition(float X, float Y, float Z);
 
 /// <summary>The named area a point lies in (as the game names it), and its floor or district when it has one.</summary>
@@ -84,6 +84,9 @@ public interface IGameReader : IDisposable
 
     /// <summary>Set when the game runs but cannot be read (unknown version, no access).</summary>
     string? Problem { get; }
+
+    /// <summary>How many of the game's position units make a metre (Unreal: 100, centimetres). Default: 1, metres.</summary>
+    double UnitsPerMetre => 1;
 
     /// <summary>The chapter being played, null outside a game (title screen, menus, between chapters).</summary>
     int? ReadChapter();
@@ -202,6 +205,7 @@ public abstract class GameReaderBase : IGameReader
 {
     public virtual string? Version => null;
     public virtual string? Problem => null;
+    public virtual double UnitsPerMetre => 1;
     public virtual int? ReadChapter() => null;
     public virtual GameState? ReadGameState() => null;
     public virtual GamePosition? ReadPosition() => null;

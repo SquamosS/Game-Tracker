@@ -34,6 +34,9 @@ public sealed partial class Ff7rChapterReader : IGameReader
     /// <summary>Set when the game runs but cannot be read (unknown version, no access).</summary>
     public string? Problem { get; private set; }
 
+    /// <summary>Unreal Engine positions are in centimetres.</summary>
+    public double UnitsPerMetre => 100;
+
     /// <summary>
     /// The chapter the game is in: 1–18 for the main story, 21–22 for INTERmission.
     /// Null when the game is not running, in a menu, or between chapters (the game stores 255 then).

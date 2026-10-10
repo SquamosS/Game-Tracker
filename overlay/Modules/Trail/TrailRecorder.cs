@@ -188,7 +188,7 @@ public sealed class TrailRecorder(IGameReader reader, ProgressTracker tracker, G
         if (!_pointArea.TryGetValue(key, out var known) || DateTime.Now - known.When >= TimeSpan.FromSeconds(known.Area is null ? 5 : 30))
             _pointArea[key] = known = (_reader.ReadLocation(new GamePosition(point.X, point.Y, point.Z))?.Area, DateTime.Now);
         if (known.Area is null || !known.Area.Equals(point.Area, StringComparison.OrdinalIgnoreCase)) return null;
-        return World.Metres(World.Distance(new GamePosition(point.X, point.Y, point.Z), p));
+        return World.Metres(World.Distance(new GamePosition(point.X, point.Y, point.Z), p, _reader.UnitsPerMetre));
     }
 
     /// <summary>Reads the trail: once, when the overlay starts.</summary>

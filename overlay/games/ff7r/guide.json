@@ -3351,6 +3351,7 @@
     {
       "number": 21,
       "title": "INTERmission 1: Wutai's Finest",
+      "story": "INTERmission",
       "pointOfNoReturn": "Begitu objective Change of Plans (ikut Nayo ke arah stasiun kereta), Yuffie nggak bisa balik ke Sektor 7 Slums. Fort Condor, Happy Turtle flyers, Ramuh dan semua chest di slums harus beres sebelumnya.",
       "objectives": [
         {
@@ -3803,6 +3804,7 @@
     {
       "number": 22,
       "title": "INTERmission 2: Covert Ops",
+      "story": "INTERmission",
       "pointOfNoReturn": "Chapter linear di bawah tanah Shinra HQ. Setelah The Invitation (gelombang musuh di Testing Ground B20) kamu nggak bisa balik ke lantai B14-B16, jadi Box Buster dan chest harus beres dulu.",
       "objectives": [
         {

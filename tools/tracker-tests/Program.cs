@@ -39,6 +39,8 @@ foreach (var o in steps)
     if ((o.Closes is null) != (o.ClosesEn is null)) Check($"{o.Id}: closes and closesEn come together", false);
     if (o.Auto is { } auto) Check($"{o.Id}: auto '{auto}' is chapter, boss or yes", auto is "chapter" or "boss" or "yes");
 }
+Check("chapters 21 and 22 are their own story (INTERmission), the rest the main one",
+    guide.Chapters.All(c => (c.Number >= 21) == (c.Story == "INTERmission")));
 foreach (var (name, type) in types)
     Check($"stepTypes {name}: role is known", type.Role is "story" or "quest" or "event" or "item" or "trophy");
 
