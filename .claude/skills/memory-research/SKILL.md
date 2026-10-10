@@ -30,7 +30,7 @@ Read `research/notes.md` first: it lists every address found (and every dead end
 - Python edit/analysis scripts: write them to the scratchpad with the Write tool and run `python -I <file>`; a bash heredoc holding `'''` breaks in this shell.
 
 ## Chest opened flag (found 10 Oct 2026)
-- Bit = chest flag number (flag row int +0x10, `chests` prints it) + 0xA80 in the flag block (materia+0x40E00) of the LIVE save copy; other copies follow at the next save. Check with `flagbits <bit>`: the live copy is the one that differs. Overlay: `Ff7rTreasure.cs` ChestOpened, log `data/logs/chest-flag.log`.
+- Bit = chest flag number (flag row int +0x10, `chests` prints it) + 0xA80 in the flag block (materia+0x40E00) of the LIVE save copy; other copies follow at the next save. Check with `flagbits <bit>`: the live copy is the one that differs. Overlay: `Ff7rTreasure.cs` ChestOpened, log `data/ff7r/logs/chest-flag.log`.
 - Same snapshot method for other one-shot flags: snap before, act, snap after, `bdiff` + `same`, then keep changes within the save copies (`flagbits` lists them) before looking anywhere else.
 
 ## Into the overlay

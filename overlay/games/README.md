@@ -16,7 +16,7 @@ games/<id>/
   *.json         opsional data lain milik game itu (mis. ff7r: items.json)
 ```
 
-Folder yang namanya diawali `_` (mis. `_template`) dilewati. Salin `_template` untuk memulai game baru.
+Folder yang namanya diawali `_` (mis. `_template`) dilewati, juga `logs` dan `backups` (nama folder bersama di `data/`). Salin `_template` untuk memulai game baru.
 
 ## game.json
 

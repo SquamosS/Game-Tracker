@@ -71,7 +71,9 @@ public static class GameRegistry
         foreach (string dir in Directory.GetDirectories(root).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
         {
             string id = Path.GetFileName(dir), file = Path.Combine(dir, "game.json");
-            if (id.StartsWith('_') || !File.Exists(file)) continue;
+            // "logs" and "backups" are shared folders in data\ (DataPaths.Game): such an id would mix its files with them.
+            if (id.StartsWith('_') || id.Equals("logs", StringComparison.OrdinalIgnoreCase) || id.Equals("backups", StringComparison.OrdinalIgnoreCase)
+                || !File.Exists(file)) continue;
             try
             {
                 if (JsonSerializer.Deserialize<Info>(File.ReadAllText(file), Options) is { DisplayName.Length: > 0, ProcessName.Length: > 0 } info)
