@@ -106,9 +106,11 @@ Jarak hanya tampil kalau area titik itu terbaca di peta yang dimuat. Rekam sambi
 
 ## reader/ (opsional)
 
-Pembaca memori = satu kelas C# di `games/<id>/reader/` yang mengimplementasikan `IGameReader` (`overlay/GameReader.cs`) dan
-diberi atribut `[GameReader("<id>")]`; overlay memilihnya dari `reader` di game.json, tanpa mengubah kode bersama. Isi sebagian
-saja boleh: yang tidak diketahui kembalikan `null` (atau daftar kosong), fitur yang memerlukannya mati diam-diam. Hanya baca
+Pembaca memori = satu kelas C# di `games/<id>/reader/` dengan atribut `[GameReader("<id>")]`; overlay memilihnya dari `reader`
+di game.json, tanpa mengubah kode bersama. Mulai dari `GameReaderBase` (`overlay/GameReader.cs`): semua jawaban bawaannya "tidak
+tahu", cukup `override` yang bisa dibaca (posisi, chapter, inventory...); compiler memeriksa nama dan tipenya. Mesin game bebas
+(Unreal, Unity, ...): hanya pembaca game itu yang dibuat saat game itu dimainkan, pembaca lain tidak tersentuh. Nama item/flag:
+turunan `GameNamesBase`. Yang tidak diketahui tetap `null` (atau daftar kosong), fitur yang memerlukannya mati diam-diam. Hanya baca
 memori game, jangan menulis. Contoh lengkap: `games/ff7r/reader/Ff7rChapterReader.cs`.
 
 Setelah menambah folder: build ulang (`dotnet build` di `overlay/`) supaya file JSON tersalin ke folder exe.

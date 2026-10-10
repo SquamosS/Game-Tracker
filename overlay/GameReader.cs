@@ -74,6 +74,8 @@ public interface IGameNames
 /// Everything the shared overlay asks a game's live reader (games\&lt;id&gt;\reader\, picked by game.json "reader").
 /// A reader may fill only part of it: null (or an empty list) means "not known", and the feature that needs it stays
 /// off. Read only, from the UI thread once a second: each call must be cheap (big scans on a worker thread).
+/// A new reader derives from GameReaderBase and overrides what it knows. A member added here later gets a default
+/// "not known" body (and a virtual one in GameReaderBase), so the readers already written need no change.
 /// </summary>
 public interface IGameReader : IDisposable
 {
@@ -169,46 +171,61 @@ public static class GameReaders
     }
 }
 
-/// <summary>A game without a live reader: nothing is known, every feature that needs the game stays off.</summary>
-public sealed class NoGameReader : IGameReader
+/// <summary>
+/// Base for a new game's names (see GameReaderBase): every answer "not known" until overridden. A reader that knows no
+/// names uses GameNamesBase.None.
+/// </summary>
+public class GameNamesBase : IGameNames
 {
-    sealed class NoNames : IGameNames
-    {
-        public string? Name(int id) => null;
-        public string? FlagName(string flag) => null;
-        public void Learn(int id, string name) { }
-        public void LearnFlag(string flag, string name) { }
-        public string? ObjectiveStep(string titleKey) => null;
-        public void LearnObjective(string titleKey, string stepId) { }
-        public bool IsCurrency(int id) => false;
-        public bool IsConsumable(int id) => false;
-        public bool FitsStep(int id, string stepType) => false;
-        public string? ShortName(string itemName) => null;
-    }
+    public static readonly IGameNames None = new GameNamesBase();
 
-    public string? Version => null;
-    public string? Problem => null;
-    public int? ReadChapter() => null;
-    public GameState? ReadGameState() => null;
-    public GamePosition? ReadPosition() => null;
-    public GameLocation? ReadLocation(GamePosition p) => null;
-    public IReadOnlyList<FieldActor>? ReadFieldActors() => null;
-    public IGameNames Names { get; } = new NoNames();
-    public List<OwnedItem>? ReadOwned() => null;
-    public HashSet<int>? ReadLiveOwnedIds(IReadOnlyCollection<long> changedSlots) => null;
-    public TimeSpan ListRefresh { get; set; }
-    public void RefreshListsSoon() { }
-    public HashSet<string>? ReadFlags() => null;
-    public GameObjective? ReadObjective(int chapter) => null;
-    public GameObjective? NewestObjective() => null;
-    public GameObjective? SubObjectiveOf(GameObjective objective) => null;
-    public IReadOnlyList<GameObjective> Candidates => [];
-    public IReadOnlyList<(GameObjective Objective, long Slot, long Parent)> CandidateSlots => [];
-    public IReadOnlyList<SideQuest> SideQuests => [];
-    public void ForgetSideQuests() { }
-    public IReadOnlyList<GameChest> Chests => [];
-    public bool? ChestOpened(GameChest chest) => null;
-    public bool ChestShown(GameChest chest, GameObjective? live) => true;
-    public void ForgetChestCopy() { }
-    public void Dispose() { }
+    public virtual string? Name(int id) => null;
+    public virtual string? FlagName(string flag) => null;
+    public virtual void Learn(int id, string name) { }
+    public virtual void LearnFlag(string flag, string name) { }
+    public virtual string? ObjectiveStep(string titleKey) => null;
+    public virtual void LearnObjective(string titleKey, string stepId) { }
+    public virtual bool IsCurrency(int id) => false;
+    public virtual bool IsConsumable(int id) => false;
+    public virtual bool FitsStep(int id, string stepType) => false;
+    public virtual string? ShortName(string itemName) => null;
 }
+
+/// <summary>
+/// Base for a new game's reader (any engine: Unreal, Unity...): every answer is "not known" (null, empty, nothing done)
+/// until the reader overrides it, so it fills in only what it can read and every other feature stays off for that game.
+/// "override" makes the compiler check each answer's name and type. (FF7R implements IGameReader directly.)
+/// Rule for growing the interface: a new member of IGameReader gets a default "not known" body there and a virtual one
+/// here, so existing readers (FF7R) keep compiling and working unchanged.
+/// </summary>
+public abstract class GameReaderBase : IGameReader
+{
+    public virtual string? Version => null;
+    public virtual string? Problem => null;
+    public virtual int? ReadChapter() => null;
+    public virtual GameState? ReadGameState() => null;
+    public virtual GamePosition? ReadPosition() => null;
+    public virtual GameLocation? ReadLocation(GamePosition p) => null;
+    public virtual IReadOnlyList<FieldActor>? ReadFieldActors() => null;
+    public virtual IGameNames Names => GameNamesBase.None;
+    public virtual List<OwnedItem>? ReadOwned() => null;
+    public virtual HashSet<int>? ReadLiveOwnedIds(IReadOnlyCollection<long> changedSlots) => null;
+    public virtual TimeSpan ListRefresh { get; set; }
+    public virtual void RefreshListsSoon() { }
+    public virtual HashSet<string>? ReadFlags() => null;
+    public virtual GameObjective? ReadObjective(int chapter) => null;
+    public virtual GameObjective? NewestObjective() => null;
+    public virtual GameObjective? SubObjectiveOf(GameObjective objective) => null;
+    public virtual IReadOnlyList<GameObjective> Candidates => [];
+    public virtual IReadOnlyList<(GameObjective Objective, long Slot, long Parent)> CandidateSlots => [];
+    public virtual IReadOnlyList<SideQuest> SideQuests => [];
+    public virtual void ForgetSideQuests() { }
+    public virtual IReadOnlyList<GameChest> Chests => [];
+    public virtual bool? ChestOpened(GameChest chest) => null;
+    public virtual bool ChestShown(GameChest chest, GameObjective? live) => true;
+    public virtual void ForgetChestCopy() { }
+    public virtual void Dispose() { }
+}
+
+/// <summary>A game without a live reader: nothing is known, every feature that needs the game stays off.</summary>
+public sealed class NoGameReader : GameReaderBase;

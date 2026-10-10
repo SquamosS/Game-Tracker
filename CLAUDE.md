@@ -27,6 +27,7 @@ Overlay 100%-completion (C# .NET 8 WPF, Windows), game pertama FINAL FANTASY VII
 - Aturan panduan lewat kolom eksplisit di `guide.json` (`after`, `revisit`, `optional`, `missable`, `hard`, `rewardOf`, `auto`, `gameTitle`, `closes`), bukan mencari kata di teks "where" (hanya nama area di awalnya).
 - Jenis langkah, ikon, warna: per game di `game.json` `stepTypes` (role story/quest/event/item/trophy, `neverLost`, `unique`); kode bersama hanya bertanya role/tanda.
 - Data runtime per game di `data/<id>/` (`DataPaths.Game/GameLogs`), supaya progres/jejak/log game lain tidak tercampur; hanya pengaturan, waktu main dan log aplikasi yang bersama.
+- Pertanyaan baru ke pembaca: tambah di `IGameReader` **dengan isi bawaan "tidak tahu"** (dan versi `virtual` di `GameReaderBase`), supaya pembaca yang sudah ada (FF7R) tidak perlu diubah. Pembaca game baru diturunkan dari `GameReaderBase`.
 - Game tanpa reader tetap jalan sebagai checklist manual (hotkey), dengan titik manual dan jejak dari posisi kalau ada.
 - **Status 11 Okt 2026:** tahap 1 selesai: `IGameReader`/`IGameNames` (`overlay/GameReader.cs`), `MainWindow` hanya lewat antarmuka, konvensi kunci FF7R ada di pembaca. Tahap 2 selesai: aturan teks jadi kolom guide.json. Tahap 3 selesai: jenis langkah di game.json. Tahap 4 selesai: data per game `data/<id>/`. Rombakan canvas selesai. Rencana 4 tahap (antarmuka pembaca; aturan teks -> kolom; jenis langkah di game.json; data per game) ada di `docs/HANDOFF-AI.md` bagian 0. Fitur baru jangan menambah ketergantungan langsung ke FF7R di kode bersama.
 
