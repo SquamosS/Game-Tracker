@@ -4,7 +4,7 @@ using GameTracker;
 string scratch = Path.Combine(Path.GetTempPath(), "gametracker-tests");
 Environment.SetEnvironmentVariable("GAMETRACKER_DATA", scratch);
 
-// Checks for overlay\Tracker\ against the real FF7R guide and game.json (copied next to this program). Each check
+// Checks for overlay\Modules\ against the real FF7R guide and game.json (copied next to this program). Each check
 // prints only when it fails; the exit code is the number of failures.
 int failed = 0, passed = 0;
 void Check(string what, bool ok)

@@ -41,7 +41,7 @@ Overlay 100%-completion (C# .NET 8 WPF, Windows), game pertama FINAL FANTASY VII
 - Teks UI selalu dua bahasa lewat `Lang.T(en, id)`; langkah panduan baru isi `where` (Indonesia, diawali nama area) dan `whereEn`, plus kolom aturan yang berlaku (`rewardOf`, `auto`, `closes`/`closesEn` bila ada warning).
 - Centang tidak boleh salah, juga setelah load/restart: setelah load, item dipertahankan hanya kalau save yang di-load memilikinya, side quest dari halaman quest game; data yang dibaca sebelum load dibuang (`ForgetChestCopy`, `ForgetSideQuests`). Uji restart overlay setelah mengubah aturan centang (progres harus utuh).
 - Render ulang hanya saat ada perubahan; tampilan tidak boleh menebak (lebih baik kosong). Pakai `Notify(...)` untuk umpan balik ke user.
-- Aturan tanpa game/jendela ada di `overlay/Tracker/` (mulai `GuideRules`) dan dites `dotnet run --project tools/tracker-tests` (tanpa NuGet, boleh saat overlay jalan; juga memeriksa data guide.json/game.json): harus 0 failed setelah mengubah aturan atau panduan; tambah cek untuk aturan baru.
+- Fitur bersama sebagai modul di `overlay/Modules/<fitur>/` (tanpa WPF bila bisa; `Guide/GuideRules`, `Progress/` ...); khusus satu game tetap di `overlay/games/<id>/`. Modul tanpa game/jendela dan dites `dotnet run --project tools/tracker-tests` (tanpa NuGet, boleh saat overlay jalan; juga memeriksa data guide.json/game.json): harus 0 failed setelah mengubah aturan atau panduan; tambah cek untuk aturan baru.
 - Setelah perubahan besar: minta satu agent review commit-nya (bug, thread, P/Invoke), lalu perbaiki.
 
 ## Skill proyek
