@@ -559,12 +559,28 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Open items, side quests and discoveries of this chapter in the area you are in, plus the side quest or
-    /// discovery the game has active now wherever you are: once started it stays up until it is ticked.
+    /// discovery the game has active now wherever you are: once started it stays up until it is ticked. Steps the guide
+    /// puts after the current story step are not there yet (The Language of Flowers comes after the Rude fight, even in
+    /// the same garden), as in the compact list.
     /// </summary>
     List<Objective> HereSteps() => CurrentChapter is not { } chapter ? []
         : chapter.Objectives.Where(o => o.Type is not ("cerita" or "trofi") && !_progress.Done.Contains(o.Id)
-            && (IsLiveQuest(o) || (IsHere(o) && (o.After is null || _progress.Done.Contains(o.After))))
+            && (IsLiveQuest(o) || (IsHere(o) && !NotYet(o, chapter)))
             && !(RewardOf(o, chapter) is { } quest && !_progress.Done.Contains(quest.Id))).ToList();
+
+    /// <summary>
+    /// Not open yet: the guide puts the step after the current story step, or the step that opens it (After) is not done.
+    /// </summary>
+    bool NotYet(Objective o, Chapter chapter)
+    {
+        if (o.After is { } after && !_progress.Done.Contains(after)) return true;
+        int index = Array.IndexOf(chapter.Objectives, o);
+        if (index < 0 || CurrentStory is not { } story) return false;
+        int current = Array.IndexOf(chapter.Objectives, story);
+        // The story step this one belongs to: the last one before it.
+        int phase = Array.FindLastIndex(chapter.Objectives, index, s => s.Type == "cerita");
+        return current >= 0 && phase > current;
+    }
 
     /// <summary>
     /// The side quest or discovery of the chapter whose reward this step is: its "where" says "hadiah" and names that

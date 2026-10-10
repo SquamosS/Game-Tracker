@@ -401,6 +401,13 @@ public partial class MainWindow
     }
 
     /// <summary>
+    /// The chest holds a step of this chapter that is not open yet (MP Up in Aerith's garden comes with The Language of
+    /// Flowers, after the Rude fight): not listed before its time.
+    /// </summary>
+    bool ForLater(Ff7rChapterReader.Chest chest) => CurrentChapter is { } chapter && chest.Items.Select(_itemMap.Name).OfType<string>()
+        .Any(name => chapter.Objectives.Any(o => SameItem(o, name) && !_progress.Done.Contains(o.Id) && NotYet(o, chapter)));
+
+    /// <summary>
     /// Opened: the game's own flag when it can be read; else learned (opened.json) or inferred from ticked steps (Collected).
     /// </summary>
     bool Opened(Ff7rChapterReader.Chest chest) => _reader.ChestOpened(chest) ?? (_opened.Contains(chest.Id) || Collected(chest));
@@ -433,7 +440,7 @@ public partial class MainWindow
     {
         if (!_live || _here is not { } here || _herePosition is not { } p) return [];
         return _reader.Chests
-            .Where(c => c.At is not null && c.Items.Length > 0 && QuestObjectShown(c) && !Opened(c) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
+            .Where(c => c.At is not null && c.Items.Length > 0 && QuestObjectShown(c) && !Opened(c) && !ForLater(c) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
             .Select(c => (Chest: c, Metres: Distance(c.At!, p)))
             .OrderBy(x => x.Metres).Take(5)
             .Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _itemMap.Name(id) ?? $"#{id}")), Metres(x.Metres))).ToList();
