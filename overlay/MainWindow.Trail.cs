@@ -49,7 +49,8 @@ public partial class MainWindow
         // Stages: the sub-objective when there is one, else the objective.
         var live = _subObjective ?? _objective;
         string? stage = live is null ? null : live.TitleKey + "|" + live.DescKey;
-        if (stage != _trailStage)
+        // No objective for a moment (a VR battle, a load) is not a stage finished: the same one comes back after it.
+        if (stage is not null && stage != _trailStage)
         {
             if (_trailStep is { } before && _trailStage is { } finished)
                 changed |= Record(before, "stage " + finished, e => e.Stages.TryAdd(finished, spot));
