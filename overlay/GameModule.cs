@@ -77,7 +77,12 @@ public static class GameRegistry
                 if (JsonSerializer.Deserialize<Info>(File.ReadAllText(file), Options) is { DisplayName.Length: > 0, ProcessName.Length: > 0 } info)
                     games.Add(new GameModule(id, info.DisplayName, info.ProcessName, info.SteamAppId, info.ScreenshotGlob, info.Reader, info.ShortName, info.StepTypes));
             }
-            catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { } // a broken game.json leaves that game out
+            catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException)
+            {
+                // A broken game.json leaves that game out; say why in data\logs\games.log (a typo in stepTypes is easy to make).
+                try { File.AppendAllText(Path.Combine(DataPaths.Logs, "games.log"), $"{DateTime.Now:s} {file}: {e.Message}{Environment.NewLine}"); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            }
         }
         return games;
     }

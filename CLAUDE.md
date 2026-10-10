@@ -35,6 +35,7 @@ Overlay 100%-completion (C# .NET 8 WPF, Windows), game pertama FINAL FANTASY VII
 - Blok besar: satu kali baca + parse dari `Span` (lihat `ReadRecords`, `ItemsStart`), buffer dari `ArrayPool`; jangan alokasi per record.
 - Scan besar (>1 MB) jangan di thread UI: lewat `Scan(...)` (thread pekerja, prioritas rendah, bisa dibatalkan `Detach`), hasil digabung di thread UI; buffer per scan, bukan dibagi. Scan penuh memori dibatasi (>= 20-30 dtk) atau dipicu perubahan.
 - Cache hasil yang jarang berubah (mis. set flag dipakai ulang kalau byte sama); baca posisi sekali per poll; Regex `static readonly ... Compiled`.
+- `game.json` yang rusak membuat game hilang dari daftar; alasannya di `data/logs/games.log`.
 - Hotkey overlay: tabel di `docs/HANDOFF-AI.md` (bagian Hotkey overlay); Ctrl+Shift+L dipakai aplikasi lain di PC user.
 - Teks UI selalu dua bahasa lewat `Lang.T(en, id)`; langkah panduan baru isi `where` (Indonesia, diawali nama area) dan `whereEn`, plus kolom aturan yang berlaku (`rewardOf`, `auto`, `closes`/`closesEn` bila ada warning).
 - Centang tidak boleh salah, juga setelah load/restart: setelah load, item dipertahankan hanya kalau save yang di-load memilikinya, side quest dari halaman quest game; data yang dibaca sebelum load dibuang (`ForgetChestCopy`, `ForgetSideQuests`). Uji restart overlay setelah mengubah aturan centang (progres harus utuh).
