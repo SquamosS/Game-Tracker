@@ -119,6 +119,7 @@ public partial class MainWindow : Window
             else
             {
                 _guideAll = Guide.Load(file);
+                _points = LoadPoints(Path.Combine(_game!.Folder, "points.json"));
                 _progress = ProgressStore.Load(_guideAll.Game);
                 _hardMode = _progress.Hard;
                 _guide = _guideAll.ForMode(_hardMode);
@@ -210,7 +211,7 @@ public partial class MainWindow : Window
         // Distances to chests change as you walk: redraw when a rounded one does, at most every 2 s.
         if (DateTime.Now - _distancesAt >= TimeSpan.FromSeconds(2))
         {
-            string distances = string.Join("|", (CurrentChapter?.Objectives ?? []).Where(o => !_progress.Done.Contains(o.Id)).Select(ChestDistance))
+            string distances = string.Join("|", (CurrentChapter?.Objectives ?? []).Where(o => !_progress.Done.Contains(o.Id)).Select(StepDistance))
                 + "#" + string.Join("|", ChestsHere());
             if (distances != _distances) { _distances = distances; _distancesAt = DateTime.Now; changed = true; }
         }
@@ -583,7 +584,7 @@ public partial class MainWindow : Window
                 if (i > 0) HereText.Inlines.Add(new System.Windows.Documents.Run("  ·  ") { Foreground = Muted });
                 HereText.Inlines.Add(new System.Windows.Documents.Run(steps[i].Name)
                     { Foreground = steps[i].Missable ? Danger : Brushes.White, FontWeight = FontWeights.SemiBold });
-                if (ChestDistance(steps[i]) is { } distance) HereText.Inlines.Add(new System.Windows.Documents.Run(" " + distance) { Foreground = Mako, FontSize = 11.5 });
+                if (StepDistance(steps[i]) is { } distance) HereText.Inlines.Add(new System.Windows.Documents.Run(" " + distance) { Foreground = Mako, FontSize = 11.5 });
             }
         }
         string shown = string.Join("|", steps.Select(s => s.Id));
@@ -593,7 +594,7 @@ public partial class MainWindow : Window
         // Hidden with the overlay: drawn when it shows again (FollowGameState), new steps then still fade in.
         if (_menuOpen || _userHidden) return;
         if (steps.Count == 0) _toast.FadeOut();
-        else _toast.Show(_here?.Area ?? "", steps.Select(o => (ChestDistance(o) is { } d ? $"{o.Name} · {d}" : o.Name, o.Missable)).ToList(), steps.Any(o => !before.Contains(o.Id)));
+        else _toast.Show(_here?.Area ?? "", steps.Select(o => (StepDistance(o) is { } d ? $"{o.Name} · {d}" : o.Name, o.Missable)).ToList(), steps.Any(o => !before.Contains(o.Id)));
         if (shown != _hereShown && steps.Count > 0)
             HereBox.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0.25, 1, TimeSpan.FromMilliseconds(350))
                 { AutoReverse = false, RepeatBehavior = new System.Windows.Media.Animation.RepeatBehavior(4) });
@@ -837,6 +838,7 @@ public partial class MainWindow : Window
         Bind(Key.T, "Ctrl+Shift+T", ToggleClickThrough);
         Bind(Key.A, "Ctrl+Shift+A", ToggleArchive);
         Bind(Key.H, "Ctrl+Shift+H", ToggleHard);
+        Bind(Key.P, "Ctrl+Shift+P", RecordSpot);
         // Language: Ctrl+Shift+L is often taken by other apps, so Ctrl+Shift+Alt+L stands in; the switch's tooltip names the one in use.
         void SwitchLanguage() => Lang.Set(!Lang.Indonesian);
         string? langKey = _native.Hotkey(Key.L, SwitchLanguage) ? "Ctrl+Shift+L"
@@ -1230,7 +1232,7 @@ public partial class MainWindow : Window
         if (compact && o.Type != "cerita" && !o.Name.Contains(TypeText(TypeLabel(o)), StringComparison.OrdinalIgnoreCase))
             title.Inlines.Add(new System.Windows.Documents.Run(TypeText(TypeLabel(o)).ToUpperInvariant() + " ") { Foreground = TypeBrush(TypeLabel(o)), FontWeight = FontWeights.Bold, FontSize = 10.5 });
         title.Inlines.Add(new System.Windows.Documents.Run(o.Name) { Foreground = done ? Done : o.Type == "cerita" || compact ? Brushes.White : TypeBrush(TypeLabel(o)), TextDecorations = done ? TextDecorations.Strikethrough : null });
-        if (!done && ChestDistance(o) is { } distance) title.Inlines.Add(new System.Windows.Documents.Run("  " + distance) { Foreground = Mako, FontSize = 11.5, FontWeight = FontWeights.SemiBold });
+        if (!done && StepDistance(o) is { } distance) title.Inlines.Add(new System.Windows.Documents.Run("  " + distance) { Foreground = Mako, FontSize = 11.5, FontWeight = FontWeights.SemiBold });
         if (!compact) title.Inlines.Add(new System.Windows.Documents.Run($"  {TypeText(TypeLabel(o))}") { Foreground = TypeBrush(TypeLabel(o)), FontSize = 10.5, FontWeight = FontWeights.SemiBold });
 
         var text = new StackPanel();

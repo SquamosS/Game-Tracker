@@ -188,6 +188,7 @@ File utama: `MainWindow.xaml.cs`, `Ff7rChapterReader.cs`, `Ff7rObjective.cs`, `I
 | Ctrl+Shift+T | Mode klik-tembus |
 | Ctrl+Shift+A | Ganti tampilan (Ctrl+Shift+L sudah dipakai aplikasi lain) |
 | Ctrl+Shift+H | Mode Normal / Hard (tampilkan langkah khusus Hard) |
+| Ctrl+Shift+P | Simpan titik penting (area, lantai, XYZ, objektif live) ke `data/points-recorded.tsv`; dipindah manual ke `overlay/games/ff7r/points.json` (id langkah -> x, y, z, area) agar overlay menampilkan jaraknya |
 | Ctrl+Shift+L, atau Ctrl+Shift+Alt+L | Bahasa EN / IN (sama dengan saklar di header). Di PC user Ctrl+Shift+L dipakai aplikasi lain, jadi yang aktif Ctrl+Shift+Alt+L; tooltip saklar menyebut yang aktif |
 
 Klik kotak peringatan kuning: buka/tutup daftar missable dan alasannya. Hotkey baru: cek dulu tabel ini, karena Ctrl+Shift+L sudah dipakai aplikasi lain.

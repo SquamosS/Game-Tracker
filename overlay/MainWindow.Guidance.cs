@@ -319,6 +319,64 @@ public partial class MainWindow
             && _guide.Chapters.SelectMany(c => c.Objectives).Any(o => _progress.Done.Contains(o.Id) && SameItem(o, name)));
     }
 
+    /// <summary>A spot in the game world for a guide step (games/<id>/points.json): where it is done, in which area.</summary>
+    public sealed record GuidePoint(float X, float Y, float Z, string Area, string? Note = null);
+
+    /// <summary>Guide step id -> its spot, recorded standing there (position.log); loaded with the guide.</summary>
+    Dictionary<string, GuidePoint> _points = [];
+    readonly Dictionary<string, (string? Area, DateTime When)> _pointArea = [];
+
+    static Dictionary<string, GuidePoint> LoadPoints(string file)
+    {
+        try
+        {
+            return File.Exists(file)
+                ? JsonSerializer.Deserialize<Dictionary<string, GuidePoint>>(File.ReadAllText(file), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? []
+                : [];
+        }
+        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return []; }
+    }
+
+    /// <summary>
+    /// Ctrl+Shift+P: notes where Cloud stands (area, floor, X Y Z, the game's live objective) in data\points-recorded.tsv,
+    /// to be named and moved into points.json for a guide step.
+    /// </summary>
+    void RecordSpot()
+    {
+        if (!_live || _herePosition is not { } p)
+        {
+            Notify(Lang.T("No position to save yet", "Belum ada posisi untuk disimpan"), alert: true);
+            return;
+        }
+        try
+        {
+            string file = Path.Combine(DataPaths.Data, "points-recorded.tsv");
+            if (!File.Exists(file)) File.WriteAllText(file, "time\tchapter\tarea\tfloor\tx\ty\tz\tobjective" + Environment.NewLine);
+            File.AppendAllText(file, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{_detectedChapter}\t{_here?.Area}\t{_here?.Floor}\t{p.X:F0}\t{p.Y:F0}\t{p.Z:F0}\t{_objective?.Title}{Environment.NewLine}");
+            Notify(Lang.T($"Spot saved: {_here?.Area ?? "?"} ({p.X:F0}, {p.Y:F0}, {p.Z:F0})", $"Titik disimpan: {_here?.Area ?? "?"} ({p.X:F0}, {p.Y:F0}, {p.Z:F0})"));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Notify(Lang.T($"Could not save the spot: {e.Message}", $"Gagal menyimpan titik: {e.Message}"), alert: true);
+        }
+    }
+
+    /// <summary>How far a step is: its chest (ChestDistance), else its recorded spot (PointDistance).</summary>
+    string? StepDistance(Objective o) => ChestDistance(o) ?? PointDistance(o);
+
+    /// <summary>
+    /// How far Cloud is from the step's recorded spot. Only while the area volumes of the loaded map name that spot's
+    /// area as recorded (asked again every 30 s): the same coordinates in another map would be a guess.
+    /// </summary>
+    string? PointDistance(Objective o)
+    {
+        if (!_live || _herePosition is not { } p || !_points.TryGetValue(o.Id, out var point)) return null;
+        if (!_pointArea.TryGetValue(o.Id, out var known) || DateTime.Now - known.When >= TimeSpan.FromSeconds(30))
+            _pointArea[o.Id] = known = (_reader.ReadLocation(new Ff7rChapterReader.Position(point.X, point.Y, point.Z))?.Area, DateTime.Now);
+        if (known.Area is null || !known.Area.Equals(point.Area, StringComparison.OrdinalIgnoreCase)) return null;
+        return Metres(Distance(new Ff7rChapterReader.Position(point.X, point.Y, point.Z), p));
+    }
+
     /// <summary>
     /// A quest pick-up kept in the chest table (obt080_qst05_SlumAngelCard = the Guardian Angel's calling cards) is
     /// placed only while its quest needs it: it shows only while the game's live quest is that quest, same map and
