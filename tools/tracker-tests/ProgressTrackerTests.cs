@@ -9,6 +9,7 @@ sealed class FakeReader : GameReaderBase
     public HashSet<int>? LiveIds;
     public List<SideQuest> Quests = [];
     public FakeNames FakeNames = new();
+    public GameObjective? Objective;
 
     public override string? Version => "test";
     public override int? ReadChapter() => Chapter;
@@ -17,6 +18,12 @@ sealed class FakeReader : GameReaderBase
     public override HashSet<int>? ReadLiveOwnedIds(IReadOnlyCollection<long> changedSlots) => LiveIds;
     public override HashSet<string>? ReadFlags() => [.. Flags];
     public override IReadOnlyList<SideQuest> SideQuests => Quests;
+    public override GameObjective? ReadObjective(int chapter) => Objective;
+    public override GameObjective? NewestObjective() => Objective;
+    public override IReadOnlyList<GameObjective> Candidates => Objective is null ? [] : [Objective];
+
+    /// <summary>The game's live objective named like a guide story step.</summary>
+    public static GameObjective Live(int row, string title) => new(row, row, "$str_" + row, "$str_" + row + "_d", title, null, false);
 }
 
 /// <summary>Names the way FF7R's work: gil 20, consumables below 100, materia from 10000, "X Materia" also "X".</summary>
@@ -134,6 +141,12 @@ static class ProgressTrackerTests
         check("tracker: the ended chapter is recapped", tracker.PendingRecap?.Chapter == 1);
         check("tracker: the story step is the new chapter's", tracker.CurrentStory?.Id == "c2-next");
 
+        // The game's objective shows: the loaded save's story position is settled, the tracker learns again.
+        reader.Objective = FakeReader.Live(1, "Next");
+        Poll();
+        check("tracker: a load is settled once the game's objective shows", !tracker.LoadPending);
+        check("tracker: the live objective is followed", tracker.LiveObjective?.Title == "Next");
+
         // A completion flag the names know ticks its step.
         reader.FakeNames.FlagNames["4C0:1"] = "c2-next";
         reader.Flags.Add("4C0:1");
@@ -153,9 +166,32 @@ static class ProgressTrackerTests
         check("tracker: an unknown item is learned from your tick", reader.FakeNames.Name(9010) == "Nail Bat");
         check("tracker: an item from before a load is not learned", reader.FakeNames.Name(9001) is null);
 
-        // A jump back several chapters is another save: the ticks wait for it.
+        // Going back a chapter is another save being loaded: the later chapter's ticks are undone.
         reader.Chapter = 1;
         Poll();
-        check("tracker: going back a chapter is a loaded save", tracker.LoadPending);
+        check("tracker: going back a chapter is a loaded save", tracker.LoadPending && tracker.Progress.Chapter == 1);
+        check("tracker: the later chapter is not done in an older save", !Done("c2-next") && !Done("c2-kids") && !Done("c2-bat"));
+
+        StoryGoesBack(check, types);
+    }
+
+    /// <summary>A save from earlier in the chapter: the story goes back to the game's objective, what follows is open again.</summary>
+    static void StoryGoesBack(Action<string, bool> check, IReadOnlyDictionary<string, StepType> types)
+    {
+        var reader = new FakeReader { LiveIds = [20], Objective = FakeReader.Live(1, "Start") };
+        reader.Slots = new() { [1] = (20, 500) };
+        var tracker = new ProgressTracker(reader, new GuideRules(types, reader.Names), DataPaths.Game("test"), DataPaths.GameLogs("test"), new FakeHost())
+        {
+            Guide = SmallGuide(),
+            Progress = new Progress { Chapter = 1, Done = ["c1-start", "c1-fire", "c1-boss", "c1-ice", "c1-trophy"] },
+        };
+        bool Done(string id) => tracker.Progress.Done.Contains(id);
+        tracker.Poll(out _);
+        check("story: the game's objective is the story step", tracker.CurrentStory?.Id == "c1-start" && !Done("c1-start"));
+        check("story: later story steps are open again", !Done("c1-boss"));
+        check("story: items after the next story step are open again", !Done("c1-ice"));
+        check("story: items before it stay (they may have been picked up)", Done("c1-fire"));
+        check("story: trophies stay (they belong to the account)", Done("c1-trophy"));
+        check("story: the load is settled", !tracker.LoadPending);
     }
 }
