@@ -302,6 +302,23 @@ public partial class MainWindow
         return area;
     }
 
+    /// <summary>The step is that item: the same name, or "Shiva" for "Shiva Materia" (not "Turbo Ether" for "Ether").</summary>
+    static bool SameItem(Objective step, string name) =>
+        step.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
+        || (name.EndsWith(" Materia") && step.Name.Equals(name[..^8], StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// A chest opened before it could be watched: it is the only chest holding each of its items, and each of those is a
+    /// guide step already ticked (ticked from the inventory or by you).
+    /// </summary>
+    bool Collected(Ff7rChapterReader.Chest chest)
+    {
+        if (_guide is null) return false;
+        var names = chest.Items.Distinct().Select(_itemMap.Name).ToList();
+        return names.All(name => name is not null && ReferenceEquals(_chestByName.GetValueOrDefault(name), chest)
+            && _guide.Chapters.SelectMany(c => c.Objectives).Any(o => _progress.Done.Contains(o.Id) && SameItem(o, name)));
+    }
+
     /// <summary>
     /// The chests of the area you are in that are not known to be opened, nearest first (at most 5): what they hold and
     /// how far. Chests whose contents are a step of the guide show there too (with their distance), so this is mostly
@@ -311,7 +328,7 @@ public partial class MainWindow
     {
         if (!_live || _here is not { } here || _herePosition is not { } p) return [];
         return _reader.Chests
-            .Where(c => c.At is not null && c.Items.Length > 0 && !_opened.Contains(c.Id) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase))
+            .Where(c => c.At is not null && c.Items.Length > 0 && !_opened.Contains(c.Id) && ChestArea(c) is { } area && area.Equals(here.Area, StringComparison.OrdinalIgnoreCase) && !Collected(c))
             .Select(c => (Chest: c, Metres: Distance(c.At!, p)))
             .OrderBy(x => x.Metres).Take(5)
             .Select(x => (string.Join(" + ", x.Chest.Items.Distinct().Select(id => _itemMap.Name(id) ?? $"#{id}")), Metres(x.Metres))).ToList();
